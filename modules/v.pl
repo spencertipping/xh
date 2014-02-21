@@ -26,4 +26,17 @@ sub parse_with_brackets {
 sub parse_lines {parse_with_brackets '\v',                 "\n", @_}
 sub parse_words {parse_with_brackets '\s',                 " ",  @_}
 sub parse_path  {parse_with_brackets '(/[^\[\](){}\s/]*)', "",   @_}
+
+sub quote_as_line {parse_lines(@_) > 1 ? "{$_[0]}" : $_[0]}
+sub quote_as_word {parse_words(@_) > 1 ? "{$_[0]}" : $_[0]}
+sub quote_as_path {parse_path(@_)  > 1 ? "{$_[0]}" : $_[0]}
+
+sub to_hash {
+  my %result;
+  for my $line (parse_lines $_[0]) {
+    my ($key, @value) = parse_words $line;
+    $result{$key} = [@value];
+  }
+  \%result;
+}
 _
