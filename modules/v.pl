@@ -114,11 +114,16 @@ sub split_by_interpolation {
 
       if ($sublist_depth < $interpolating_depth
           or $sublist_depth == $interpolating_depth
-             and $closed_something || $piece eq '/' || $piece =~ /^\s/) {
+             and $piece eq '/' || $piece =~ /^\s/) {
         # No longer interpolating because of what we just saw, so emit
         # current item and start a new constant piece.
         push @result, $current_item if length $current_item;
-        $current_item = $piece;
+        $current_item  = $piece;
+        $interpolating = 0;
+      } elsif ($sublist_depth == $interpolating_depth
+               && $closed_something) {
+        push @result, "$current_item$piece";
+        $current_item  = '';
         $interpolating = 0;
       } else {
         # Still interpolating, so collect the piece.
@@ -140,12 +145,14 @@ sub undo_backslash_escape {
 
 sub unbox {
   my ($s) = @_;
-  my $depth  = 0;
-  for my $piece (split /(\\.|[\[\](){}])/, $s) {
+  my $depth      = 0;
+  my $last_depth = 1;
+  for my $piece (grep length, split /(\\.|[\[\](){}])/, $s) {
     $depth += $piece =~ /^[\[({]/;
     $depth -= $piece =~ /^[\])}]/;
-    return $s if $depth <= 0;
+    return $s if $last_depth <= 0;
+    $last_depth = $depth;
   }
-  substr $s, 1, -1;
+  $s =~ s/^\s*[\[({](.*)[\])}]\s*$/$1/sgr;
 }
 _
