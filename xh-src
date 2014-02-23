@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  c5b5c400c26ad8bcf431872a9bee5cb1
+# state:  a7e1e542ea08e3d3c36961c86555640c
 # istate: 81b58a9b2fd9b40015cf52ff45f1b944
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2258,7 +2258,8 @@ meta::psection('implementation', <<'__');
 
     sub call {
       my ($binding_stack, $f, @args) = @_;
-      my $fn = $$binding_stack[-1]{$f}
+      my $fn = xh::v::quote_as_word($f) =~ /^\{/ ? $f
+             : $$binding_stack[-1]{$f}
             // $$binding_stack[0]{$f}
             // die "unbound function: $f";
 
@@ -2579,6 +2580,10 @@ meta::psection('implementation', <<'__');
       }
       #== $@(greet spencer)         {hi there, spencer}
       #== $@(greet spencer tipping) {hi there, spencer tipping}
+
+      # Also anonymous functions:
+      #== $@($greet spencer)       {hi there, spencer}
+      #== $@({echo hi $_} spencer) {hi spencer}
     }
 
     test scoping {
@@ -2669,7 +2674,6 @@ meta::psection('implementation', <<'__');
       def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
       #-> {echo hi} hi
     }
-
   - end
 
 - sc REPL | chp:repl

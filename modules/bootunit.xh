@@ -30,6 +30,10 @@ test subroutines {
   }
   #== $@(greet spencer)         {hi there, spencer}
   #== $@(greet spencer tipping) {hi there, spencer tipping}
+
+  # Also anonymous functions:
+  #== $@($greet spencer)       {hi there, spencer}
+  #== $@({echo hi $_} spencer) {hi spencer}
 }
 
 test scoping {
@@ -120,5 +124,4 @@ test macro-definition {
   def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
   #-> {echo hi} hi
 }
-
 _

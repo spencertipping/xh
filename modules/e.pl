@@ -108,7 +108,8 @@ sub interpolate {
 
 sub call {
   my ($binding_stack, $f, @args) = @_;
-  my $fn = $$binding_stack[-1]{$f}
+  my $fn = xh::v::quote_as_word($f) =~ /^\{/ ? $f
+         : $$binding_stack[-1]{$f}
         // $$binding_stack[0]{$f}
         // die "unbound function: $f";
 

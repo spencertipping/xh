@@ -405,7 +405,8 @@ redeeming virtue is that it supports macroexpansion.
 
     sub call {
       my ($binding_stack, $f, @args) = @_;
-      my $fn = $$binding_stack[-1]{$f}
+      my $fn = xh::v::quote_as_word($f) =~ /^\{/ ? $f
+             : $$binding_stack[-1]{$f}
             // $$binding_stack[0]{$f}
             // die "unbound function: $f";
 
@@ -734,6 +735,10 @@ will print a diagnostic message so we know something is up.
       }
       #== $@(greet spencer)         {hi there, spencer}
       #== $@(greet spencer tipping) {hi there, spencer tipping}
+
+      # Also anonymous functions:
+      #== $@($greet spencer)       {hi there, spencer}
+      #== $@({echo hi $_} spencer) {hi spencer}
     }
 
     test scoping {
@@ -823,8 +828,7 @@ will print a diagnostic message so we know something is up.
     test macro-definition {
       def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
       #-> {echo hi} hi
-    }
-     
+    } 
 
 REPL
 ====
