@@ -6,8 +6,11 @@ BEGIN {xh::defmodule('bootunit.xh', <<'_')}
 #== 1 1
 
 def test {
-  print testing $[$_ @/0]
-  $'[$_ @/1]
+  def perltime {perl {use Time::HiRes qw/time/; time}}
+  def start-time $(perltime)
+  $'[$_ @/1!]
+  def end-time $(perltime)
+  print tested $[$_ @/0] in $(perl (($end-time - $start-time) * 1000)) ms
 }
 
 test basic-interpolation {
@@ -16,14 +19,14 @@ test basic-interpolation {
   #== $@foo         {bar}
   #== $@foo         (bar)
   #== $@foo         [bar]
-  #== $foo          {{bar}}
-  #== $(echo $foo)  {{bar}}
+  #== $foo          bar
+  #== $(echo $foo)  bar
   #== $@(echo $foo) bar
 }
 
 test subroutines {
   def greet {
-    echo hi there, $@_
+    echo hi there, $_
   }
   #== $@(greet spencer)         {hi there, spencer}
   #== $@(greet spencer tipping) {hi there, spencer tipping}
@@ -65,20 +68,26 @@ test list-accessors {
     #== $@[$^xs @/0]   foo
     #== $@[$^xs @/-1]  baz
     #== $@[$^xs @/-2]  bif
-    #== $@[$^xs @/:]   {foo bar bif baz}
-    #== $@[$^xs @/1:]  {bar bif baz}
-    #== $@[$^xs @/:1]  {foo bar}
-    #== $@[$^xs @/:-2] {foo bar bif}
-    #== $@[$^xs @/3:1] {baz bif bar}
+    #== $@[$^xs @/:]   {{foo bar bif baz}}
+    #== $@[$^xs @/1:]  {{bar bif baz}}
+    #== $@[$^xs @/:1]  {{foo bar}}
+    #== $@[$^xs @/:-2] {{foo bar bif}}
+    #== $@[$^xs @/3:1] {{baz bif bar}}
 
     #== $@[$^xs @/^bar] bar
     #== $@[$^xs @/^bif] bif
     #== $@[$^xs @/^notfound] {}
 
-    #== $@[$^xs @{0 2}]    {foo bif}
-    #== $@[$^xs @{0 2:}]   {foo {bif baz}}
-    #== $@[$^xs @{0 {2:}}] {foo {{bif baz}}}
+    #== $@[$^xs @{0 2}]    {{foo bif}}
+    #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
+    #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
   }
+}
+
+test list-updaters {
+  def xs (a b c d)
+  #== $@[$xs @=/0/b  !] {b b c d}
+  #== $@[$xs @=/-1/a !] {a b c a}
 }
 
 test associative-maps {
@@ -86,14 +95,15 @@ test associative-maps {
     foo bar
     bif baz
   }
-  #== $@[$associative '!/^foo] {{    foo bar}}
-  #== $@[$associative '!/^foo @/1] bar
-  #== $@[$associative '!/^bif @/1] baz
-  #== $@[$associative '!/^bok] {{}}
+  #== $@[$associative '/^foo] {{    foo bar}}
+  #== $@[$associative '/^foo @/1] bar
+  #== $@[$associative '/^bif @/1] baz
   #== $@[$associative '/^bok] {}
 
   #== $@[$associative '/#] 4
   #== $@[$associative @/#] 4
+
+  #== $@[$associative '=/^foo[FOO BAR] '/^FOO @/1] BAR
 }
 
 test byte-lists {
@@ -110,4 +120,5 @@ test macro-definition {
   def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
   #-> {echo hi} hi
 }
+
 _

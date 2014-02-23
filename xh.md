@@ -13,11 +13,11 @@ Expansion syntax
     xh$ echo $foo[0 1]          # reserved for future use (don't write this)
     xh$ echo $foo$bar           # reserved for future use (use ${foo}$bar)
 
-    xh$ echo $foo               # quote result with braces
+    xh$ echo $foo               # quote result into a word
     xh$ echo $'foo              # flatten into multiple lines (be careful!)
     xh$ echo $@foo              # flatten into multiple words (one line)
-    xh$ echo $:foo              # multiple path components (one word)
-    xh$ echo $"foo              # multiple bytes (one path component)
+    xh$ echo $:foo              # one path component
+    xh$ echo $"foo              # one braced list
 
     xh$ echo ${foo}             # same as $foo
     xh$ echo ${foo bar bif}     # reserved for future use
@@ -116,6 +116,8 @@ performance appropriate only for bootstrapping the self-hosting
 compiler.
 
     BEGIN {xh::defmodule('xh::v.pl', <<'_')}
+    use Memoize qw/memoize/;
+
     sub unbox;
 
     sub parse_with_quoted {
@@ -168,6 +170,8 @@ compiler.
     sub parse_words {map unbox($_), split_words @_}
     sub parse_path  {map unbox($_), split_path  @_}
 
+    memoize $_ for qw/parse_lines parse_words parse_path/;
+
     sub brace_balance {my $without_escapes = $_[0] =~ s/\\.//gr;
                        length($without_escapes =~ s/[^\[({]//gr) -
                        length($without_escapes =~ s/[^\])}]//gr)}
@@ -178,6 +182,8 @@ compiler.
       return escape_braces_in $_[0] if brace_balance $_[0];
       $_[0];
     }
+
+    memoize 'quote_as_multiple_lines';
 
     sub brace_wrap {"{" . quote_as_multiple_lines($_[0]) . "}"}
 
@@ -298,9 +304,9 @@ redeeming virtue is that it supports macroexpansion.
       my ($prefix, $unquoted) = @_;
       return xh::v::quote_as_multiple_lines $unquoted if $prefix =~ /'$/;
       return xh::v::quote_as_line           $unquoted if $prefix =~ /\@$/;
-      return xh::v::quote_as_word           $unquoted if $prefix =~ /:$/;
-      return xh::v::quote_as_path           $unquoted if $prefix =~ /"$/;
-      xh::v::quote_default $unquoted;
+      return xh::v::quote_as_path           $unquoted if $prefix =~ /:$/;
+      return xh::v::quote_default           $unquoted if $prefix =~ /"$/;
+      xh::v::quote_as_word $unquoted;
     }
 
     sub scope_index_for {
@@ -408,11 +414,11 @@ redeeming virtue is that it supports macroexpansion.
 
       # Otherwise use xh calling convention.
       push @$binding_stack,
-           {_ => join ' ', map xh::v::quote_default($_), @args};
+           {_ => join ' ', map xh::v::quote_as_word($_), @args};
 
       my $result = eval {evaluate $binding_stack, $fn};
       my $error  = "$@ in $f "
-                 . join(' ', map xh::v::quote_default($_), @args)
+                 . join(' ', map xh::v::quote_as_word($_), @args)
                  . ' at calling stack depth ' . @$binding_stack
                  . " with locals:\n"
                  . join("\n", map "  $_ -> $$binding_stack[-1]{$_}",
@@ -578,8 +584,11 @@ functions, one for each type of list.
                            @$subscript if ref $subscript eq 'ARRAY';
 
       # Normal numeric lookup, with empty string for out-of-bounds
-      return ''                             if $subscript =~ /^-/;
-      return $$boxed_list[$subscript] // '' if $subscript =~ /^\d+/;
+      return xh::v::quote_as_word '' if $subscript =~ /^-/;
+      return $$boxed_list[$1] // ''  if $subscript =~ /^(\d+)!$/;
+
+      return xh::v::quote_as_word $$boxed_list[$subscript] // ''
+      if $subscript =~ /^\d+$/;
 
       if ($subscript =~ s/^\^//) {
         # In this case the boxed list should contain at least words, and
@@ -588,7 +597,7 @@ functions, one for each type of list.
         $subscript = xh::v::unbox $subscript;
         for my $x (@$boxed_list) {
           my @words = xh::v::parse_words $x;
-          return $x if $words[0] eq $subscript;
+          return xh::v::quote_as_word $x if $words[0] eq $subscript;
         }
         '';
       } elsif ($subscript eq '#') {
@@ -618,23 +627,25 @@ functions, one for each type of list.
       die "can't use list subscript for update: $subscript"
       if ref $expanded eq 'ARRAY';
 
+      my $associative = $expanded =~ s/^\^//;
+
       my @result;
       for (my $i = 0; $i < @$boxed_list; ++$i) {
         my ($k) = xh::v::parse_words $$boxed_list[$i];
-        push @result, $subscript eq $i || $subscript eq $k
+        push @result, ($associative ? $expanded eq $k : $expanded eq $i)
                       ? $replacement
                       : $$boxed_list[$i];
       }
 
-      if ($subscript =~ /^\d+$/ and $subscript > @$boxed_list) {
+      if ($expanded =~ /^\d+$/ and $expanded > @$boxed_list) {
         # It could be that we need to add something to the end.
-        for (my $i = @$boxed_list; $i < $subscript; ++$i) {
+        for (my $i = @$boxed_list; $i < $expanded; ++$i) {
           push @result, '';
         }
         push @result, $replacement;
       }
 
-      join $join, map xh::v::quote_default($_), @result;
+      xh::v::quote_as_word join $join, map &$quote($_), @result;
     }
 
     sub update_lines {update @_[1, 2], "\n", \&xh::v::quote_as_line,
@@ -649,32 +660,16 @@ functions, one for each type of list.
     sub update_byte  {update @_[1, 2], '',   sub {$_[0]},
                              [map ord, split //, $_[3]]}
 
-    sub quoted_fn {
-      my ($f) = @_;
-      sub {xh::v::quote_default &$f(@_)};
-    }
-
-    # TODO: fix duplication between quoted and unquoted functions. There
-    # should be some kind of sensible default that just works.
     xh::globals::defglobals "'"  => \&index_lines,  "'="  => \&update_lines,
                             "@"  => \&index_words,  "@="  => \&update_words,
                             ":"  => \&index_path,   ":="  => \&update_path,
-                            "\"" => \&index_bytes,  "\"=" => \&update_byte,
+                            "\"" => \&index_bytes,  "\"=" => \&update_byte;
 
-                            "'!"   => quoted_fn(\&index_lines),
-                            "@!"   => quoted_fn(\&index_words),
-                            ":!"   => quoted_fn(\&index_path),
-                            "\"!"  => quoted_fn(\&index_bytes),
-
-                            "'=!"  => quoted_fn(\&update_lines),
-                            "@=!"  => quoted_fn(\&update_words),
-                            ":=!"  => quoted_fn(\&update_path),
-                            "\"=!" => quoted_fn(\&update_byte);
-
-    # Conversions between list forms.
+    # Conversions between list types.
     sub list_to_list_fn {
       my ($join, $quote, $parse) = @_;
-      sub {join $join, map &$quote($_), map &$parse($_), @_[1 .. $#_]};
+      sub {xh::v::quote_as_word
+           join $join, map &$quote($_), map &$parse($_), @_[1 .. $#_]};
     }
 
     my %joins   = ("'" => "\n", "@" => ' ', ":" => '/', "\"" => '');
@@ -692,18 +687,12 @@ functions, one for each type of list.
       for my $k2 (keys %parsers) {
         next if $k1 eq $k2;
         my $fn = list_to_list_fn($joins{$k2}, $quotes{$k2}, $parsers{$k1});
-        xh::globals::defglobals "$k1$k2"  => $fn,
-                                "$k1$k2!" => quoted_fn $fn;
+        xh::globals::defglobals "$k1$k2" => $fn;
       }
     }
 
-    # Arglist collectors
-    for (keys %parsers) {
-      xh::globals::defglobals "_$_!" => quoted_fn
-                                        list_to_list_fn($joins{$_},
-                                                        $quotes{$_},
-                                                        sub {$_[0]});
-    }
+    sub explode {xh::v::unbox $_[1]}
+    xh::globals::defglobals '!' => \&explode;
     _
      
 
@@ -721,8 +710,11 @@ will print a diagnostic message so we know something is up.
     #== 1 1
 
     def test {
-      print testing $[$_ @/0]
-      $'[$_ @/1]
+      def perltime {perl {use Time::HiRes qw/time/; time}}
+      def start-time $(perltime)
+      $'[$_ @/1!]
+      def end-time $(perltime)
+      print tested $[$_ @/0] in $(perl (($end-time - $start-time) * 1000)) ms
     }
 
     test basic-interpolation {
@@ -731,14 +723,14 @@ will print a diagnostic message so we know something is up.
       #== $@foo         {bar}
       #== $@foo         (bar)
       #== $@foo         [bar]
-      #== $foo          {{bar}}
-      #== $(echo $foo)  {{bar}}
+      #== $foo          bar
+      #== $(echo $foo)  bar
       #== $@(echo $foo) bar
     }
 
     test subroutines {
       def greet {
-        echo hi there, $@_
+        echo hi there, $_
       }
       #== $@(greet spencer)         {hi there, spencer}
       #== $@(greet spencer tipping) {hi there, spencer tipping}
@@ -780,20 +772,26 @@ will print a diagnostic message so we know something is up.
         #== $@[$^xs @/0]   foo
         #== $@[$^xs @/-1]  baz
         #== $@[$^xs @/-2]  bif
-        #== $@[$^xs @/:]   {foo bar bif baz}
-        #== $@[$^xs @/1:]  {bar bif baz}
-        #== $@[$^xs @/:1]  {foo bar}
-        #== $@[$^xs @/:-2] {foo bar bif}
-        #== $@[$^xs @/3:1] {baz bif bar}
+        #== $@[$^xs @/:]   {{foo bar bif baz}}
+        #== $@[$^xs @/1:]  {{bar bif baz}}
+        #== $@[$^xs @/:1]  {{foo bar}}
+        #== $@[$^xs @/:-2] {{foo bar bif}}
+        #== $@[$^xs @/3:1] {{baz bif bar}}
 
         #== $@[$^xs @/^bar] bar
         #== $@[$^xs @/^bif] bif
         #== $@[$^xs @/^notfound] {}
 
-        #== $@[$^xs @{0 2}]    {foo bif}
-        #== $@[$^xs @{0 2:}]   {foo {bif baz}}
-        #== $@[$^xs @{0 {2:}}] {foo {{bif baz}}}
+        #== $@[$^xs @{0 2}]    {{foo bif}}
+        #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
+        #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
       }
+    }
+
+    test list-updaters {
+      def xs (a b c d)
+      #== $@[$xs @=/0/b  !] {b b c d}
+      #== $@[$xs @=/-1/a !] {a b c a}
     }
 
     test associative-maps {
@@ -801,14 +799,15 @@ will print a diagnostic message so we know something is up.
         foo bar
         bif baz
       }
-      #== $@[$associative '!/^foo] {{    foo bar}}
-      #== $@[$associative '!/^foo @/1] bar
-      #== $@[$associative '!/^bif @/1] baz
-      #== $@[$associative '!/^bok] {{}}
+      #== $@[$associative '/^foo] {{    foo bar}}
+      #== $@[$associative '/^foo @/1] bar
+      #== $@[$associative '/^bif @/1] baz
       #== $@[$associative '/^bok] {}
 
       #== $@[$associative '/#] 4
       #== $@[$associative @/#] 4
+
+      #== $@[$associative '=/^foo[FOO BAR] '/^FOO @/1] BAR
     }
 
     test byte-lists {
@@ -824,7 +823,8 @@ will print a diagnostic message so we know something is up.
     test macro-definition {
       def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
       #-> {echo hi} hi
-    } 
+    }
+     
 
 REPL
 ====

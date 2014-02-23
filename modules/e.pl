@@ -7,9 +7,9 @@ sub interpolate_wrap {
   my ($prefix, $unquoted) = @_;
   return xh::v::quote_as_multiple_lines $unquoted if $prefix =~ /'$/;
   return xh::v::quote_as_line           $unquoted if $prefix =~ /\@$/;
-  return xh::v::quote_as_word           $unquoted if $prefix =~ /:$/;
-  return xh::v::quote_as_path           $unquoted if $prefix =~ /"$/;
-  xh::v::quote_default $unquoted;
+  return xh::v::quote_as_path           $unquoted if $prefix =~ /:$/;
+  return xh::v::quote_default           $unquoted if $prefix =~ /"$/;
+  xh::v::quote_as_word $unquoted;
 }
 
 sub scope_index_for {
@@ -117,11 +117,11 @@ sub call {
 
   # Otherwise use xh calling convention.
   push @$binding_stack,
-       {_ => join ' ', map xh::v::quote_default($_), @args};
+       {_ => join ' ', map xh::v::quote_as_word($_), @args};
 
   my $result = eval {evaluate $binding_stack, $fn};
   my $error  = "$@ in $f "
-             . join(' ', map xh::v::quote_default($_), @args)
+             . join(' ', map xh::v::quote_as_word($_), @args)
              . ' at calling stack depth ' . @$binding_stack
              . " with locals:\n"
              . join("\n", map "  $_ -> $$binding_stack[-1]{$_}",

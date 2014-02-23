@@ -1,4 +1,6 @@
 BEGIN {xh::defmodule('xh::v.pl', <<'_')}
+use Memoize qw/memoize/;
+
 sub unbox;
 
 sub parse_with_quoted {
@@ -51,6 +53,8 @@ sub parse_lines {map unbox($_), split_lines @_}
 sub parse_words {map unbox($_), split_words @_}
 sub parse_path  {map unbox($_), split_path  @_}
 
+memoize $_ for qw/parse_lines parse_words parse_path/;
+
 sub brace_balance {my $without_escapes = $_[0] =~ s/\\.//gr;
                    length($without_escapes =~ s/[^\[({]//gr) -
                    length($without_escapes =~ s/[^\])}]//gr)}
@@ -61,6 +65,8 @@ sub quote_as_multiple_lines {
   return escape_braces_in $_[0] if brace_balance $_[0];
   $_[0];
 }
+
+memoize 'quote_as_multiple_lines';
 
 sub brace_wrap {"{" . quote_as_multiple_lines($_[0]) . "}"}
 

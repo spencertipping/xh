@@ -38,8 +38,11 @@ sub dereference_one {
                        @$subscript if ref $subscript eq 'ARRAY';
 
   # Normal numeric lookup, with empty string for out-of-bounds
-  return ''                             if $subscript =~ /^-/;
-  return $$boxed_list[$subscript] // '' if $subscript =~ /^\d+/;
+  return xh::v::quote_as_word '' if $subscript =~ /^-/;
+  return $$boxed_list[$1] // ''  if $subscript =~ /^(\d+)!$/;
+
+  return xh::v::quote_as_word $$boxed_list[$subscript] // ''
+  if $subscript =~ /^\d+$/;
 
   if ($subscript =~ s/^\^//) {
     # In this case the boxed list should contain at least words, and
@@ -48,7 +51,7 @@ sub dereference_one {
     $subscript = xh::v::unbox $subscript;
     for my $x (@$boxed_list) {
       my @words = xh::v::parse_words $x;
-      return $x if $words[0] eq $subscript;
+      return xh::v::quote_as_word $x if $words[0] eq $subscript;
     }
     '';
   } elsif ($subscript eq '#') {
@@ -78,23 +81,25 @@ sub update {
   die "can't use list subscript for update: $subscript"
   if ref $expanded eq 'ARRAY';
 
+  my $associative = $expanded =~ s/^\^//;
+
   my @result;
   for (my $i = 0; $i < @$boxed_list; ++$i) {
     my ($k) = xh::v::parse_words $$boxed_list[$i];
-    push @result, $subscript eq $i || $subscript eq $k
+    push @result, ($associative ? $expanded eq $k : $expanded eq $i)
                   ? $replacement
                   : $$boxed_list[$i];
   }
 
-  if ($subscript =~ /^\d+$/ and $subscript > @$boxed_list) {
+  if ($expanded =~ /^\d+$/ and $expanded > @$boxed_list) {
     # It could be that we need to add something to the end.
-    for (my $i = @$boxed_list; $i < $subscript; ++$i) {
+    for (my $i = @$boxed_list; $i < $expanded; ++$i) {
       push @result, '';
     }
     push @result, $replacement;
   }
 
-  join $join, map xh::v::quote_default($_), @result;
+  xh::v::quote_as_word join $join, map &$quote($_), @result;
 }
 
 sub update_lines {update @_[1, 2], "\n", \&xh::v::quote_as_line,
@@ -109,32 +114,16 @@ sub update_path  {update @_[1, 2], '',   \&xh::v::quote_as_path,
 sub update_byte  {update @_[1, 2], '',   sub {$_[0]},
                          [map ord, split //, $_[3]]}
 
-sub quoted_fn {
-  my ($f) = @_;
-  sub {xh::v::quote_default &$f(@_)};
-}
-
-# TODO: fix duplication between quoted and unquoted functions. There
-# should be some kind of sensible default that just works.
 xh::globals::defglobals "'"  => \&index_lines,  "'="  => \&update_lines,
                         "@"  => \&index_words,  "@="  => \&update_words,
                         ":"  => \&index_path,   ":="  => \&update_path,
-                        "\"" => \&index_bytes,  "\"=" => \&update_byte,
+                        "\"" => \&index_bytes,  "\"=" => \&update_byte;
 
-                        "'!"   => quoted_fn(\&index_lines),
-                        "@!"   => quoted_fn(\&index_words),
-                        ":!"   => quoted_fn(\&index_path),
-                        "\"!"  => quoted_fn(\&index_bytes),
-
-                        "'=!"  => quoted_fn(\&update_lines),
-                        "@=!"  => quoted_fn(\&update_words),
-                        ":=!"  => quoted_fn(\&update_path),
-                        "\"=!" => quoted_fn(\&update_byte);
-
-# Conversions between list forms.
+# Conversions between list types.
 sub list_to_list_fn {
   my ($join, $quote, $parse) = @_;
-  sub {join $join, map &$quote($_), map &$parse($_), @_[1 .. $#_]};
+  sub {xh::v::quote_as_word
+       join $join, map &$quote($_), map &$parse($_), @_[1 .. $#_]};
 }
 
 my %joins   = ("'" => "\n", "@" => ' ', ":" => '/', "\"" => '');
@@ -152,16 +141,10 @@ for my $k1 (keys %parsers) {
   for my $k2 (keys %parsers) {
     next if $k1 eq $k2;
     my $fn = list_to_list_fn($joins{$k2}, $quotes{$k2}, $parsers{$k1});
-    xh::globals::defglobals "$k1$k2"  => $fn,
-                            "$k1$k2!" => quoted_fn $fn;
+    xh::globals::defglobals "$k1$k2" => $fn;
   }
 }
 
-# Arglist collectors
-for (keys %parsers) {
-  xh::globals::defglobals "_$_!" => quoted_fn
-                                    list_to_list_fn($joins{$_},
-                                                    $quotes{$_},
-                                                    sub {$_[0]});
-}
+sub explode {xh::v::unbox $_[1]}
+xh::globals::defglobals '!' => \&explode;
 _
