@@ -65,6 +65,16 @@ test list-accessors {
   #== $@(@ 3 $xs) baz
   #== $@(@ ^foo $xs) foo
 
+  def ys ({foo} {bar bif} [baz] (bok))
+  #== $@(@% 0 $ys) {{foo}}
+  #== $@(@  0 $ys) foo
+  #== $@(@% 1 $ys) {{bar bif}}
+  #== $@(@  1 $ys) {{bar bif}}
+  #== $@(@% 2 $ys) {[baz]}
+  #== $@(@  2 $ys) baz
+  #== $@(@% 3 $ys) {(bok)}
+  #== $@(@  3 $ys) bok
+
   test {$[]-expansion} {
     #== $@[there echo/hi]              {hi there}
     #== $@[spencer echo/there echo/hi] {hi there spencer}

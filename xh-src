@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  a7e1e542ea08e3d3c36961c86555640c
+# state:  08dbbcbdda496892bac14cb6d1b0c64c
 # istate: 81b58a9b2fd9b40015cf52ff45f1b944
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2468,6 +2468,10 @@ meta::psection('implementation', <<'__');
       sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
       sub index_bytes {dereference $_[1], [map ord, split //, $_[2]]}
 
+      sub outer_lines {dereference $_[1], [xh::v::split_lines $_[2]]}
+      sub outer_words {dereference $_[1], [xh::v::split_words $_[2]]}
+      sub outer_path  {dereference $_[1], [xh::v::split_path  $_[2]]}
+
       sub update {
         my ($subscript, $replacement, $join, $quote, $boxed_list) = @_;
         my $expanded = expand_subscript $subscript, scalar @$boxed_list;
@@ -2511,7 +2515,11 @@ meta::psection('implementation', <<'__');
       xh::globals::defglobals "'"  => \&index_lines,  "'="  => \&update_lines,
                               "@"  => \&index_words,  "@="  => \&update_words,
                               ":"  => \&index_path,   ":="  => \&update_path,
-                              "\"" => \&index_bytes,  "\"=" => \&update_byte;
+                              "\"" => \&index_bytes,  "\"=" => \&update_byte,
+
+                              "'%" => \&outer_lines,
+                              "@%" => \&outer_words,
+                              ":%" => \&outer_path;
 
       # Conversions between list types.
       sub list_to_list_fn {
@@ -2614,6 +2622,16 @@ meta::psection('implementation', <<'__');
       #== $@(@ 2 $xs) bif
       #== $@(@ 3 $xs) baz
       #== $@(@ ^foo $xs) foo
+
+      def ys ({foo} {bar bif} [baz] (bok))
+      #== $@(@% 0 $ys) {{foo}}
+      #== $@(@  0 $ys) foo
+      #== $@(@% 1 $ys) {{bar bif}}
+      #== $@(@  1 $ys) {{bar bif}}
+      #== $@(@% 2 $ys) {[baz]}
+      #== $@(@  2 $ys) baz
+      #== $@(@% 3 $ys) {(bok)}
+      #== $@(@  3 $ys) bok
 
       test {$[]-expansion} {
         #== $@[there echo/hi]              {hi there}

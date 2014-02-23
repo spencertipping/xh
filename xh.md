@@ -621,6 +621,10 @@ functions, one for each type of list.
     sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
     sub index_bytes {dereference $_[1], [map ord, split //, $_[2]]}
 
+    sub outer_lines {dereference $_[1], [xh::v::split_lines $_[2]]}
+    sub outer_words {dereference $_[1], [xh::v::split_words $_[2]]}
+    sub outer_path  {dereference $_[1], [xh::v::split_path  $_[2]]}
+
     sub update {
       my ($subscript, $replacement, $join, $quote, $boxed_list) = @_;
       my $expanded = expand_subscript $subscript, scalar @$boxed_list;
@@ -664,7 +668,11 @@ functions, one for each type of list.
     xh::globals::defglobals "'"  => \&index_lines,  "'="  => \&update_lines,
                             "@"  => \&index_words,  "@="  => \&update_words,
                             ":"  => \&index_path,   ":="  => \&update_path,
-                            "\"" => \&index_bytes,  "\"=" => \&update_byte;
+                            "\"" => \&index_bytes,  "\"=" => \&update_byte,
+
+                            "'%" => \&outer_lines,
+                            "@%" => \&outer_words,
+                            ":%" => \&outer_path;
 
     # Conversions between list types.
     sub list_to_list_fn {
@@ -769,6 +777,16 @@ will print a diagnostic message so we know something is up.
       #== $@(@ 2 $xs) bif
       #== $@(@ 3 $xs) baz
       #== $@(@ ^foo $xs) foo
+
+      def ys ({foo} {bar bif} [baz] (bok))
+      #== $@(@% 0 $ys) {{foo}}
+      #== $@(@  0 $ys) foo
+      #== $@(@% 1 $ys) {{bar bif}}
+      #== $@(@  1 $ys) {{bar bif}}
+      #== $@(@% 2 $ys) {[baz]}
+      #== $@(@  2 $ys) baz
+      #== $@(@% 3 $ys) {(bok)}
+      #== $@(@  3 $ys) bok
 
       test {$[]-expansion} {
         #== $@[there echo/hi]              {hi there}

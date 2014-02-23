@@ -74,6 +74,10 @@ sub index_words {dereference $_[1], [xh::v::parse_words $_[2]]}
 sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
 sub index_bytes {dereference $_[1], [map ord, split //, $_[2]]}
 
+sub outer_lines {dereference $_[1], [xh::v::split_lines $_[2]]}
+sub outer_words {dereference $_[1], [xh::v::split_words $_[2]]}
+sub outer_path  {dereference $_[1], [xh::v::split_path  $_[2]]}
+
 sub update {
   my ($subscript, $replacement, $join, $quote, $boxed_list) = @_;
   my $expanded = expand_subscript $subscript, scalar @$boxed_list;
@@ -117,7 +121,11 @@ sub update_byte  {update @_[1, 2], '',   sub {$_[0]},
 xh::globals::defglobals "'"  => \&index_lines,  "'="  => \&update_lines,
                         "@"  => \&index_words,  "@="  => \&update_words,
                         ":"  => \&index_path,   ":="  => \&update_path,
-                        "\"" => \&index_bytes,  "\"=" => \&update_byte;
+                        "\"" => \&index_bytes,  "\"=" => \&update_byte,
+
+                        "'%" => \&outer_lines,
+                        "@%" => \&outer_words,
+                        ":%" => \&outer_path;
 
 # Conversions between list types.
 sub list_to_list_fn {
