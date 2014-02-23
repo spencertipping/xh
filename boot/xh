@@ -278,7 +278,7 @@ sub call {
 sub evaluate {
   my ($binding_stack, $body) = @_;
   my @statements = xh::v::parse_lines $body;
-  my $result;
+  my $result = '';
 
   for my $s (@statements) {
     my @words = xh::v::parse_words $s;
@@ -293,16 +293,23 @@ sub evaluate {
     $s = interpolate $binding_stack,
                      join ' ', map xh::v::quote_default($_), @words;
 
-    # Step 3: Look up the function and call it. If it's Perl native, then
-    # we're set; we just call that on the newly-parsed arg list. Otherwise
-    # do the call frame stuff.
-    my ($f, @args) = xh::v::parse_words $s;
-    my $fn = $$binding_stack[-1]{$f}
-          // $$binding_stack[0]{$f}
-          // die "unbound function: $f";
+    # Step 3: See if the interpolation produced multiple lines. If so, we
+    # need to re-expand. Otherwise we can do a single function call.
+    if (xh::v::parse_lines($s) > 1) {
+      $result = evaluate $binding_stack, $s;
+    } else {
+      # Just one line, so continue normally. At this point we look up the
+      # function and call it. If it's Perl native, then we're set; we just
+      # call that on the newly-parsed arg list. Otherwise delegate to
+      # create a new call frame and locals.
+      my ($f, @args) = xh::v::parse_words $s;
+      my $fn = $$binding_stack[-1]{$f}
+            // $$binding_stack[0]{$f}
+            // die "unbound function: $f";
 
-    $result = ref $fn eq 'CODE' ? $fn->(@args)
-                                : call($binding_stack, $fn, @args);
+      $result = ref $fn eq 'CODE' ? $fn->(@args)
+                                  : call($binding_stack, $fn, @args);
+    }
   }
   $result;
 }
