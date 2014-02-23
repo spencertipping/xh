@@ -65,19 +65,19 @@ test list-accessors {
     #== $@[$^xs @/0]   foo
     #== $@[$^xs @/-1]  baz
     #== $@[$^xs @/-2]  bif
-    #== $@[$^xs @/:]   {{foo bar bif baz}}
-    #== $@[$^xs @/1:]  {{bar bif baz}}
-    #== $@[$^xs @/:1]  {{foo bar}}
-    #== $@[$^xs @/:-2] {{foo bar bif}}
-    #== $@[$^xs @/3:1] {{baz bif bar}}
+    #== $@[$^xs @/:]   {foo bar bif baz}
+    #== $@[$^xs @/1:]  {bar bif baz}
+    #== $@[$^xs @/:1]  {foo bar}
+    #== $@[$^xs @/:-2] {foo bar bif}
+    #== $@[$^xs @/3:1] {baz bif bar}
 
     #== $@[$^xs @/^bar] bar
     #== $@[$^xs @/^bif] bif
     #== $@[$^xs @/^notfound] {}
 
-    #== $@[$^xs @{0 2}]    {{foo bif}}
-    #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
-    #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
+    #== $@[$^xs @{0 2}]    {foo bif}
+    #== $@[$^xs @{0 2:}]   {foo {bif baz}}
+    #== $@[$^xs @{0 {2:}}] {foo {{bif baz}}}
   }
 }
 
@@ -86,9 +86,10 @@ test associative-maps {
     foo bar
     bif baz
   }
-  #== $@[$associative '/^foo] {{    foo bar}}
-  #== $@[$associative '/^foo @/1] bar
-  #== $@[$associative '/^bif @/1] baz
+  #== $@[$associative '!/^foo] {{    foo bar}}
+  #== $@[$associative '!/^foo @/1] bar
+  #== $@[$associative '!/^bif @/1] baz
+  #== $@[$associative '!/^bok] {{}}
   #== $@[$associative '/^bok] {}
 
   #== $@[$associative '/#] 4

@@ -13,7 +13,7 @@ sub main {
       # Collect the line and evaluate everything we have.
       $expression .= $line;
 
-      my $result = eval {xh::e::evaluate $binding_stack, "$expression"};
+      my $result = eval {xh::e::evaluate $binding_stack, $expression};
       print "error: $@\n" if length $@;
       print "$result\n"   if length $result;
 
