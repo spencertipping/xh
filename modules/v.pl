@@ -20,30 +20,34 @@ sub parse_with_quoted {
       # have and start a new item with the piece.
       if ($sublist_depth) {
         # Just opened one; kick out current item and start a new one.
-        push @result, unbox $current_item if length $current_item;
+        push @result, $current_item if length $current_item;
         $current_item = $piece;
       } else {
         # Just closed a list; concat and kick out the full item.
-        push @result, unbox "$current_item$piece";
+        push @result, "$current_item$piece";
         $current_item = '';
       }
     } elsif (!$sublist_depth && $piece =~ /$events_to_split/) {
       # If the match produces a group, then treat it as a part of the next
       # item. Otherwise throw it away.
-      push @result, unbox $current_item if length $current_item;
+      push @result, $current_item if length $current_item;
       $current_item = $1;
     } else {
       $current_item .= $piece;
     }
   }
 
-  push @result, unbox $current_item if length $current_item;
+  push @result, $current_item if length $current_item;
   @result;
 }
 
-sub parse_lines {parse_with_quoted '\v+', 0, @_}
-sub parse_words {parse_with_quoted '\s+', 0, @_}
-sub parse_path  {parse_with_quoted '(/)', 1, @_}
+sub split_lines {parse_with_quoted '\v+', 0, @_}
+sub split_words {parse_with_quoted '\s+', 0, @_}
+sub split_path  {parse_with_quoted '(/)', 1, @_}
+
+sub parse_lines {map unbox($_), split_lines @_}
+sub parse_words {map unbox($_), split_words @_}
+sub parse_path  {map unbox($_), split_path  @_}
 
 sub brace_balance {my $without_escapes = $_[0] =~ s/\\.//gr;
                    length($without_escapes =~ s/[^\[({]//gr) -
