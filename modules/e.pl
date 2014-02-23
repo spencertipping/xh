@@ -68,7 +68,7 @@ sub interpolate_dollar {
     # point.
     $initial = call $calling_stack,
                     (map {s/^\///r} xh::v::parse_path($_)),
-                    $initial
+                    xh::v::parse_words $initial
     for @fns;
 
     return interpolate_wrap $prefix, $initial;

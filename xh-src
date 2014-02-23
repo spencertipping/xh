@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  ec469ae37637173891a71a469a90a892
+# state:  57e3691bc5a9bc50fd288d20ea28546a
 # istate: 81b58a9b2fd9b40015cf52ff45f1b944
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2206,7 +2206,7 @@ meta::psection('implementation', <<'__');
         # point.
         $initial = call $calling_stack,
                         (map {s/^\///r} xh::v::parse_path($_)),
-                        $initial
+                        xh::v::parse_words $initial
         for @fns;
 
         return interpolate_wrap $prefix, $initial;
@@ -2397,15 +2397,15 @@ meta::psection('implementation', <<'__');
       sub expand_subscript {
         my ($subscript, $n) = @_;
 
-        return [map expand_subscript($_, $n),
-                    xh::v::parse_words xh::v::unbox $subscript]
-        if $subscript =~ /^[\[({]/;
+        my @words = xh::v::parse_words $subscript;
+        return [map expand_subscript($_, $n), @words] if @words > 1;
 
         return [flexible_range wrap_negative($1, $n) // 0,
                                wrap_negative($2, $n) // $n - 1]
-        if $subscript =~ /^(\d*):(\d*)$/;
+        if $subscript =~ /^(-?\d*):(-?\d*)$/;
 
-        return $subscript;
+        return wrap_negative $subscript, $n if $subscript =~ /^-/;
+        $subscript;
       }
 
       sub dereference_one;
@@ -2414,7 +2414,7 @@ meta::psection('implementation', <<'__');
 
         # List homomorphism of subscripts
         return join ' ',
-               map xh::v::quote_default(dereference_one $_, $boxed_list),
+               map xh::v::quote_as_word(dereference_one $_, $boxed_list),
                    @$subscript if ref $subscript eq 'ARRAY';
 
         # Normal numeric lookup, with empty string for out-of-bounds
@@ -2426,9 +2426,10 @@ meta::psection('implementation', <<'__');
           # In this case the boxed list should contain at least words, and
           # probably whole lines. We word-parse each entry looking for the
           # first subscript hit.
+          $subscript = xh::v::unbox $subscript;
           for my $x (@$boxed_list) {
             my @words = xh::v::parse_words $x;
-            return $x if $words[0] eq $subscript;
+            return xh::v::quote_as_word $x if $words[0] eq $subscript;
           }
           return '';
         } else {
@@ -2445,7 +2446,7 @@ meta::psection('implementation', <<'__');
       sub index_lines {dereference $_[1], [xh::v::parse_lines $_[2]]}
       sub index_words {dereference $_[1], [xh::v::parse_words $_[2]]}
       sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
-      sub index_bytes {dereference $_[1], [split //, $_[2]]}
+      sub index_bytes {dereference $_[1], [map ord, split //, $_[2]]}
 
       xh::globals::defglobals "'"  => \&index_lines,
                               "@"  => \&index_words,
@@ -2505,6 +2506,34 @@ meta::psection('implementation', <<'__');
     #== $@(@ 2 $xs) bif
     #== $@(@ 3 $xs) baz
     #== $@(@ @foo $xs) foo
+
+    #== $@[$xs @/0] foo
+    #== $@[$xs @/-1] baz
+    #== $@[$xs @/-2] bif
+    #== $@[$xs @/:]   {foo bar bif baz}
+    #== $@[$xs @/1:]  {bar bif baz}
+    #== $@[$xs @/:1]  {foo bar}
+    #== $@[$xs @/:-2] {foo bar bif}
+    #== $@[$xs @/3:1] {baz bif bar}
+
+    #== $@[$xs @/@bar] bar
+    #== $@[$xs @/@bif] bif
+    #== $@[$xs @/@notfound] {}
+
+    def associative {
+      foo bar
+      bif baz
+    }
+    #== $@[$associative '/@foo] {{  foo bar}}
+    #== $@[$associative '/@foo @/1] bar
+    #== $@[$associative '/@bif @/1] baz
+    #== $@[$associative '/@bok] {}
+
+    #== $@[abcd "/0] 97
+    #== $@[abcd "/1:3] {98 99 100}
+
+    def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
+    #-> {echo hi} hi
   - end
 
 - sc REPL | chp:repl
