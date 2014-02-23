@@ -5,7 +5,7 @@ sub main {
 
   my $list_depth    = 0;
   my $expression    = '';
-  my $binding_stack = xh::globals::default_binding_stack;
+  my $binding_stack = $xh::globals::globals;
 
   print "xh\$ ";
   while (my $line = <STDIN>) {

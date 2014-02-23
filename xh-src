@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  2cdb42c1b7dbfbd5dc9d067f09580a60
-# istate: da9fe3b931961c652f58542bce07408d
+# state:  ec469ae37637173891a71a469a90a892
+# istate: 81b58a9b2fd9b40015cf52ff45f1b944
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -1885,8 +1885,9 @@ meta::psection('implementation', <<'__');
 
     xh$ echo $$foo              # $ is right-associative
     xh$ echo $^$foo             # expand $foo within calling context
-    xh$ echo $($'foo)           # result of running $'foo
+    xh$ echo $($'foo)           # result of running $'foo within current scope
     xh$ $'foo                   # this works too
+    xh$ echo $^($'foo)          # result of running $'foo within calling scope
   - end
 
 - sp Bootstrap implementation | part:bootstrap-implementation
@@ -2138,6 +2139,7 @@ meta::psection('implementation', <<'__');
   - perlmodule xh::e modules/e.pl << end
     sub evaluate;
     sub interpolate;
+    sub call;
 
     sub interpolate_wrap {
       my ($prefix, $unquoted) = @_;
@@ -2151,6 +2153,12 @@ meta::psection('implementation', <<'__');
     sub scope_index_for {
       my ($carets) = $_[0] =~ /^\$(\^*)/g;
       -(1 + length $carets);
+    }
+
+    sub truncated_stack {
+      my ($stack, $index) = @_;
+      return $stack if $index == -1;
+      [@$stack[0 .. @$stack + $index]];
     }
 
     sub interpolate_dollar {
@@ -2170,16 +2178,38 @@ meta::psection('implementation', <<'__');
 
         my $interpolated_rhs = interpolate $binding_stack, xh::v::unbox $rhs;
         my $index            = scope_index_for $prefix;
-        my $new_stack        = $index == -1
-          ? $binding_stack
-          : [@$binding_stack[0 .. @$binding_stack + $index]];
+        my $new_stack        = truncated_stack $binding_stack, $index;
 
         return interpolate_wrap $prefix,
                                 evaluate $new_stack, $interpolated_rhs;
       } elsif ($rhs =~ /^\[/) {
-        # TODO: handle this case. Right now we count on the macro preprocessor
-        # to do it for us.
-        die 'TODO: unhandled interpolate case: $[]';
+        # $[] is a way to call a series of functions on a value, just like
+        # Clojure's (-> x y z). Like $(), we always interpolate the terms of
+        # the [] list in the current environment; but any ^s you use (e.g.
+        # $^[]) cause the inner functions to be called from a parent scope.
+        # This can be relevant in certain pathological cases that you should
+        # probably never use.
+
+        my ($initial, @fns) = map {interpolate $binding_stack, $_}
+                                  xh::v::parse_words xh::v::unbox $rhs;
+        my $index           = scope_index_for $prefix;
+        my $calling_stack   = truncated_stack $binding_stack, $index;
+
+        # You can use paths as a curried notation within $[] interpolation. For
+        # example:
+        #
+        # > echo $[foo echo/hi]
+        # hi foo
+        #
+        # Lists also work, but there is no difference between () and [], which
+        # is a horrible oversight that should probably be addressed at some
+        # point.
+        $initial = call $calling_stack,
+                        (map {s/^\///r} xh::v::parse_path($_)),
+                        $initial
+        for @fns;
+
+        return interpolate_wrap $prefix, $initial;
       } elsif ($rhs =~ /^\{/) {
         $rhs = xh::v::unbox $rhs;
       } else {
@@ -2250,12 +2280,8 @@ meta::psection('implementation', <<'__');
         # Step 1: Do we have a macro? If so, macroexpand before calling
         # anything. (NOTE: technically incorrect; macros should receive their
         # arguments with whitespace intact)
-        #
-        # For now, macros are functions that start with %. I have no
-        # particularly good feelings about this; it's just an expedient at this
-        # point.
         my @words;
-        while ((@words = xh::v::parse_words $s)[0] =~ /^%/) {
+        while ((@words = xh::v::parse_words $s)[0] =~ /^#/) {
           $s = eval {call $binding_stack, @words};
           die "$@ in @words (while macroexpanding $original)" if $@;
         }
@@ -2304,9 +2330,14 @@ meta::psection('implementation', <<'__');
       join ' ', @args;
     }
 
-    sub comment {''}
-
+    sub comment       {''}
     sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"}
+
+    sub perl_eval {
+      my $result = eval $_[1];
+      die "$@ while evaluating $_[1]" if $@;
+      $result;
+    }
 
     sub assert_eq_macro {
       my ($binding_stack, $lhs, $rhs) = @_;
@@ -2323,21 +2354,104 @@ meta::psection('implementation', <<'__');
                    . xh::v::quote_default("$rhs (-> $expanded_rhs)");
     }
 
-    sub default_binding_stack {[{def         => \&def,
-                                 echo        => \&echo,
-                                 '#'         => \&comment,
-                                 print       => \&print_from_xh,
-                                 '%assert==' => \&assert_eq_macro}]}
-
     # Create an interpreter instance that lets us interpret modules written in
     # XH-script.
-    our $globals = default_binding_stack;
+    our $globals = [{def   => \&def,
+                     echo  => \&echo,
+                     print => \&print_from_xh,
+                     perl  => \&perl_eval,
+                     '#'   => \&comment,
+                     '#==' => \&assert_eq_macro}];
+
+    sub defglobals {
+      my %vals = @_;
+      $$globals[0]{$_} = $vals{$_} for keys %vals;
+    }
+
     $xh::compilers{xh} = sub {
       my ($module_name, $code) = @_;
       eval {xh::e::evaluate $globals, $code};
       die "error running $module_name: $@" if $@;
     }
   - end
+
+  - s1 List accessors | sec:list-accessors
+    List elements are accessed using single-character functions, one for each
+    type of list.
+
+    - perlmodule xh::bootlist modules/bootlist.pl << end
+      sub wrap_negative {
+        my ($i, $n) = @_;
+        return undef unless length $i;
+        return $n + $i if $i < 0;
+        $i;
+      }
+
+      sub flexible_range {
+        my ($lower, $upper) = @_;
+        return reverse $upper .. $lower if $upper < $lower;
+        $lower .. $upper;
+      }
+
+      sub expand_subscript;
+      sub expand_subscript {
+        my ($subscript, $n) = @_;
+
+        return [map expand_subscript($_, $n),
+                    xh::v::parse_words xh::v::unbox $subscript]
+        if $subscript =~ /^[\[({]/;
+
+        return [flexible_range wrap_negative($1, $n) // 0,
+                               wrap_negative($2, $n) // $n - 1]
+        if $subscript =~ /^(\d*):(\d*)$/;
+
+        return $subscript;
+      }
+
+      sub dereference_one;
+      sub dereference_one {
+        my ($subscript, $boxed_list) = @_;
+
+        # List homomorphism of subscripts
+        return join ' ',
+               map xh::v::quote_default(dereference_one $_, $boxed_list),
+                   @$subscript if ref $subscript eq 'ARRAY';
+
+        # Normal numeric lookup, with empty string for out-of-bounds
+        return ''                             if $subscript =~ /^-/;
+        return $$boxed_list[$subscript] // '' if $subscript =~ /^\d+/;
+
+        # Hashtable lookup maybe?
+        if ($subscript =~ s/^@//) {
+          # In this case the boxed list should contain at least words, and
+          # probably whole lines. We word-parse each entry looking for the
+          # first subscript hit.
+          for my $x (@$boxed_list) {
+            my @words = xh::v::parse_words $x;
+            return $x if $words[0] eq $subscript;
+          }
+          return '';
+        } else {
+          die "unrecognized subscript form: $subscript";
+        }
+      }
+
+      sub dereference {
+        my ($subscript, $boxed_list) = @_;
+        dereference_one expand_subscript($subscript, scalar(@$boxed_list)),
+                        $boxed_list;
+      }
+
+      sub index_lines {dereference $_[1], [xh::v::parse_lines $_[2]]}
+      sub index_words {dereference $_[1], [xh::v::parse_words $_[2]]}
+      sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
+      sub index_bytes {dereference $_[1], [split //, $_[2]]}
+
+      xh::globals::defglobals "'"  => \&index_lines,
+                              "@"  => \&index_words,
+                              ":"  => \&index_path,
+                              "\"" => \&index_bytes;
+    - end
 
 - sc Bootstrap unit tests | chp:bootstrap-unit-tests
   This is our first layer of sanity checking for the interpreter. A failure
@@ -2346,20 +2460,25 @@ meta::psection('implementation', <<'__');
 
   - xhmodule bootunit modules/bootunit.xh << end
     # This is a comment and should work properly.
-    %assert== 1 1
+    # {
+      This is a block comment and should also work.
+    }
+    #== 1 1
 
     def foo bar
-    %assert== $@foo         bar
-    %assert== $@foo         {bar}
-    %assert== $foo          {{bar}}
-    %assert== $(echo $foo)  {{bar}}
-    %assert== $@(echo $foo) bar
+    #== $@foo         bar
+    #== $@foo         {bar}
+    #== $@foo         (bar)
+    #== $@foo         [bar]
+    #== $foo          {{bar}}
+    #== $(echo $foo)  {{bar}}
+    #== $@(echo $foo) bar
 
     def greet {
       echo hi there, $@_
     }
-    %assert== $@(greet spencer)         {hi there, spencer}
-    %assert== $@(greet spencer tipping) {hi there, spencer tipping}
+    #== $@(greet spencer)         {hi there, spencer}
+    #== $@(greet spencer tipping) {hi there, spencer tipping}
 
     def newdef {
       # Define stuff within the calling scope; should be equivalent to using
@@ -2367,15 +2486,25 @@ meta::psection('implementation', <<'__');
       echo $^(def $@_)
     }
     newdef x 5
-    %assert== $@x 5
+    #== $@x 5
 
     def two-statements {
       def x 10
       echo $x
     }
-    %assert== $@x 5
+    #== $@x 5
     $'two-statements
-    %assert== $@x 10
+    #== $@x 10
+
+    #== $@[there echo/hi]              {hi there}
+    #== $@[spencer echo/there echo/hi] {hi there spencer}
+
+    def xs (foo bar bif baz)
+    #== $@(@ 0 $xs) foo
+    #== $@(@ 1 $xs) bar
+    #== $@(@ 2 $xs) bif
+    #== $@(@ 3 $xs) baz
+    #== $@(@ @foo $xs) foo
   - end
 
 - sc REPL | chp:repl
@@ -2389,7 +2518,7 @@ meta::psection('implementation', <<'__');
 
       my $list_depth    = 0;
       my $expression    = '';
-      my $binding_stack = xh::globals::default_binding_stack;
+      my $binding_stack = $xh::globals::globals;
 
       print "xh\$ ";
       while (my $line = <STDIN>) {
@@ -2507,23 +2636,25 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__c');
+meta::sdoc('xh', <<'__5');
 - include boot/xh-header
 - include modules/v.pl
 - include modules/e.pl
 - include modules/globals.pl
+- include modules/bootlist.pl
 - include modules/main.pl
 - include modules/bootunit.xh
 xh::main::main;
 __DATA__
 
-__c
+__5
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
 
 \newcommand{\bs}{\textbackslash}
 \setcounter{tocdepth}{0}
+\lstnewenvironment{xhcode}{}{}
 
 - title  X shell
 - author Spencer Tipping
@@ -2669,7 +2800,7 @@ _
 
 $line =~ s/\s+.*$//o;
 file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
-"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{verbatim}\n$wrapped \\end{verbatim}";
+"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{xhcode}\n$block \\end{xhcode}";
 
 __
 meta::vim_highlighter('cltex', <<'__');

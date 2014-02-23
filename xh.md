@@ -26,8 +26,9 @@ Expansion syntax
 
     xh$ echo $$foo              # $ is right-associative
     xh$ echo $^$foo             # expand $foo within calling context
-    xh$ echo $($'foo)           # result of running $'foo
+    xh$ echo $($'foo)           # result of running $'foo within current scope
     xh$ $'foo                   # this works too
+    xh$ echo $^($'foo)          # result of running $'foo within calling scope
 
 [part:bootstrap-implementation]
 
@@ -285,14 +286,26 @@ redeeming virtue is that it supports macroexpansion.
     BEGIN {xh::defmodule('xh::e.pl', <<'_')}
     sub evaluate;
     sub interpolate;
+    sub call;
 
     sub interpolate_wrap {
       my ($prefix, $unquoted) = @_;
-      return xh::v::quote_as_multiple_lines $unquoted if $prefix eq "\$'";
-      return xh::v::quote_as_line           $unquoted if $prefix eq "\$@";
-      return xh::v::quote_as_word           $unquoted if $prefix eq "\$:";
-      return xh::v::quote_as_path           $unquoted if $prefix eq "\$\"";
+      return xh::v::quote_as_multiple_lines $unquoted if $prefix =~ /'$/;
+      return xh::v::quote_as_line           $unquoted if $prefix =~ /\@$/;
+      return xh::v::quote_as_word           $unquoted if $prefix =~ /:$/;
+      return xh::v::quote_as_path           $unquoted if $prefix =~ /"$/;
       xh::v::quote_default $unquoted;
+    }
+
+    sub scope_index_for {
+      my ($carets) = $_[0] =~ /^\$(\^*)/g;
+      -(1 + length $carets);
+    }
+
+    sub truncated_stack {
+      my ($stack, $index) = @_;
+      return $stack if $index == -1;
+      [@$stack[0 .. @$stack + $index]];
     }
 
     sub interpolate_dollar {
@@ -300,19 +313,50 @@ redeeming virtue is that it supports macroexpansion.
 
       # First things first: strip off any prefix operator, then interpolate the
       # result. We do this because $ is right-associative.
-      my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)?(.*)$/g;
+      my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)(.*)$/sg;
 
       # Do we have a compound form? If so, then we need to treat the whole
       # thing as a unit.
       if ($rhs =~ /^\(/) {
-        # RHS is a command, so grab the result of executing the inside.
-        return interpolate_wrap
-                 $prefix,
-                 evaluate $binding_stack, substr($rhs, 1, -1);
+        # The exact semantics here are a little subtle. Because the RHS is just
+        # ()-boxed, it should be expanded within the current scope. The actual
+        # evaluation, however, might be happening within a parent scope; we'll
+        # know by looking at the $prefix to check for ^s.
+
+        my $interpolated_rhs = interpolate $binding_stack, xh::v::unbox $rhs;
+        my $index            = scope_index_for $prefix;
+        my $new_stack        = truncated_stack $binding_stack, $index;
+
+        return interpolate_wrap $prefix,
+                                evaluate $new_stack, $interpolated_rhs;
       } elsif ($rhs =~ /^\[/) {
-        # TODO: handle this case. Right now we count on the macro preprocessor
-        # to do it for us.
-        die 'unhandled interpolate case: $[]';
+        # $[] is a way to call a series of functions on a value, just like
+        # Clojure's (-> x y z). Like $(), we always interpolate the terms of
+        # the [] list in the current environment; but any ^s you use (e.g.
+        # $^[]) cause the inner functions to be called from a parent scope.
+        # This can be relevant in certain pathological cases that you should
+        # probably never use.
+
+        my ($initial, @fns) = map {interpolate $binding_stack, $_}
+                                  xh::v::parse_words xh::v::unbox $rhs;
+        my $index           = scope_index_for $prefix;
+        my $calling_stack   = truncated_stack $binding_stack, $index;
+
+        # You can use paths as a curried notation within $[] interpolation. For
+        # example:
+        #
+        # > echo $[foo echo/hi]
+        # hi foo
+        #
+        # Lists also work, but there is no difference between () and [], which
+        # is a horrible oversight that should probably be addressed at some
+        # point.
+        $initial = call $calling_stack,
+                        (map {s/^\///r} xh::v::parse_path($_)),
+                        $initial
+        for @fns;
+
+        return interpolate_wrap $prefix, $initial;
       } elsif ($rhs =~ /^\{/) {
         $rhs = xh::v::unbox $rhs;
       } else {
@@ -329,17 +373,15 @@ redeeming virtue is that it supports macroexpansion.
         $rhs = $new_rhs;
       }
 
-      # At this point we have a direct form we can use on the right: either a
-      # quoted expression (in which case we unbox), or a word, in which case we
-      # dereference.
-      my $layer = 0;
-      $layer = length $1 if $prefix =~ s/^\$(\^*)/\$/;
-
-      my $unquoted = $$binding_stack[-($layer + 1)]{$rhs}       # local scope
-                  // $$binding_stack[0]{$rhs}                   # global scope
-                  // die "unbound var: $rhs";
-
-      interpolate_wrap $prefix, $unquoted;
+      my $index = scope_index_for $prefix;
+      interpolate_wrap $prefix,
+        $$binding_stack[$index]{$rhs}
+        // $$binding_stack[0]{$rhs}
+        // die "unbound var: $rhs (bound vars are ["
+               . join(' ', sort keys %{$$binding_stack[$index]})
+               . "] locally, ["
+               . join(' ', sort keys %{$$binding_stack[0]})
+               . "] globally)";
     }
 
     sub interpolate {
@@ -362,14 +404,16 @@ redeeming virtue is that it supports macroexpansion.
       push @$binding_stack,
            {_ => join ' ', map xh::v::quote_default($_), @args};
 
-      my $result = evaluate $binding_stack, $fn;
+      my $result = eval {evaluate $binding_stack, $fn};
+      my $error  = "$@ in $f "
+                 . join(' ', map xh::v::quote_default($_), @args)
+                 . ' at calling stack depth ' . @$binding_stack
+                 . " with locals:\n"
+                 . join("\n", map "  $_ -> $$binding_stack[-1]{$_}",
+                                  sort keys %{$$binding_stack[-1]}) if $@;
       pop @$binding_stack;
+      die $error if $error;
       $result;
-    }
-
-    sub macroexpand {
-      my ($binding_stack, $macro, @args) = @_;
-      call($binding_stack, $macro, @args);
     }
 
     sub evaluate {
@@ -378,21 +422,26 @@ redeeming virtue is that it supports macroexpansion.
       my $result                 = '';
 
       for my $s (@statements) {
+        my $original = $s;
+
         # Step 1: Do we have a macro? If so, macroexpand before calling
         # anything. (NOTE: technically incorrect; macros should receive their
         # arguments with whitespace intact)
-        #
-        # For now, macros are functions that start with %. I have no
-        # particularly good feelings about this; it's just an expedient at this
-        # point.
         my @words;
-        $s = macroexpand $binding_stack, @words
-        while (@words = xh::v::parse_words $s)[0] =~ /^%/;
+        while ((@words = xh::v::parse_words $s)[0] =~ /^#/) {
+          $s = eval {call $binding_stack, @words};
+          die "$@ in @words (while macroexpanding $original)" if $@;
+        }
 
         # Step 2: Interpolate the whole command once. Note that we can't wrap
         # each word at this point, since that would block interpolation
         # altogether.
-        $s = interpolate $binding_stack, $s;
+        my $new_s = eval {interpolate $binding_stack, $s};
+        die "$@ in $s (while interpolating from $original)" if $@;
+        $s = $new_s;
+
+        # If that killed our value, then we have nothing to do.
+        next unless length $s;
 
         # Step 3: See if the interpolation produced multiple lines. If so, we
         # need to re-expand. Otherwise we can do a single function call.
@@ -403,7 +452,8 @@ redeeming virtue is that it supports macroexpansion.
           # function and call it. If it's Perl native, then we're set; we just
           # call that on the newly-parsed arg list. Otherwise delegate to
           # create a new call frame and locals.
-          $result = call $binding_stack, xh::v::parse_words $s;
+          $result = eval {call $binding_stack, xh::v::parse_words $s};
+          die "$@ in $s (while evaluating $original)" if $@;
         }
       }
       $result;
@@ -430,9 +480,186 @@ This is solved by defining the def function and list/hash accessors.
       join ' ', @args;
     }
 
-    sub default_binding_stack {[{def => \&def, echo => \&echo}]}
+    sub comment       {''}
+    sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"}
+
+    sub perl_eval {
+      my $result = eval $_[1];
+      die "$@ while evaluating $_[1]" if $@;
+      $result;
+    }
+
+    sub assert_eq_macro {
+      my ($binding_stack, $lhs, $rhs) = @_;
+
+      # We should get the same result by evaluating the LHS and RHS; otherwise
+      # expand into a print statement describing the error.
+      my $expanded_lhs = xh::e::interpolate $binding_stack, $lhs;
+      my $expanded_rhs = xh::e::interpolate $binding_stack, $rhs;
+
+      $expanded_lhs eq $expanded_rhs
+        ? ''
+        : 'print ' . xh::v::quote_default("$lhs (-> $expanded_lhs)")
+                   . ' != '
+                   . xh::v::quote_default("$rhs (-> $expanded_rhs)");
+    }
+
+    # Create an interpreter instance that lets us interpret modules written in
+    # XH-script.
+    our $globals = [{def   => \&def,
+                     echo  => \&echo,
+                     print => \&print_from_xh,
+                     perl  => \&perl_eval,
+                     '#'   => \&comment,
+                     '#==' => \&assert_eq_macro}];
+
+    sub defglobals {
+      my %vals = @_;
+      $$globals[0]{$_} = $vals{$_} for keys %vals;
+    }
+
+    $xh::compilers{xh} = sub {
+      my ($module_name, $code) = @_;
+      eval {xh::e::evaluate $globals, $code};
+      die "error running $module_name: $@" if $@;
+    }
     _
      
+
+List accessors
+--------------
+
+[sec:list-accessors] List elements are accessed using single-character
+functions, one for each type of list.
+
+    BEGIN {xh::defmodule('xh::bootlist.pl', <<'_')}
+    sub wrap_negative {
+      my ($i, $n) = @_;
+      return undef unless length $i;
+      return $n + $i if $i < 0;
+      $i;
+    }
+
+    sub flexible_range {
+      my ($lower, $upper) = @_;
+      return reverse $upper .. $lower if $upper < $lower;
+      $lower .. $upper;
+    }
+
+    sub expand_subscript;
+    sub expand_subscript {
+      my ($subscript, $n) = @_;
+
+      return [map expand_subscript($_, $n),
+                  xh::v::parse_words xh::v::unbox $subscript]
+      if $subscript =~ /^[\[({]/;
+
+      return [flexible_range wrap_negative($1, $n) // 0,
+                             wrap_negative($2, $n) // $n - 1]
+      if $subscript =~ /^(\d*):(\d*)$/;
+
+      return $subscript;
+    }
+
+    sub dereference_one;
+    sub dereference_one {
+      my ($subscript, $boxed_list) = @_;
+
+      # List homomorphism of subscripts
+      return join ' ',
+             map xh::v::quote_default(dereference_one $_, $boxed_list),
+                 @$subscript if ref $subscript eq 'ARRAY';
+
+      # Normal numeric lookup, with empty string for out-of-bounds
+      return ''                             if $subscript =~ /^-/;
+      return $$boxed_list[$subscript] // '' if $subscript =~ /^\d+/;
+
+      # Hashtable lookup maybe?
+      if ($subscript =~ s/^@//) {
+        # In this case the boxed list should contain at least words, and
+        # probably whole lines. We word-parse each entry looking for the
+        # first subscript hit.
+        for my $x (@$boxed_list) {
+          my @words = xh::v::parse_words $x;
+          return $x if $words[0] eq $subscript;
+        }
+        return '';
+      } else {
+        die "unrecognized subscript form: $subscript";
+      }
+    }
+
+    sub dereference {
+      my ($subscript, $boxed_list) = @_;
+      dereference_one expand_subscript($subscript, scalar(@$boxed_list)),
+                      $boxed_list;
+    }
+
+    sub index_lines {dereference $_[1], [xh::v::parse_lines $_[2]]}
+    sub index_words {dereference $_[1], [xh::v::parse_words $_[2]]}
+    sub index_path  {dereference $_[1], [xh::v::parse_path  $_[2]]}
+    sub index_bytes {dereference $_[1], [split //, $_[2]]}
+
+    xh::globals::defglobals "'"  => \&index_lines,
+                            "@"  => \&index_words,
+                            ":"  => \&index_path,
+                            "\"" => \&index_bytes;
+    _
+     
+
+Bootstrap unit tests
+====================
+
+[chp:bootstrap-unit-tests] This is our first layer of sanity checking
+for the interpreter. A failure here won’t stop xh from running, but it
+will print a diagnostic message so we know something is up.
+
+    # This is a comment and should work properly.
+    # {
+      This is a block comment and should also work.
+    }
+    #== 1 1
+
+    def foo bar
+    #== $@foo         bar
+    #== $@foo         {bar}
+    #== $@foo         (bar)
+    #== $@foo         [bar]
+    #== $foo          {{bar}}
+    #== $(echo $foo)  {{bar}}
+    #== $@(echo $foo) bar
+
+    def greet {
+      echo hi there, $@_
+    }
+    #== $@(greet spencer)         {hi there, spencer}
+    #== $@(greet spencer tipping) {hi there, spencer tipping}
+
+    def newdef {
+      # Define stuff within the calling scope; should be equivalent to using
+      # def.
+      echo $^(def $@_)
+    }
+    newdef x 5
+    #== $@x 5
+
+    def two-statements {
+      def x 10
+      echo $x
+    }
+    #== $@x 5
+    $'two-statements
+    #== $@x 10
+
+    #== $@[there echo/hi]              {hi there}
+    #== $@[spencer echo/there echo/hi] {hi there spencer}
+
+    def xs (foo bar bif baz)
+    #== $@(@ 0 $xs) foo
+    #== $@(@ 1 $xs) bar
+    #== $@(@ 2 $xs) bif
+    #== $@(@ 3 $xs) baz
+    #== $@(@ @foo $xs) foo 
 
 REPL
 ====
@@ -447,7 +674,7 @@ be implemented in xh-script.
 
       my $list_depth    = 0;
       my $expression    = '';
-      my $binding_stack = xh::globals::default_binding_stack;
+      my $binding_stack = $xh::globals::globals;
 
       print "xh\$ ";
       while (my $line = <STDIN>) {

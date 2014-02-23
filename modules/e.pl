@@ -1,6 +1,7 @@
 BEGIN {xh::defmodule('xh::e.pl', <<'_')}
 sub evaluate;
 sub interpolate;
+sub call;
 
 sub interpolate_wrap {
   my ($prefix, $unquoted) = @_;
@@ -14,6 +15,12 @@ sub interpolate_wrap {
 sub scope_index_for {
   my ($carets) = $_[0] =~ /^\$(\^*)/g;
   -(1 + length $carets);
+}
+
+sub truncated_stack {
+  my ($stack, $index) = @_;
+  return $stack if $index == -1;
+  [@$stack[0 .. @$stack + $index]];
 }
 
 sub interpolate_dollar {
@@ -33,16 +40,38 @@ sub interpolate_dollar {
 
     my $interpolated_rhs = interpolate $binding_stack, xh::v::unbox $rhs;
     my $index            = scope_index_for $prefix;
-    my $new_stack        = $index == -1
-      ? $binding_stack
-      : [@$binding_stack[0 .. @$binding_stack + $index]];
+    my $new_stack        = truncated_stack $binding_stack, $index;
 
     return interpolate_wrap $prefix,
                             evaluate $new_stack, $interpolated_rhs;
   } elsif ($rhs =~ /^\[/) {
-    # TODO: handle this case. Right now we count on the macro preprocessor
-    # to do it for us.
-    die 'TODO: unhandled interpolate case: $[]';
+    # $[] is a way to call a series of functions on a value, just like
+    # Clojure's (-> x y z). Like $(), we always interpolate the terms of
+    # the [] list in the current environment; but any ^s you use (e.g.
+    # $^[]) cause the inner functions to be called from a parent scope.
+    # This can be relevant in certain pathological cases that you should
+    # probably never use.
+
+    my ($initial, @fns) = map {interpolate $binding_stack, $_}
+                              xh::v::parse_words xh::v::unbox $rhs;
+    my $index           = scope_index_for $prefix;
+    my $calling_stack   = truncated_stack $binding_stack, $index;
+
+    # You can use paths as a curried notation within $[] interpolation. For
+    # example:
+    #
+    # > echo $[foo echo/hi]
+    # hi foo
+    #
+    # Lists also work, but there is no difference between () and [], which
+    # is a horrible oversight that should probably be addressed at some
+    # point.
+    $initial = call $calling_stack,
+                    (map {s/^\///r} xh::v::parse_path($_)),
+                    $initial
+    for @fns;
+
+    return interpolate_wrap $prefix, $initial;
   } elsif ($rhs =~ /^\{/) {
     $rhs = xh::v::unbox $rhs;
   } else {
@@ -113,12 +142,8 @@ sub evaluate {
     # Step 1: Do we have a macro? If so, macroexpand before calling
     # anything. (NOTE: technically incorrect; macros should receive their
     # arguments with whitespace intact)
-    #
-    # For now, macros are functions that start with %. I have no
-    # particularly good feelings about this; it's just an expedient at this
-    # point.
     my @words;
-    while ((@words = xh::v::parse_words $s)[0] =~ /^%/) {
+    while ((@words = xh::v::parse_words $s)[0] =~ /^#/) {
       $s = eval {call $binding_stack, @words};
       die "$@ in @words (while macroexpanding $original)" if $@;
     }

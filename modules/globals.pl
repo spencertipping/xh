@@ -10,9 +10,14 @@ sub echo {
   join ' ', @args;
 }
 
-sub comment {''}
-
+sub comment       {''}
 sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"}
+
+sub perl_eval {
+  my $result = eval $_[1];
+  die "$@ while evaluating $_[1]" if $@;
+  $result;
+}
 
 sub assert_eq_macro {
   my ($binding_stack, $lhs, $rhs) = @_;
@@ -29,15 +34,20 @@ sub assert_eq_macro {
                . xh::v::quote_default("$rhs (-> $expanded_rhs)");
 }
 
-sub default_binding_stack {[{def         => \&def,
-                             echo        => \&echo,
-                             '#'         => \&comment,
-                             print       => \&print_from_xh,
-                             '%assert==' => \&assert_eq_macro}]}
-
 # Create an interpreter instance that lets us interpret modules written in
 # XH-script.
-our $globals = default_binding_stack;
+our $globals = [{def   => \&def,
+                 echo  => \&echo,
+                 print => \&print_from_xh,
+                 perl  => \&perl_eval,
+                 '#'   => \&comment,
+                 '#==' => \&assert_eq_macro}];
+
+sub defglobals {
+  my %vals = @_;
+  $$globals[0]{$_} = $vals{$_} for keys %vals;
+}
+
 $xh::compilers{xh} = sub {
   my ($module_name, $code) = @_;
   eval {xh::e::evaluate $globals, $code};
