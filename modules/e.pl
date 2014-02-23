@@ -4,11 +4,16 @@ sub interpolate;
 
 sub interpolate_wrap {
   my ($prefix, $unquoted) = @_;
-  return xh::v::quote_as_multiple_lines $unquoted if $prefix eq "\$'";
-  return xh::v::quote_as_line           $unquoted if $prefix eq "\$@";
-  return xh::v::quote_as_word           $unquoted if $prefix eq "\$:";
-  return xh::v::quote_as_path           $unquoted if $prefix eq "\$\"";
+  return xh::v::quote_as_multiple_lines $unquoted if $prefix =~ /'$/;
+  return xh::v::quote_as_line           $unquoted if $prefix =~ /\@$/;
+  return xh::v::quote_as_word           $unquoted if $prefix =~ /:$/;
+  return xh::v::quote_as_path           $unquoted if $prefix =~ /"$/;
   xh::v::quote_default $unquoted;
+}
+
+sub scope_index_for {
+  my ($carets) = $_[0] =~ /^\$(\^*)/g;
+  -(1 + length $carets);
 }
 
 sub interpolate_dollar {
@@ -16,19 +21,28 @@ sub interpolate_dollar {
 
   # First things first: strip off any prefix operator, then interpolate the
   # result. We do this because $ is right-associative.
-  my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)?(.*)$/g;
+  my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)(.*)$/sg;
 
   # Do we have a compound form? If so, then we need to treat the whole
   # thing as a unit.
   if ($rhs =~ /^\(/) {
-    # RHS is a command, so grab the result of executing the inside.
-    return interpolate_wrap
-             $prefix,
-             evaluate $binding_stack, substr($rhs, 1, -1);
+    # The exact semantics here are a little subtle. Because the RHS is just
+    # ()-boxed, it should be expanded within the current scope. The actual
+    # evaluation, however, might be happening within a parent scope; we'll
+    # know by looking at the $prefix to check for ^s.
+
+    my $interpolated_rhs = interpolate $binding_stack, xh::v::unbox $rhs;
+    my $index            = scope_index_for $prefix;
+    my $new_stack        = $index == -1
+      ? $binding_stack
+      : [@$binding_stack[0 .. @$binding_stack + $index]];
+
+    return interpolate_wrap $prefix,
+                            evaluate $new_stack, $interpolated_rhs;
   } elsif ($rhs =~ /^\[/) {
     # TODO: handle this case. Right now we count on the macro preprocessor
     # to do it for us.
-    die 'unhandled interpolate case: $[]';
+    die 'TODO: unhandled interpolate case: $[]';
   } elsif ($rhs =~ /^\{/) {
     $rhs = xh::v::unbox $rhs;
   } else {
@@ -45,17 +59,15 @@ sub interpolate_dollar {
     $rhs = $new_rhs;
   }
 
-  # At this point we have a direct form we can use on the right: either a
-  # quoted expression (in which case we unbox), or a word, in which case we
-  # dereference.
-  my $layer = 0;
-  $layer = length $1 if $prefix =~ s/^\$(\^*)/\$/;
-
-  my $unquoted = $$binding_stack[-($layer + 1)]{$rhs}       # local scope
-              // $$binding_stack[0]{$rhs}                   # global scope
-              // die "unbound var: $rhs";
-
-  interpolate_wrap $prefix, $unquoted;
+  my $index = scope_index_for $prefix;
+  interpolate_wrap $prefix,
+    $$binding_stack[$index]{$rhs}
+    // $$binding_stack[0]{$rhs}
+    // die "unbound var: $rhs (bound vars are ["
+           . join(' ', sort keys %{$$binding_stack[$index]})
+           . "] locally, ["
+           . join(' ', sort keys %{$$binding_stack[0]})
+           . "] globally)";
 }
 
 sub interpolate {
@@ -78,14 +90,16 @@ sub call {
   push @$binding_stack,
        {_ => join ' ', map xh::v::quote_default($_), @args};
 
-  my $result = evaluate $binding_stack, $fn;
+  my $result = eval {evaluate $binding_stack, $fn};
+  my $error  = "$@ in $f "
+             . join(' ', map xh::v::quote_default($_), @args)
+             . ' at calling stack depth ' . @$binding_stack
+             . " with locals:\n"
+             . join("\n", map "  $_ -> $$binding_stack[-1]{$_}",
+                              sort keys %{$$binding_stack[-1]}) if $@;
   pop @$binding_stack;
+  die $error if $error;
   $result;
-}
-
-sub macroexpand {
-  my ($binding_stack, $macro, @args) = @_;
-  call($binding_stack, $macro, @args);
 }
 
 sub evaluate {
@@ -94,6 +108,8 @@ sub evaluate {
   my $result                 = '';
 
   for my $s (@statements) {
+    my $original = $s;
+
     # Step 1: Do we have a macro? If so, macroexpand before calling
     # anything. (NOTE: technically incorrect; macros should receive their
     # arguments with whitespace intact)
@@ -102,13 +118,20 @@ sub evaluate {
     # particularly good feelings about this; it's just an expedient at this
     # point.
     my @words;
-    $s = macroexpand $binding_stack, @words
-    while (@words = xh::v::parse_words $s)[0] =~ /^%/;
+    while ((@words = xh::v::parse_words $s)[0] =~ /^%/) {
+      $s = eval {call $binding_stack, @words};
+      die "$@ in @words (while macroexpanding $original)" if $@;
+    }
 
     # Step 2: Interpolate the whole command once. Note that we can't wrap
     # each word at this point, since that would block interpolation
     # altogether.
-    $s = interpolate $binding_stack, $s;
+    my $new_s = eval {interpolate $binding_stack, $s};
+    die "$@ in $s (while interpolating from $original)" if $@;
+    $s = $new_s;
+
+    # If that killed our value, then we have nothing to do.
+    next unless length $s;
 
     # Step 3: See if the interpolation produced multiple lines. If so, we
     # need to re-expand. Otherwise we can do a single function call.
@@ -119,7 +142,8 @@ sub evaluate {
       # function and call it. If it's Perl native, then we're set; we just
       # call that on the newly-parsed arg list. Otherwise delegate to
       # create a new call frame and locals.
-      $result = call $binding_stack, xh::v::parse_words $s;
+      $result = eval {call $binding_stack, xh::v::parse_words $s};
+      die "$@ in $s (while evaluating $original)" if $@;
     }
   }
   $result;

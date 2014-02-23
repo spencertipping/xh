@@ -1,0 +1,33 @@
+BEGIN {xh::defmodule('bootunit.xh', <<'_')}
+# This is a comment and should work properly.
+%assert== 1 1
+
+def foo bar
+%assert== $@foo         bar
+%assert== $@foo         {bar}
+%assert== $foo          {{bar}}
+%assert== $(echo $foo)  {{bar}}
+%assert== $@(echo $foo) bar
+
+def greet {
+  echo hi there, $@_
+}
+%assert== $@(greet spencer)         {hi there, spencer}
+%assert== $@(greet spencer tipping) {hi there, spencer tipping}
+
+def newdef {
+  # Define stuff within the calling scope; should be equivalent to using
+  # def.
+  echo $^(def $@_)
+}
+newdef x 5
+%assert== $@x 5
+
+def two-statements {
+  def x 10
+  echo $x
+}
+%assert== $@x 5
+$'two-statements
+%assert== $@x 10
+_

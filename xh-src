@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  2675aa706c6bb32ed0e6f768f6627236
-# istate: 0e0865e29307cd4036db531c4fc1e7a0
+# state:  2cdb42c1b7dbfbd5dc9d067f09580a60
+# istate: da9fe3b931961c652f58542bce07408d
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2141,11 +2141,16 @@ meta::psection('implementation', <<'__');
 
     sub interpolate_wrap {
       my ($prefix, $unquoted) = @_;
-      return xh::v::quote_as_multiple_lines $unquoted if $prefix eq "\$'";
-      return xh::v::quote_as_line           $unquoted if $prefix eq "\$@";
-      return xh::v::quote_as_word           $unquoted if $prefix eq "\$:";
-      return xh::v::quote_as_path           $unquoted if $prefix eq "\$\"";
+      return xh::v::quote_as_multiple_lines $unquoted if $prefix =~ /'$/;
+      return xh::v::quote_as_line           $unquoted if $prefix =~ /\@$/;
+      return xh::v::quote_as_word           $unquoted if $prefix =~ /:$/;
+      return xh::v::quote_as_path           $unquoted if $prefix =~ /"$/;
       xh::v::quote_default $unquoted;
+    }
+
+    sub scope_index_for {
+      my ($carets) = $_[0] =~ /^\$(\^*)/g;
+      -(1 + length $carets);
     }
 
     sub interpolate_dollar {
@@ -2153,19 +2158,28 @@ meta::psection('implementation', <<'__');
 
       # First things first: strip off any prefix operator, then interpolate the
       # result. We do this because $ is right-associative.
-      my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)?(.*)$/g;
+      my ($prefix, $rhs) = $term =~ /^(\$\^*[@"':]?)(.*)$/sg;
 
       # Do we have a compound form? If so, then we need to treat the whole
       # thing as a unit.
       if ($rhs =~ /^\(/) {
-        # RHS is a command, so grab the result of executing the inside.
-        return interpolate_wrap
-                 $prefix,
-                 evaluate $binding_stack, substr($rhs, 1, -1);
+        # The exact semantics here are a little subtle. Because the RHS is just
+        # ()-boxed, it should be expanded within the current scope. The actual
+        # evaluation, however, might be happening within a parent scope; we'll
+        # know by looking at the $prefix to check for ^s.
+
+        my $interpolated_rhs = interpolate $binding_stack, xh::v::unbox $rhs;
+        my $index            = scope_index_for $prefix;
+        my $new_stack        = $index == -1
+          ? $binding_stack
+          : [@$binding_stack[0 .. @$binding_stack + $index]];
+
+        return interpolate_wrap $prefix,
+                                evaluate $new_stack, $interpolated_rhs;
       } elsif ($rhs =~ /^\[/) {
         # TODO: handle this case. Right now we count on the macro preprocessor
         # to do it for us.
-        die 'unhandled interpolate case: $[]';
+        die 'TODO: unhandled interpolate case: $[]';
       } elsif ($rhs =~ /^\{/) {
         $rhs = xh::v::unbox $rhs;
       } else {
@@ -2182,17 +2196,15 @@ meta::psection('implementation', <<'__');
         $rhs = $new_rhs;
       }
 
-      # At this point we have a direct form we can use on the right: either a
-      # quoted expression (in which case we unbox), or a word, in which case we
-      # dereference.
-      my $layer = 0;
-      $layer = length $1 if $prefix =~ s/^\$(\^*)/\$/;
-
-      my $unquoted = $$binding_stack[-($layer + 1)]{$rhs}       # local scope
-                  // $$binding_stack[0]{$rhs}                   # global scope
-                  // die "unbound var: $rhs";
-
-      interpolate_wrap $prefix, $unquoted;
+      my $index = scope_index_for $prefix;
+      interpolate_wrap $prefix,
+        $$binding_stack[$index]{$rhs}
+        // $$binding_stack[0]{$rhs}
+        // die "unbound var: $rhs (bound vars are ["
+               . join(' ', sort keys %{$$binding_stack[$index]})
+               . "] locally, ["
+               . join(' ', sort keys %{$$binding_stack[0]})
+               . "] globally)";
     }
 
     sub interpolate {
@@ -2215,14 +2227,16 @@ meta::psection('implementation', <<'__');
       push @$binding_stack,
            {_ => join ' ', map xh::v::quote_default($_), @args};
 
-      my $result = evaluate $binding_stack, $fn;
+      my $result = eval {evaluate $binding_stack, $fn};
+      my $error  = "$@ in $f "
+                 . join(' ', map xh::v::quote_default($_), @args)
+                 . ' at calling stack depth ' . @$binding_stack
+                 . " with locals:\n"
+                 . join("\n", map "  $_ -> $$binding_stack[-1]{$_}",
+                                  sort keys %{$$binding_stack[-1]}) if $@;
       pop @$binding_stack;
+      die $error if $error;
       $result;
-    }
-
-    sub macroexpand {
-      my ($binding_stack, $macro, @args) = @_;
-      call($binding_stack, $macro, @args);
     }
 
     sub evaluate {
@@ -2231,6 +2245,8 @@ meta::psection('implementation', <<'__');
       my $result                 = '';
 
       for my $s (@statements) {
+        my $original = $s;
+
         # Step 1: Do we have a macro? If so, macroexpand before calling
         # anything. (NOTE: technically incorrect; macros should receive their
         # arguments with whitespace intact)
@@ -2239,13 +2255,20 @@ meta::psection('implementation', <<'__');
         # particularly good feelings about this; it's just an expedient at this
         # point.
         my @words;
-        $s = macroexpand $binding_stack, @words
-        while (@words = xh::v::parse_words $s)[0] =~ /^%/;
+        while ((@words = xh::v::parse_words $s)[0] =~ /^%/) {
+          $s = eval {call $binding_stack, @words};
+          die "$@ in @words (while macroexpanding $original)" if $@;
+        }
 
         # Step 2: Interpolate the whole command once. Note that we can't wrap
         # each word at this point, since that would block interpolation
         # altogether.
-        $s = interpolate $binding_stack, $s;
+        my $new_s = eval {interpolate $binding_stack, $s};
+        die "$@ in $s (while interpolating from $original)" if $@;
+        $s = $new_s;
+
+        # If that killed our value, then we have nothing to do.
+        next unless length $s;
 
         # Step 3: See if the interpolation produced multiple lines. If so, we
         # need to re-expand. Otherwise we can do a single function call.
@@ -2256,7 +2279,8 @@ meta::psection('implementation', <<'__');
           # function and call it. If it's Perl native, then we're set; we just
           # call that on the newly-parsed arg list. Otherwise delegate to
           # create a new call frame and locals.
-          $result = call $binding_stack, xh::v::parse_words $s;
+          $result = eval {call $binding_stack, xh::v::parse_words $s};
+          die "$@ in $s (while evaluating $original)" if $@;
         }
       }
       $result;
@@ -2280,7 +2304,78 @@ meta::psection('implementation', <<'__');
       join ' ', @args;
     }
 
-    sub default_binding_stack {[{def => \&def, echo => \&echo}]}
+    sub comment {''}
+
+    sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"}
+
+    sub assert_eq_macro {
+      my ($binding_stack, $lhs, $rhs) = @_;
+
+      # We should get the same result by evaluating the LHS and RHS; otherwise
+      # expand into a print statement describing the error.
+      my $expanded_lhs = xh::e::interpolate $binding_stack, $lhs;
+      my $expanded_rhs = xh::e::interpolate $binding_stack, $rhs;
+
+      $expanded_lhs eq $expanded_rhs
+        ? ''
+        : 'print ' . xh::v::quote_default("$lhs (-> $expanded_lhs)")
+                   . ' != '
+                   . xh::v::quote_default("$rhs (-> $expanded_rhs)");
+    }
+
+    sub default_binding_stack {[{def         => \&def,
+                                 echo        => \&echo,
+                                 '#'         => \&comment,
+                                 print       => \&print_from_xh,
+                                 '%assert==' => \&assert_eq_macro}]}
+
+    # Create an interpreter instance that lets us interpret modules written in
+    # XH-script.
+    our $globals = default_binding_stack;
+    $xh::compilers{xh} = sub {
+      my ($module_name, $code) = @_;
+      eval {xh::e::evaluate $globals, $code};
+      die "error running $module_name: $@" if $@;
+    }
+  - end
+
+- sc Bootstrap unit tests | chp:bootstrap-unit-tests
+  This is our first layer of sanity checking for the interpreter. A failure
+  here won't stop xh from running, but it will print a diagnostic message so we
+  know something is up.
+
+  - xhmodule bootunit modules/bootunit.xh << end
+    # This is a comment and should work properly.
+    %assert== 1 1
+
+    def foo bar
+    %assert== $@foo         bar
+    %assert== $@foo         {bar}
+    %assert== $foo          {{bar}}
+    %assert== $(echo $foo)  {{bar}}
+    %assert== $@(echo $foo) bar
+
+    def greet {
+      echo hi there, $@_
+    }
+    %assert== $@(greet spencer)         {hi there, spencer}
+    %assert== $@(greet spencer tipping) {hi there, spencer tipping}
+
+    def newdef {
+      # Define stuff within the calling scope; should be equivalent to using
+      # def.
+      echo $^(def $@_)
+    }
+    newdef x 5
+    %assert== $@x 5
+
+    def two-statements {
+      def x 10
+      echo $x
+    }
+    %assert== $@x 5
+    $'two-statements
+    %assert== $@x 10
   - end
 
 - sc REPL | chp:repl
@@ -2412,16 +2507,17 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__6');
+meta::sdoc('xh', <<'__c');
 - include boot/xh-header
 - include modules/v.pl
 - include modules/e.pl
 - include modules/globals.pl
 - include modules/main.pl
+- include modules/bootunit.xh
 xh::main::main;
 __DATA__
 
-__6
+__c
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
