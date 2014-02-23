@@ -1,4 +1,23 @@
 #!/usr/bin/env perl
+BEGIN {
+print STDERR q{
+NOTE: Development image
+
+If you see this note after installing the shell, it's probably because
+you're running a version that has not yet rebuilt itself (maybe you got the
+wrong file from the Git repo?). You can do this, but it will be really
+slow and may use a lot of memory. There are two ways to fix this:
+
+1. Download the standard image from http://spencertipping.com/xh
+2. Have this image recompile itself by running xh.recompile-in-place (this
+   will take some time because it stress-tests your Perl runtime)
+
+Note also that bootstrapping requires Perl 5.14 or later, whereas running a
+compiled image just requires Perl 5.10.
+
+};
+}
+
 BEGIN {eval(our $xh_bootstrap = q{
 # xh: the X shell | https://github.com/spencertipping/xh
 # Copyright (C) 2014, Spencer Tipping
