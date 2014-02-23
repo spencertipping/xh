@@ -2,13 +2,13 @@ BEGIN {xh::defmodule('xh::v.pl', <<'_')}
 sub unbox;
 
 sub parse_with_quoted {
-  my ($events_to_split, $split_sublists, $s) = @_;
+  my ($events_to_split, $split_sublists, $take_zero_width, $s) = @_;
   my @result;
   my $current_item  = '';
   my $sublist_depth = 0;
 
-  for my $piece (split /(\v+|\s+|\/|\\.|[\[\](){}])/, $s) {
-    next unless length $piece;
+  for my $piece (split /(\v|\s+|\/|\\.|[\[\](){}])/, $s) {
+    next if !$take_zero_width and !length $piece;
     my $depth_before_piece = $sublist_depth;
     $sublist_depth += $piece =~ /^[\[({]$/;
     $sublist_depth -= $piece =~ /^[\])}]$/;
@@ -20,7 +20,8 @@ sub parse_with_quoted {
       # have and start a new item with the piece.
       if ($sublist_depth) {
         # Just opened one; kick out current item and start a new one.
-        push @result, $current_item if length $current_item;
+        push @result, $current_item if $take_zero_width or
+                                       length $current_item;
         $current_item = $piece;
       } else {
         # Just closed a list; concat and kick out the full item.
@@ -30,7 +31,8 @@ sub parse_with_quoted {
     } elsif (!$sublist_depth && $piece =~ /$events_to_split/) {
       # If the match produces a group, then treat it as a part of the next
       # item. Otherwise throw it away.
-      push @result, $current_item if length $current_item;
+      push @result, $current_item if $take_zero_width or
+                                     length $current_item;
       $current_item = $1;
     } else {
       $current_item .= $piece;
@@ -41,9 +43,9 @@ sub parse_with_quoted {
   @result;
 }
 
-sub split_lines {parse_with_quoted '\v+', 0, @_}
-sub split_words {parse_with_quoted '\s+', 0, @_}
-sub split_path  {parse_with_quoted '(/)', 1, @_}
+sub split_lines {parse_with_quoted '\v',  0, 1, @_}
+sub split_words {parse_with_quoted '\s+', 0, 0, @_}
+sub split_path  {parse_with_quoted '(/)', 1, 0, @_}
 
 sub parse_lines {map unbox($_), split_lines @_}
 sub parse_words {map unbox($_), split_words @_}

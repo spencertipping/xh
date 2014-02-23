@@ -51,6 +51,8 @@ sub dereference_one {
       return xh::v::quote_as_word $x if $words[0] eq $subscript;
     }
     '';
+  } elsif ($subscript eq '#') {
+    scalar @$boxed_list;
   } else {
     die "unrecognized subscript form: $subscript";
   }

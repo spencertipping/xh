@@ -119,13 +119,13 @@ compiler.
     sub unbox;
 
     sub parse_with_quoted {
-      my ($events_to_split, $split_sublists, $s) = @_;
+      my ($events_to_split, $split_sublists, $take_zero_width, $s) = @_;
       my @result;
       my $current_item  = '';
       my $sublist_depth = 0;
 
-      for my $piece (split /(\v+|\s+|\/|\\.|[\[\](){}])/, $s) {
-        next unless length $piece;
+      for my $piece (split /(\v|\s+|\/|\\.|[\[\](){}])/, $s) {
+        next if !$take_zero_width and !length $piece;
         my $depth_before_piece = $sublist_depth;
         $sublist_depth += $piece =~ /^[\[({]$/;
         $sublist_depth -= $piece =~ /^[\])}]$/;
@@ -137,7 +137,8 @@ compiler.
           # have and start a new item with the piece.
           if ($sublist_depth) {
             # Just opened one; kick out current item and start a new one.
-            push @result, $current_item if length $current_item;
+            push @result, $current_item if $take_zero_width or
+                                           length $current_item;
             $current_item = $piece;
           } else {
             # Just closed a list; concat and kick out the full item.
@@ -147,7 +148,8 @@ compiler.
         } elsif (!$sublist_depth && $piece =~ /$events_to_split/) {
           # If the match produces a group, then treat it as a part of the next
           # item. Otherwise throw it away.
-          push @result, $current_item if length $current_item;
+          push @result, $current_item if $take_zero_width or
+                                         length $current_item;
           $current_item = $1;
         } else {
           $current_item .= $piece;
@@ -158,9 +160,9 @@ compiler.
       @result;
     }
 
-    sub split_lines {parse_with_quoted '\v+', 0, @_}
-    sub split_words {parse_with_quoted '\s+', 0, @_}
-    sub split_path  {parse_with_quoted '(/)', 1, @_}
+    sub split_lines {parse_with_quoted '\v',  0, 1, @_}
+    sub split_words {parse_with_quoted '\s+', 0, 0, @_}
+    sub split_path  {parse_with_quoted '(/)', 1, 0, @_}
 
     sub parse_lines {map unbox($_), split_lines @_}
     sub parse_words {map unbox($_), split_words @_}
@@ -445,7 +447,7 @@ redeeming virtue is that it supports macroexpansion.
         $s = $new_s;
 
         # If that killed our value, then we have nothing to do.
-        next unless length $s;
+        next unless @words = xh::v::parse_words $s;
 
         # Step 3: See if the interpolation produced multiple lines. If so, we
         # need to re-expand. Otherwise we can do a single function call.
@@ -456,7 +458,7 @@ redeeming virtue is that it supports macroexpansion.
           # function and call it. If it's Perl native, then we're set; we just
           # call that on the newly-parsed arg list. Otherwise delegate to
           # create a new call frame and locals.
-          $result = eval {call $binding_stack, xh::v::parse_words $s};
+          $result = eval {call $binding_stack, @words};
           die "$@ in $s (while evaluating $original)" if $@;
         }
       }
@@ -589,6 +591,8 @@ functions, one for each type of list.
           return xh::v::quote_as_word $x if $words[0] eq $subscript;
         }
         '';
+      } elsif ($subscript eq '#') {
+        scalar @$boxed_list;
       } else {
         die "unrecognized subscript form: $subscript";
       }
@@ -627,81 +631,110 @@ will print a diagnostic message so we know something is up.
     }
     #== 1 1
 
-    def foo bar
-    #== $@foo         bar
-    #== $@foo         {bar}
-    #== $@foo         (bar)
-    #== $@foo         [bar]
-    #== $foo          {{bar}}
-    #== $(echo $foo)  {{bar}}
-    #== $@(echo $foo) bar
-
-    def greet {
-      echo hi there, $@_
+    def test {
+      print testing $[$_ @/0]
+      $'[$_ @/1]
     }
-    #== $@(greet spencer)         {hi there, spencer}
-    #== $@(greet spencer tipping) {hi there, spencer tipping}
 
-    def newdef {
-      # Define stuff within the calling scope; should be equivalent to using
-      # def.
-      echo $^(def $@_)
+    test basic-interpolation {
+      def foo bar
+      #== $@foo         bar
+      #== $@foo         {bar}
+      #== $@foo         (bar)
+      #== $@foo         [bar]
+      #== $foo          {{bar}}
+      #== $(echo $foo)  {{bar}}
+      #== $@(echo $foo) bar
     }
-    newdef x 5
-    #== $@x 5
 
-    def two-statements {
-      def x 10
-      echo $x
+    test subroutines {
+      def greet {
+        echo hi there, $@_
+      }
+      #== $@(greet spencer)         {hi there, spencer}
+      #== $@(greet spencer tipping) {hi there, spencer tipping}
     }
-    #== $@x 5
-    $'two-statements
-    #== $@x 10
 
-    #== $@[there echo/hi]              {hi there}
-    #== $@[spencer echo/there echo/hi] {hi there spencer}
-
-    def xs (foo bar bif baz)
-    #== $@(@ 0 $xs) foo
-    #== $@(@ 1 $xs) bar
-    #== $@(@ 2 $xs) bif
-    #== $@(@ 3 $xs) baz
-    #== $@(@ ^foo $xs) foo
-
-    #== $@[$xs @/0]   foo
-    #== $@[$xs @/-1]  baz
-    #== $@[$xs @/-2]  bif
-    #== $@[$xs @/:]   {{foo bar bif baz}}
-    #== $@[$xs @/1:]  {{bar bif baz}}
-    #== $@[$xs @/:1]  {{foo bar}}
-    #== $@[$xs @/:-2] {{foo bar bif}}
-    #== $@[$xs @/3:1] {{baz bif bar}}
-
-    #== $@[$xs @/^bar] bar
-    #== $@[$xs @/^bif] bif
-    #== $@[$xs @/^notfound] {}
-
-    #== $@[$xs @{0 2}]    {{foo bif}}
-    #== $@[$xs @{0 2:}]   {{foo {bif baz}}}
-    #== $@[$xs @{0 {2:}}] {{foo {{bif baz}}}}
-
-    def associative {
-      foo bar
-      bif baz
+    test scoping {
+      def newdef {
+        # Define stuff within the calling scope; should be equivalent to using
+        # def.
+        echo $^(def $@_)
+      }
+      newdef x 5
+      #== $@x 5
     }
-    #== $@[$associative '/^foo] {{  foo bar}}
-    #== $@[$associative '/^foo @/1] bar
-    #== $@[$associative '/^bif @/1] baz
-    #== $@[$associative '/^bok] {}
 
-    #== $@[abcd "/0] 97
-    #== $@[abcd "/1:3] {{98 99 100}}
+    test line-interpolation {
+      def x 5
+      def two-statements {
+        def x 10
+        echo $x
+      }
+      #== $@x 5
+      $'two-statements
+      #== $@x 10
+    }
 
-    #== $@[/usr/bin/bash :(^/bin)] /bin
-    #== $@[../.. :/^..] ..
+    test list-accessors {
+      def xs (foo bar bif baz)
+      #== $@(@ 0 $xs) foo
+      #== $@(@ 1 $xs) bar
+      #== $@(@ 2 $xs) bif
+      #== $@(@ 3 $xs) baz
+      #== $@(@ ^foo $xs) foo
 
-    def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
-    #-> {echo hi} hi 
+      test {$[]-expansion} {
+        #== $@[there echo/hi]              {hi there}
+        #== $@[spencer echo/there echo/hi] {hi there spencer}
+
+        #== $@[$^xs @/0]   foo
+        #== $@[$^xs @/-1]  baz
+        #== $@[$^xs @/-2]  bif
+        #== $@[$^xs @/:]   {{foo bar bif baz}}
+        #== $@[$^xs @/1:]  {{bar bif baz}}
+        #== $@[$^xs @/:1]  {{foo bar}}
+        #== $@[$^xs @/:-2] {{foo bar bif}}
+        #== $@[$^xs @/3:1] {{baz bif bar}}
+
+        #== $@[$^xs @/^bar] bar
+        #== $@[$^xs @/^bif] bif
+        #== $@[$^xs @/^notfound] {}
+
+        #== $@[$^xs @{0 2}]    {{foo bif}}
+        #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
+        #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
+      }
+    }
+
+    test associative-maps {
+      def associative {
+        foo bar
+        bif baz
+      }
+      #== $@[$associative '/^foo] {{    foo bar}}
+      #== $@[$associative '/^foo @/1] bar
+      #== $@[$associative '/^bif @/1] baz
+      #== $@[$associative '/^bok] {}
+
+      #== $@[$associative '/#] 4
+      #== $@[$associative @/#] 4
+    }
+
+    test byte-lists {
+      #== $@[abcd "/0] 97
+      #== $@[abcd "/1:3] {{98 99 100}}
+    }
+
+    test path-lists {
+      #== $@[/usr/bin/bash :(^/bin)] /bin
+      #== $@[../.. :/^..] ..
+    }
+
+    test macro-definition {
+      def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
+      #-> {echo hi} hi
+    } 
 
 REPL
 ====

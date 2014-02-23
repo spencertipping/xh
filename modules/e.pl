@@ -156,7 +156,7 @@ sub evaluate {
     $s = $new_s;
 
     # If that killed our value, then we have nothing to do.
-    next unless length $s;
+    next unless @words = xh::v::parse_words $s;
 
     # Step 3: See if the interpolation produced multiple lines. If so, we
     # need to re-expand. Otherwise we can do a single function call.
@@ -167,7 +167,7 @@ sub evaluate {
       # function and call it. If it's Perl native, then we're set; we just
       # call that on the newly-parsed arg list. Otherwise delegate to
       # create a new call frame and locals.
-      $result = eval {call $binding_stack, xh::v::parse_words $s};
+      $result = eval {call $binding_stack, @words};
       die "$@ in $s (while evaluating $original)" if $@;
     }
   }
