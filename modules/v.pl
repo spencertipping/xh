@@ -123,6 +123,7 @@ sub split_by_interpolation {
       # 2. We close a list to get back out to the interpolation depth.
       # 3. We observe whitespace.
       # 4. We observe a path separator.
+      # 5. We hit a backslash.
 
       if ($sublist_depth < $interpolating_depth
           or $sublist_depth == $interpolating_depth
@@ -136,6 +137,10 @@ sub split_by_interpolation {
                && $closed_something) {
         push @result, "$current_item$piece";
         $current_item  = '';
+        $interpolating = 0;
+      } elsif ($sublist_depth == $interpolating_depth && $piece =~ /^\\/) {
+        push @result, $current_item if length $current_item;
+        $current_item  = $piece;
         $interpolating = 0;
       } else {
         # Still interpolating, so collect the piece.

@@ -73,30 +73,29 @@ sub interpolate_dollar {
 
     return interpolate_wrap $prefix, $initial;
   } elsif ($rhs =~ /^\{/) {
-    $rhs = xh::v::unbox $rhs;
+    # Interpolated quotation, possibly under a different scope index.
+    my $index         = scope_index_for $prefix;
+    my $calling_stack = truncated_stack($binding_stack, $index);
+
+    return interpolate_wrap $prefix,
+      interpolate $calling_stack, xh::v::unbox $rhs;
   } else {
     # It's either a plain word or another $-term. Either way, go ahead and
     # interpolate it so that it's ready for this operator.
     $rhs = xh::v::unbox interpolate $binding_stack, $rhs;
-  }
 
-  # Try to unwrap any layers around the RHS. Any braces at this point mean
-  # that it's artificially quoted, or that the RHS is unusable.
-  while ($rhs =~ /^\{/) {
-    my $new_rhs = xh::v::unbox $rhs;
-    die "illegal interpolation: $rhs" if $new_rhs eq $rhs;
-    $rhs = $new_rhs;
+    my $index = scope_index_for $prefix;
+    interpolate_wrap $prefix,
+      $$binding_stack[$index]{$rhs}
+      // $$binding_stack[0]{$rhs}
+      // die "unbound var: $rhs (bound vars are ["
+             . join(' ', sort keys %{$$binding_stack[$index]})
+             . "] locally, ["
+             . join(' ', sort keys %{$$binding_stack[$index - 1]})
+             . " ] in parent stack, ["
+             . join(' ', sort keys %{$$binding_stack[0]})
+             . "] globally)";
   }
-
-  my $index = scope_index_for $prefix;
-  interpolate_wrap $prefix,
-    $$binding_stack[$index]{$rhs}
-    // $$binding_stack[0]{$rhs}
-    // die "unbound var: $rhs (bound vars are ["
-           . join(' ', sort keys %{$$binding_stack[$index]})
-           . "] locally, ["
-           . join(' ', sort keys %{$$binding_stack[0]})
-           . "] globally)";
 }
 
 sub interpolate {

@@ -1,0 +1,18 @@
+BEGIN {xh::defmodule('xh::list.xh', <<'_')}
+defn @each [v f xs] {
+  def i 0
+  def n $[$xs @/#]
+  while {math< $i $n} {
+    ^ 1 ${def $v $[$xs @/$i] \n $'f}
+    def i $(math+ $i 1)
+  }
+}
+
+defn @m [f xs] {
+  def ys {}
+  @each x {def ys ($@ys $(f $@x))} $xs
+  echo $ys
+}
+
+#== $(@m {math+ 1 $_} [1 2 3]) {{2 3 4}}
+_

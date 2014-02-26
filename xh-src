@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  08dbbcbdda496892bac14cb6d1b0c64c
-# istate: 81b58a9b2fd9b40015cf52ff45f1b944
+# state:  715e09a7267545a4071ee2dc97051583
+# istate: 1022ca0dbacecef4d46998be0cd9ce56
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2096,6 +2096,7 @@ meta::psection('implementation', <<'__');
           # 2. We close a list to get back out to the interpolation depth.
           # 3. We observe whitespace.
           # 4. We observe a path separator.
+          # 5. We hit a backslash.
 
           if ($sublist_depth < $interpolating_depth
               or $sublist_depth == $interpolating_depth
@@ -2109,6 +2110,10 @@ meta::psection('implementation', <<'__');
                    && $closed_something) {
             push @result, "$current_item$piece";
             $current_item  = '';
+            $interpolating = 0;
+          } elsif ($sublist_depth == $interpolating_depth && $piece =~ /^\\/) {
+            push @result, $current_item if length $current_item;
+            $current_item  = $piece;
             $interpolating = 0;
           } else {
             # Still interpolating, so collect the piece.
@@ -2223,30 +2228,29 @@ meta::psection('implementation', <<'__');
 
         return interpolate_wrap $prefix, $initial;
       } elsif ($rhs =~ /^\{/) {
-        $rhs = xh::v::unbox $rhs;
+        # Interpolated quotation, possibly under a different scope index.
+        my $index         = scope_index_for $prefix;
+        my $calling_stack = truncated_stack($binding_stack, $index);
+
+        return interpolate_wrap $prefix,
+          interpolate $calling_stack, xh::v::unbox $rhs;
       } else {
         # It's either a plain word or another $-term. Either way, go ahead and
         # interpolate it so that it's ready for this operator.
         $rhs = xh::v::unbox interpolate $binding_stack, $rhs;
-      }
 
-      # Try to unwrap any layers around the RHS. Any braces at this point mean
-      # that it's artificially quoted, or that the RHS is unusable.
-      while ($rhs =~ /^\{/) {
-        my $new_rhs = xh::v::unbox $rhs;
-        die "illegal interpolation: $rhs" if $new_rhs eq $rhs;
-        $rhs = $new_rhs;
+        my $index = scope_index_for $prefix;
+        interpolate_wrap $prefix,
+          $$binding_stack[$index]{$rhs}
+          // $$binding_stack[0]{$rhs}
+          // die "unbound var: $rhs (bound vars are ["
+                 . join(' ', sort keys %{$$binding_stack[$index]})
+                 . "] locally, ["
+                 . join(' ', sort keys %{$$binding_stack[$index - 1]})
+                 . " ] in parent stack, ["
+                 . join(' ', sort keys %{$$binding_stack[0]})
+                 . "] globally)";
       }
-
-      my $index = scope_index_for $prefix;
-      interpolate_wrap $prefix,
-        $$binding_stack[$index]{$rhs}
-        // $$binding_stack[0]{$rhs}
-        // die "unbound var: $rhs (bound vars are ["
-               . join(' ', sort keys %{$$binding_stack[$index]})
-               . "] locally, ["
-               . join(' ', sort keys %{$$binding_stack[0]})
-               . "] globally)";
     }
 
     sub interpolate {
@@ -2333,10 +2337,12 @@ meta::psection('implementation', <<'__');
 
   - perlmodule xh::globals modules/globals.pl << end
     sub def {
-      my ($binding_stack, %args) = @_;
-      $$binding_stack[-1]{$_} = $args{$_} for keys %args;
+      my ($binding_stack, $n, %args) = @_;
+      $$binding_stack[-$n]{$_} = $args{$_} for keys %args;
       join ' ', keys %args;
     }
+
+    sub local_def {def $_[0], 1, @_[1..$#_]}
 
     sub echo {
       my ($binding_stack, @args) = @_;
@@ -2344,7 +2350,7 @@ meta::psection('implementation', <<'__');
     }
 
     sub comment       {''}
-    sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"}
+    sub print_from_xh {print STDERR join(' ', @_[1 .. $#_]), "\n"; ''}
 
     sub perl_eval {
       my $result = eval $_[1];
@@ -2367,14 +2373,57 @@ meta::psection('implementation', <<'__');
                    . xh::v::quote_default("$rhs (-> $expanded_rhs)");
     }
 
+    sub xh_if {
+      my ($binding_stack, $cond, $then, $else) = @_;
+      xh::e::evaluate $binding_stack, length $cond ? $then : $else;
+    }
+
+    sub xh_while {
+      my ($binding_stack, $cond, $body) = @_;
+      my $result;
+      $result = xh::e::evaluate $binding_stack, $body
+        while length xh::e::evaluate $binding_stack, $cond;
+      $result;
+    }
+
+    sub xh_not {
+      my ($binding_stack, $v) = @_;
+      length $v ? '' : '{}';
+    }
+
+    sub xh_eq {
+      my ($binding_stack, $x, $y) = @_;
+      $x eq $y ? "{" . xh::v::quote_as_word($x) . "}" : '';
+    }
+
+    sub xh_matches {
+      # NOTE: leaky abstraction (real xh regexps won't support all of the perl
+      # extensions)
+      my ($binding_stack, $pattern, $s) = @_;
+      $s =~ /$pattern/ ? "{" . xh::v::quote_as_word($s) . "}" : '';
+    }
+
+    sub escalate {
+      my ($binding_stack, $levels, $body) = @_;
+      xh::e::evaluate xh::e::truncated_stack($binding_stack, -($levels + 1)),
+                      $body;
+    }
+
     # Create an interpreter instance that lets us interpret modules written in
     # XH-script.
-    our $globals = [{def   => \&def,
-                     echo  => \&echo,
-                     print => \&print_from_xh,
-                     perl  => \&perl_eval,
-                     '#'   => \&comment,
-                     '#==' => \&assert_eq_macro}];
+    our $globals = [{def    => \&local_def,
+                     '^def' => \&def,
+                     '^'    => \&escalate,
+                     echo   => \&echo,
+                     print  => \&print_from_xh,
+                     perl   => \&perl_eval,
+                     if     => \&xh_if,
+                     while  => \&xh_while,
+                     not    => \&xh_not,
+                     '=='   => \&xh_eq,
+                     '=~'   => \&xh_matches,
+                     '#'    => \&comment,
+                     '#=='  => \&assert_eq_macro}];
 
     sub defglobals {
       my %vals = @_;
@@ -2551,146 +2600,215 @@ meta::psection('implementation', <<'__');
       xh::globals::defglobals '!' => \&explode;
     - end
 
+  - s1 Double-precision math | sec:double-precision-math
+    These functions are low-level and are usually called by generated code
+    rather than by hand. See \ref{chp:math-macro} for a macro that does this.
+
+    - perlmodule xh::math modules/bootmath.pl << end
+      sub binary_to_nary {
+        my ($f, $zero) = @_;
+        sub {
+          my ($bindings, $x, @args) = @_;
+          return $zero unless defined $x;
+          return &$f($zero, $x) unless @args;
+          $x = &$f($x, $_) for @args;
+          $x;
+        };
+      }
+
+      xh::globals::defglobals
+        "math$_" => binary_to_nary(eval "sub {\$_[0] $_ \$_[1]}", /^[*\/]$/)
+      for qw[+ - * / & | ! < > << >>];
+    - end
+
 - sc Bootstrap unit tests | chp:bootstrap-unit-tests
   This is our first layer of sanity checking for the interpreter. A failure
   here won't stop xh from running, but it will print a diagnostic message so we
   know something is up.
 
   - xhmodule bootunit modules/bootunit.xh << end
-    # This is a comment and should work properly.
-    # {
-      This is a block comment and should also work.
-    }
-    #== 1 1
-
     def test {
       def perltime {perl {use Time::HiRes qw/time/; time}}
       def start-time $(perltime)
       $'[$_ @/1!]
       def end-time $(perltime)
-      print tested $[$_ @/0] in $(perl (($end-time - $start-time) * 1000)) ms
+      print tested $[$_ @/0] in $(math* 1000 $(math- $end-time $start-time)) ms
     }
 
-    test basic-interpolation {
-      def foo bar
-      #== $@foo         bar
-      #== $@foo         {bar}
-      #== $@foo         (bar)
-      #== $@foo         [bar]
-      #== $foo          bar
-      #== $(echo $foo)  bar
-      #== $@(echo $foo) bar
-    }
-
-    test subroutines {
-      def greet {
-        echo hi there, $_
+    test everything {
+      # This is a comment and should work properly.
+      # {
+        This is a block comment and should also work.
       }
-      #== $@(greet spencer)         {hi there, spencer}
-      #== $@(greet spencer tipping) {hi there, spencer tipping}
+      #== 1 1
 
-      # Also anonymous functions:
-      #== $@($greet spencer)       {hi there, spencer}
-      #== $@({echo hi $_} spencer) {hi spencer}
-    }
-
-    test scoping {
-      def newdef {
-        # Define stuff within the calling scope; should be equivalent to using
-        # def.
-        echo $^(def $@_)
+      test basic-interpolation {
+        def foo bar
+        #== $@foo         bar
+        #== $@foo         {bar}
+        #== $@foo         (bar)
+        #== $@foo         [bar]
+        #== $foo          bar
+        #== $(echo $foo)  bar
+        #== $@(echo $foo) bar
       }
-      newdef x 5
-      #== $@x 5
-    }
 
-    test line-interpolation {
-      def x 5
-      def two-statements {
+      test subroutines {
+        def greet {
+          echo hi there, $_
+        }
+        #== $@(greet spencer)         {hi there, spencer}
+        #== $@(greet spencer tipping) {hi there, spencer tipping}
+
+        # Also anonymous functions:
+        #== $@($greet spencer)       {hi there, spencer}
+        #== $@({echo hi $_} spencer) {hi spencer}
+      }
+
+      test scoping {
+        def newdef {
+          # Define stuff within the calling scope; should be equivalent to
+          # using def.
+          echo $^(def $@_)
+        }
+        newdef x 5
+        #== $@x 5
+      }
+
+      test line-interpolation {
+        def x 5
+        def two-statements {
+          def x 10
+          echo $x
+        }
+        #== $@x 5
+        $'two-statements
+        #== $@x 10
+      }
+
+      test outer-interpolation {
+        def get-5-plus {
+          echo $(math+ $[$_ @/0] 5)
+        }
+        def inner {
+          echo $^(get-5-plus 10)
+        }
+        #== $(inner) 15
+      }
+
+      test list-accessors {
+        def xs (foo bar bif baz)
+        #== $@(@ 0 $xs) foo
+        #== $@(@ 1 $xs) bar
+        #== $@(@ 2 $xs) bif
+        #== $@(@ 3 $xs) baz
+        #== $@(@ ^foo $xs) foo
+
+        def ys ({foo} {bar bif} [baz] (bok))
+        #== $@(@% 0 $ys) {{foo}}
+        #== $@(@  0 $ys) foo
+        #== $@(@% 1 $ys) {{bar bif}}
+        #== $@(@  1 $ys) {{bar bif}}
+        #== $@(@% 2 $ys) {[baz]}
+        #== $@(@  2 $ys) baz
+        #== $@(@% 3 $ys) {(bok)}
+        #== $@(@  3 $ys) bok
+
+        test {$[]-expansion} {
+          #== $@[there echo/hi]              {hi there}
+          #== $@[spencer echo/there echo/hi] {hi there spencer}
+
+          #== $@[$^xs @/0]   foo
+          #== $@[$^xs @/-1]  baz
+          #== $@[$^xs @/-2]  bif
+          #== $@[$^xs @/:]   {{foo bar bif baz}}
+          #== $@[$^xs @/1:]  {{bar bif baz}}
+          #== $@[$^xs @/:1]  {{foo bar}}
+          #== $@[$^xs @/:-2] {{foo bar bif}}
+          #== $@[$^xs @/3:1] {{baz bif bar}}
+
+          #== $@[$^xs @/^bar] bar
+          #== $@[$^xs @/^bif] bif
+          #== $@[$^xs @/^notfound] {}
+
+          #== $@[$^xs @{0 2}]    {{foo bif}}
+          #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
+          #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
+        }
+      }
+
+      test list-updaters {
+        def xs (a b c d)
+        #== $@[$xs @=/0/b  !] {b b c d}
+        #== $@[$xs @=/-1/a !] {a b c a}
+      }
+
+      test associative-maps {
+        def associative {
+          foo bar
+          bif baz
+        }
+        #== $@[$associative '/^foo @(0 1)] {{foo bar}}
+        #== $@[$associative '/^foo @/1] bar
+        #== $@[$associative '/^bif @/1] baz
+        #== $@[$associative '/^bok] {}
+
+        #== $@[$associative '/#] 4
+        #== $@[$associative @/#] 4
+
+        #== $@[$associative '=/^foo[FOO BAR] '/^FOO @/1] BAR
+      }
+
+      test byte-lists {
+        #== $@[abcd "/0] 97
+        #== $@[abcd "/1:3] {{98 99 100}}
+      }
+
+      test path-lists {
+        #== $@[/usr/bin/bash :(^/bin)] /bin
+        #== $@[../.. :/^..] ..
+      }
+
+      test macro-definition {
+        def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
+        #-> {echo hi} hi
+      }
+
+      test equality-comparison {
         def x 10
-        echo $x
+        #== $(== $x 10) {{10}}
+        #== $(== {} {}) {{}}
+        #== $(== $x 9)  {}
+
+        #== $(not $(== $x 9))  {{}}
+        #== $(not $(== $x 10)) {}
       }
-      #== $@x 5
-      $'two-statements
-      #== $@x 10
-    }
 
-    test list-accessors {
-      def xs (foo bar bif baz)
-      #== $@(@ 0 $xs) foo
-      #== $@(@ 1 $xs) bar
-      #== $@(@ 2 $xs) bif
-      #== $@(@ 3 $xs) baz
-      #== $@(@ ^foo $xs) foo
-
-      def ys ({foo} {bar bif} [baz] (bok))
-      #== $@(@% 0 $ys) {{foo}}
-      #== $@(@  0 $ys) foo
-      #== $@(@% 1 $ys) {{bar bif}}
-      #== $@(@  1 $ys) {{bar bif}}
-      #== $@(@% 2 $ys) {[baz]}
-      #== $@(@  2 $ys) baz
-      #== $@(@% 3 $ys) {(bok)}
-      #== $@(@  3 $ys) bok
-
-      test {$[]-expansion} {
-        #== $@[there echo/hi]              {hi there}
-        #== $@[spencer echo/there echo/hi] {hi there spencer}
-
-        #== $@[$^xs @/0]   foo
-        #== $@[$^xs @/-1]  baz
-        #== $@[$^xs @/-2]  bif
-        #== $@[$^xs @/:]   {{foo bar bif baz}}
-        #== $@[$^xs @/1:]  {{bar bif baz}}
-        #== $@[$^xs @/:1]  {{foo bar}}
-        #== $@[$^xs @/:-2] {{foo bar bif}}
-        #== $@[$^xs @/3:1] {{baz bif bar}}
-
-        #== $@[$^xs @/^bar] bar
-        #== $@[$^xs @/^bif] bif
-        #== $@[$^xs @/^notfound] {}
-
-        #== $@[$^xs @{0 2}]    {{foo bif}}
-        #== $@[$^xs @{0 2:}]   {{foo {bif baz}}}
-        #== $@[$^xs @{0 {2:}}] {{foo {{bif baz}}}}
+      test conditions {
+        def x 5
+        if $(== $x 5) {def x 6} {def x 7}
+        #== $x 6
+        if $(== $x 5) {def x 8} {def x 9}
+        #== $x 9
       }
-    }
 
-    test list-updaters {
-      def xs (a b c d)
-      #== $@[$xs @=/0/b  !] {b b c d}
-      #== $@[$xs @=/-1/a !] {a b c a}
-    }
-
-    test associative-maps {
-      def associative {
-        foo bar
-        bif baz
+      test iteration {
+        def i     0
+        def count 0
+        while {not $(== $i 10)} {
+          def i     $(math+ $i     1)
+          def count $(math+ $count 1)
+        }
+        #== $count 10
+        #== $i     10
       }
-      #== $@[$associative '/^foo] {{    foo bar}}
-      #== $@[$associative '/^foo @/1] bar
-      #== $@[$associative '/^bif @/1] baz
-      #== $@[$associative '/^bok] {}
 
-      #== $@[$associative '/#] 4
-      #== $@[$associative @/#] 4
-
-      #== $@[$associative '=/^foo[FOO BAR] '/^FOO @/1] BAR
-    }
-
-    test byte-lists {
-      #== $@[abcd "/0] 97
-      #== $@[abcd "/1:3] {{98 99 100}}
-    }
-
-    test path-lists {
-      #== $@[/usr/bin/bash :(^/bin)] /bin
-      #== $@[../.. :/^..] ..
-    }
-
-    test macro-definition {
-      def #-> {echo #== \$@($@[$_ @/0]) $[$_ @/1]}
-      #-> {echo hi} hi
+      test float-math {
+        #== $(math+ 0 1) 1
+        #== $(math/ 4 8) 0.5
+        #== $(math< 3 4) 1
+        #== $(math< 5 4) {}
+      }
     }
   - end
 
@@ -2726,6 +2844,50 @@ meta::psection('implementation', <<'__');
       }
     }
   - end
+
+- sp xh standard library | part:xh-standard-library
+- sc Function functions | chp:function-functions
+  - xhmodule xh::fn modules/fn.xh << end
+    def defn {
+      def fname $[$_ @/0]
+      def args  $[$_ @/1]
+      def body  $[$_ @/2]
+
+      def i 0
+      def argdefs {}
+      while {math< $i $[$args @/#]} {
+        def argdefs [$'argdefs \n def $[$args @/$i] \$[\$_ @/$i]]
+        def i $(math+ $i 1)
+      }
+
+      ^def 2 $fname ${$'argdefs \n $'body}
+    }
+  - end
+
+- sc List functions | chp:list-functions
+  The usual suspects.
+
+  - xhmodule xh::list modules/list.xh << end
+    defn @each [v f xs] {
+      def i 0
+      def n $[$xs @/#]
+      while {math< $i $n} {
+        ^ 1 ${def $v $[$xs @/$i] \n $'f}
+        def i $(math+ $i 1)
+      }
+    }
+
+    defn @m [f xs] {
+      def ys {}
+      @each x {def ys ($@ys $(f $@x))} $xs
+      echo $ys
+    }
+
+    #== $(@m {math+ 1 $_} [1 2 3]) {{2 3 4}}
+  - end
+
+- sc Math macro | chp:math-macro
+  The math macro converts infix math to low-level prefix instructions.
 
 __
 meta::resource('header', <<'__');
@@ -2823,18 +2985,22 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__5');
+meta::sdoc('xh', <<'__f');
 - include boot/xh-header
 - include modules/v.pl
 - include modules/e.pl
 - include modules/globals.pl
 - include modules/bootlist.pl
+- include modules/bootmath.pl
 - include modules/main.pl
 - include modules/bootunit.xh
+
+- include modules/fn.xh
+- include modules/list.xh
 xh::main::main;
 __DATA__
 
-__5
+__f
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

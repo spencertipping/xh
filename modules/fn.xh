@@ -1,0 +1,16 @@
+BEGIN {xh::defmodule('xh::fn.xh', <<'_')}
+def defn {
+  def fname $[$_ @/0]
+  def args  $[$_ @/1]
+  def body  $[$_ @/2]
+
+  def i 0
+  def argdefs {}
+  while {math< $i $[$args @/#]} {
+    def argdefs [$'argdefs \n def $[$args @/$i] \$[\$_ @/$i]]
+    def i $(math+ $i 1)
+  }
+
+  ^def 2 $fname ${$'argdefs \n $'body}
+}
+_
