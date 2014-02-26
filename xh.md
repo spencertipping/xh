@@ -17,6 +17,29 @@ Current issues
 
 6.  No support for namespaces (partially due to 2).
 
+7.  Boxing-on-demand makes it very difficult (impossible?) to write
+    higher-order functions that forward multiple return values.
+
+8.  Associative list retrieval is a hack in that it doesn’t work across
+    list levels. This probably gets back to 4.
+
+9.  Interpolation for closures is really obnoxious because you have to
+    escape everything you’re not interpolating. It’s also impossible to
+    define some sort of identity where `$x` expands to `$x` for
+    undefined variables, since some expansions are function calls rather
+    than simple values.
+
+    It’s probably possible to fix this using some kind of namespaced
+    quote/unquote operators – but it’s unclear what the syntax for that
+    should be. This feature also wouldn’t address the normal
+    function-call case because it doesn’t delay expansion for later
+    statements; this is probably a by-product of the fact that
+    interpolation is defined independently of evaluation.
+
+10. The level of list-splitting is generally an implementation detail;
+    it’s unclear to me, for example, when it would be appropriate to
+    forward line splits or to compress them into word splits.
+
 [part:language-reference]
 
 Expansion syntax
@@ -397,7 +420,7 @@ redeeming virtue is that it supports macroexpansion.
       } elsif ($rhs =~ /^\{/) {
         # Interpolated quotation, possibly under a different scope index.
         my $index         = scope_index_for $prefix;
-        my $calling_stack = truncated_stack($binding_stack, $index);
+        my $calling_stack = truncated_stack $binding_stack, $index;
 
         return interpolate_wrap $prefix,
           interpolate $calling_stack, xh::v::unbox $rhs;
@@ -410,7 +433,7 @@ redeeming virtue is that it supports macroexpansion.
         interpolate_wrap $prefix,
           $$binding_stack[$index]{$rhs}
           // $$binding_stack[0]{$rhs}
-          // die "unbound var: $rhs (bound vars are ["
+          // die "unbound var: [$rhs] (bound vars are ["
                  . join(' ', sort keys %{$$binding_stack[$index]})
                  . "] locally, ["
                  . join(' ', sort keys %{$$binding_stack[$index - 1]})
@@ -1045,7 +1068,7 @@ Function functions
         def i $(math+ $i 1)
       }
 
-      ^def 2 $fname ${$'argdefs \n $'body}
+      ^ 1 ${def $fname ${$'argdefs \n $'body}}
     } 
 
 List functions
@@ -1056,22 +1079,37 @@ List functions
     defn @each [v f xs] {
       def i 0
       def n $[$xs @/#]
+      def r {}
       while {math< $i $n} {
-        ^ 1 ${def $v $[$xs @/$i] \n $'f}
+        def r [$^@(def $v $[$xs @/$i] \n $'f)]
         def i $(math+ $i 1)
       }
+      echo $@r
     }
 
     defn @m [f xs] {
       def ys {}
-      @each x {def ys ($@ys $(f $@x))} $xs
-      echo $ys
+      @each x {def ys [$@ys $(f $x)] \n echo $ys} $xs
     }
 
-    #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}} 
+    defn @r [f zero xs] {
+      @each x {def zero $(f $zero $x) \n echo $zero} $xs
+    }
+
+    #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}}
+    #== $[[1 2 3] @r/math+/0] 6 
 
 Math macro
 ==========
 
 [chp:math-macro] The math macro converts infix math to low-level prefix
 instructions.
+
+    def operator-precedence {</4 >/4 +/3 -/3 */2 {/}/2}
+
+    #== $[$operator-precedence @/^< :/1] 4
+    #== $[$operator-precedence @/^{/} :/1] 4
+
+    def #m {
+      # TODO
+    } 

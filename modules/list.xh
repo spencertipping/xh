@@ -2,17 +2,23 @@ BEGIN {xh::defmodule('xh::list.xh', <<'_')}
 defn @each [v f xs] {
   def i 0
   def n $[$xs @/#]
+  def r {}
   while {math< $i $n} {
-    ^ 1 ${def $v $[$xs @/$i] \n $'f}
+    def r [$^@(def $v $[$xs @/$i] \n $'f)]
     def i $(math+ $i 1)
   }
+  echo $@r
 }
 
 defn @m [f xs] {
   def ys {}
-  @each x {def ys ($@ys $(f $@x))} $xs
-  echo $ys
+  @each x {def ys [$@ys $(f $x)] \n echo $ys} $xs
+}
+
+defn @r [f zero xs] {
+  @each x {def zero $(f $zero $x) \n echo $zero} $xs
 }
 
 #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}}
+#== $[[1 2 3] @r/math+/0] 6
 _

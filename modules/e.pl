@@ -76,7 +76,7 @@ sub interpolate_dollar {
   } elsif ($rhs =~ /^\{/) {
     # Interpolated quotation, possibly under a different scope index.
     my $index         = scope_index_for $prefix;
-    my $calling_stack = truncated_stack($binding_stack, $index);
+    my $calling_stack = truncated_stack $binding_stack, $index;
 
     return interpolate_wrap $prefix,
       interpolate $calling_stack, xh::v::unbox $rhs;
@@ -89,7 +89,7 @@ sub interpolate_dollar {
     interpolate_wrap $prefix,
       $$binding_stack[$index]{$rhs}
       // $$binding_stack[0]{$rhs}
-      // die "unbound var: $rhs (bound vars are ["
+      // die "unbound var: [$rhs] (bound vars are ["
              . join(' ', sort keys %{$$binding_stack[$index]})
              . "] locally, ["
              . join(' ', sort keys %{$$binding_stack[$index - 1]})

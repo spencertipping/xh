@@ -315,7 +315,7 @@ sub interpolate_dollar {
   } elsif ($rhs =~ /^\{/) {
     # Interpolated quotation, possibly under a different scope index.
     my $index         = scope_index_for $prefix;
-    my $calling_stack = truncated_stack($binding_stack, $index);
+    my $calling_stack = truncated_stack $binding_stack, $index;
 
     return interpolate_wrap $prefix,
       interpolate $calling_stack, xh::v::unbox $rhs;
@@ -328,7 +328,7 @@ sub interpolate_dollar {
     interpolate_wrap $prefix,
       $$binding_stack[$index]{$rhs}
       // $$binding_stack[0]{$rhs}
-      // die "unbound var: $rhs (bound vars are ["
+      // die "unbound var: [$rhs] (bound vars are ["
              . join(' ', sort keys %{$$binding_stack[$index]})
              . "] locally, ["
              . join(' ', sort keys %{$$binding_stack[$index - 1]})
@@ -922,7 +922,7 @@ def defn {
     def i $(math+ $i 1)
   }
 
-  ^def 2 $fname ${$'argdefs \n $'body}
+  ^ 1 ${def $fname ${$'argdefs \n $'body}}
 }
 _
 
@@ -930,20 +930,38 @@ BEGIN {xh::defmodule('xh::list.xh', <<'_')}
 defn @each [v f xs] {
   def i 0
   def n $[$xs @/#]
+  def r {}
   while {math< $i $n} {
-    ^ 1 ${def $v $[$xs @/$i] \n $'f}
+    def r [$^@(def $v $[$xs @/$i] \n $'f)]
     def i $(math+ $i 1)
   }
+  echo $@r
 }
 
 defn @m [f xs] {
   def ys {}
-  @each x {def ys ($@ys $(f $@x))} $xs
-  echo $ys
+  @each x {def ys [$@ys $(f $x)] \n echo $ys} $xs
+}
+
+defn @r [f zero xs] {
+  @each x {def zero $(f $zero $x) \n echo $zero} $xs
 }
 
 #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}}
+#== $[[1 2 3] @r/math+/0] 6
 _
+
+BEGIN {xh::defmodule('xh::math.xh', <<'_')}
+def operator-precedence {</4 >/4 +/3 -/3 */2 {/}/2}
+
+#== $[$operator-precedence @/^< :/1] 4
+#== $[$operator-precedence @/^{/} :/1] 4
+
+def #m {
+  # TODO
+}
+_
+
 
 xh::main::main;
 __DATA__
