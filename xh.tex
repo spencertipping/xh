@@ -35,6 +35,29 @@
 \tableofcontents{}
 
 
+\chapter{Current issues}\label{chp:current-issues}
+\begin{enumerate}
+\item{}
+  Different syntax for \verb|$^| and \verb|^| (\verb|^| expects a number).
+
+\item{}
+  No support for scope extension/inheritance, so all sub-scopes with new
+  variables end up polluting the parents.
+
+\item{}
+  Any var/fn starting with @ or \verb|^| can't be \verb|$|-expanded without
+  some work.
+
+\item{}
+  It isn't obvious what kind of list should be used for what purpose.
+
+\item{}
+  It also isn't obvious what kind of bracket should be used.
+
+\item{}
+  No support for namespaces (partially due to 2).
+\end{enumerate}
+
 \part{Language reference}\label{part:language-reference}
 \chapter{Expansion syntax}\label{chp:expansion-syntax}
 \begin{verbatim}
@@ -396,6 +419,7 @@ sub interpolate_dollar {
     # Lists also work, but there is no difference between () and [], which
     # is a horrible oversight that should probably be addressed at some
     # point.
+    $initial = xh::v::quote_as_word $initial;
     $initial = call $calling_stack,
                     (map {s/^\///r} xh::v::parse_path($_)),
                     xh::v::parse_words $initial
@@ -523,7 +547,7 @@ sub local_def {def $_[0], 1, @_[1..$#_]}
 
 sub echo {
   my ($binding_stack, @args) = @_;
-  join ' ', @args;
+  join ' ', map xh::v::quote_as_word($_), @args;
 }
 
 sub comment       {''}
@@ -837,7 +861,7 @@ test everything {
 
   test subroutines {
     def greet {
-      echo hi there, $_
+      echo hi there, $@_
     }
     #== $@(greet spencer)         {hi there, spencer}
     #== $@(greet spencer tipping) {hi there, spencer tipping}
@@ -1065,7 +1089,7 @@ defn @m [f xs] {
   echo $ys
 }
 
-#== $(@m {math+ 1 $_} [1 2 3]) {{2 3 4}} \end{xhcode}
+#== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}} \end{xhcode}
 
 \chapter{Math macro}\label{chp:math-macro}
   The math macro converts infix math to low-level prefix instructions.

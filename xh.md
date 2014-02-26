@@ -1,3 +1,22 @@
+Current issues
+==============
+
+[chp:current-issues]
+
+1.  Different syntax for `$^` and `^` (`^` expects a number).
+
+2.  No support for scope extension/inheritance, so all sub-scopes with
+    new variables end up polluting the parents.
+
+3.  Any var/fn starting with @ or `^` can’t be `$`-expanded without some
+    work.
+
+4.  It isn’t obvious what kind of list should be used for what purpose.
+
+5.  It also isn’t obvious what kind of bracket should be used.
+
+6.  No support for namespaces (partially due to 2).
+
 [part:language-reference]
 
 Expansion syntax
@@ -368,6 +387,7 @@ redeeming virtue is that it supports macroexpansion.
         # Lists also work, but there is no difference between () and [], which
         # is a horrible oversight that should probably be addressed at some
         # point.
+        $initial = xh::v::quote_as_word $initial;
         $initial = call $calling_stack,
                         (map {s/^\///r} xh::v::parse_path($_)),
                         xh::v::parse_words $initial
@@ -496,7 +516,7 @@ This is solved by defining the def function and list/hash accessors.
 
     sub echo {
       my ($binding_stack, @args) = @_;
-      join ' ', @args;
+      join ' ', map xh::v::quote_as_word($_), @args;
     }
 
     sub comment       {''}
@@ -814,7 +834,7 @@ will print a diagnostic message so we know something is up.
 
       test subroutines {
         def greet {
-          echo hi there, $_
+          echo hi there, $@_
         }
         #== $@(greet spencer)         {hi there, spencer}
         #== $@(greet spencer tipping) {hi there, spencer tipping}
@@ -1048,7 +1068,7 @@ List functions
       echo $ys
     }
 
-    #== $(@m {math+ 1 $_} [1 2 3]) {{2 3 4}} 
+    #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}} 
 
 Math macro
 ==========

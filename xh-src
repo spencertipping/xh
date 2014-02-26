@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  715e09a7267545a4071ee2dc97051583
+# state:  fa28d73c16b91f3b7e225385aa9f89f1
 # istate: 1022ca0dbacecef4d46998be0cd9ce56
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -335,6 +335,7 @@ meta::alias('eI', 'edit sdoc::xh');
 meta::alias('eM', 'edit function::make');
 meta::alias('ei', 'edit psection::implementation');
 meta::alias('em', 'edit section::main');
+meta::alias('r', 'sh boot/xh');
 meta::bootstrap('html', <<'__');
 <html>
   <head>
@@ -1861,6 +1862,29 @@ parent::object               20c70a494394d86d886f9f03e94e330b
 __
 meta::psection('implementation', <<'__');
 
+- sc Current issues | chp:current-issues
+  - enumerate << end
+    - item
+      Different syntax for \verb|$^| and \verb|^| (\verb|^| expects a number).
+
+    - item
+      No support for scope extension/inheritance, so all sub-scopes with new
+      variables end up polluting the parents.
+
+    - item
+      Any var/fn starting with @ or \verb|^| can't be \verb|$|-expanded without
+      some work.
+
+    - item
+      It isn't obvious what kind of list should be used for what purpose.
+
+    - item
+      It also isn't obvious what kind of bracket should be used.
+
+    - item
+      No support for namespaces (partially due to 2).
+  - end
+
 - sp Language reference | part:language-reference
 - sc Expansion syntax | chp:expansion-syntax
   - verbatim << end
@@ -2221,6 +2245,7 @@ meta::psection('implementation', <<'__');
         # Lists also work, but there is no difference between () and [], which
         # is a horrible oversight that should probably be addressed at some
         # point.
+        $initial = xh::v::quote_as_word $initial;
         $initial = call $calling_stack,
                         (map {s/^\///r} xh::v::parse_path($_)),
                         xh::v::parse_words $initial
@@ -2346,7 +2371,7 @@ meta::psection('implementation', <<'__');
 
     sub echo {
       my ($binding_stack, @args) = @_;
-      join ' ', @args;
+      join ' ', map xh::v::quote_as_word($_), @args;
     }
 
     sub comment       {''}
@@ -2655,7 +2680,7 @@ meta::psection('implementation', <<'__');
 
       test subroutines {
         def greet {
-          echo hi there, $_
+          echo hi there, $@_
         }
         #== $@(greet spencer)         {hi there, spencer}
         #== $@(greet spencer tipping) {hi there, spencer tipping}
@@ -2883,7 +2908,7 @@ meta::psection('implementation', <<'__');
       echo $ys
     }
 
-    #== $(@m {math+ 1 $_} [1 2 3]) {{2 3 4}}
+    #== $[[1 2 3] @m{math+ 1 $_} @/:] {{2 3 4}}
   - end
 
 - sc Math macro | chp:math-macro

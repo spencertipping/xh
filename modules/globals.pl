@@ -9,7 +9,7 @@ sub local_def {def $_[0], 1, @_[1..$#_]}
 
 sub echo {
   my ($binding_stack, @args) = @_;
-  join ' ', @args;
+  join ' ', map xh::v::quote_as_word($_), @args;
 }
 
 sub comment       {''}

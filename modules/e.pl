@@ -66,6 +66,7 @@ sub interpolate_dollar {
     # Lists also work, but there is no difference between () and [], which
     # is a horrible oversight that should probably be addressed at some
     # point.
+    $initial = xh::v::quote_as_word $initial;
     $initial = call $calling_stack,
                     (map {s/^\///r} xh::v::parse_path($_)),
                     xh::v::parse_words $initial

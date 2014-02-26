@@ -27,7 +27,7 @@ test everything {
 
   test subroutines {
     def greet {
-      echo hi there, $_
+      echo hi there, $@_
     }
     #== $@(greet spencer)         {hi there, spencer}
     #== $@(greet spencer tipping) {hi there, spencer tipping}
