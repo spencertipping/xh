@@ -1,44 +1,61 @@
 Current issues
 ==============
 
-[chp:current-issues]
+[chp:current-issues] Sorted by roughly descending priority.
 
-1.  Different syntax for `$^` and `^` (`^` expects a number).
+Design problems
+---------------
 
-2.  No support for scope extension/inheritance, so all sub-scopes with
-    new variables end up polluting the parents.
+[sec:design-problems]
 
-3.  Any var/fn starting with @ or `^` can’t be `$`-expanded without some
-    work.
+1.  [item:no-scope-extension] No support for scope
+    extension/inheritance, so all sub-scopes with new variables end up
+    polluting the parents. (Let’s actually assume that everything having
+    to do with scope referencing is totally horked.)
 
-4.  It isn’t obvious what kind of list should be used for what purpose.
-
-5.  It also isn’t obvious what kind of bracket should be used.
-
-6.  No support for namespaces (partially due to 2).
-
-7.  Boxing-on-demand makes it very difficult (impossible?) to write
-    higher-order functions that forward multiple return values.
-
-8.  Associative list retrieval is a hack in that it doesn’t work across
-    list levels. This probably gets back to 4.
-
-9.  Interpolation for closures is really obnoxious because you have to
-    escape everything you’re not interpolating. It’s also impossible to
-    define some sort of identity where `$x` expands to `$x` for
-    undefined variables, since some expansions are function calls rather
-    than simple values.
+2.  [item:obnoxious-closures] Interpolation for closures is really
+    obnoxious because you have to escape everything you’re not
+    interpolating. It’s also impossible to define some sort of identity
+    where `$x` expands to `$x` for undefined variables, since some
+    expansions are function calls rather than simple values.
 
     It’s probably possible to fix this using some kind of namespaced
     quote/unquote operators – but it’s unclear what the syntax for that
     should be. This feature also wouldn’t address the normal
     function-call case because it doesn’t delay expansion for later
-    statements; this is probably a by-product of the fact that
-    interpolation is defined independently of evaluation.
+    statements or for macros; this is probably a by-product of the fact
+    that interpolation is defined independently of evaluation.
 
-10. The level of list-splitting is generally an implementation detail;
-    it’s unclear to me, for example, when it would be appropriate to
-    forward line splits or to compress them into word splits.
+    There are a few ways to solve this:
+
+    1.  Make argument interpolation a first-class idea (dangerous)
+
+    2.  Remove macros altogether
+
+    3.  Decouple macros from runtime state
+
+    4.  Impose some kind of monotonicity on local bindings
+
+3.  [item:what-kind-of-list] It isn’t obvious what kind of list should
+    be used for what purpose.
+
+    It’s not clear to me that this is a solvable problem. The degrees of
+    freedom within most data formats are specifically designed to
+    accommodate alternative layouts; whitespace-independence is
+    generally considered a virtue.
+
+4.  [item:what-kind-of-bracket] It also isn’t obvious what kind of
+    bracket should be used.
+
+5.  [item:no-expression-macros] There is no way to define
+    expression-macros; e.g. `$0` to mean `$[$_ @/0]`.
+
+6.  [item:ambiguous-eta-expansion] Calling a single-word anonymous
+    function with no arguments causes arguments to be added spuriously.
+
+7.  [item:associative-retrieval] Associative list retrieval is a hack in
+    that it doesn’t work across list levels. This probably gets back to
+    [item:what-kind-of-list].
 
 [part:language-reference]
 

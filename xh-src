@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  58dfea6b1bdbc67707610a8c997ba02b
-# istate: fb9eb35edb30deb1aaeeecf2219993c7
+# state:  de623d31cf55c6b10e0c9afbfa4a1c6f
+# istate: 50f2a98b814b6dd6c433581f1342cffb
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -706,6 +706,10 @@ file::write('boot/xh', retrieve('pp::sdoc::xh'));
 chmod 0700, 'boot/xh';   system 'boot/xh   --recompile > boot/xh-1';
 chmod 0700, 'boot/xh-1'; system 'boot/xh-1 --recompile > xh';
 chmod 0700, 'xh';
+
+# Non-TeX documentation
+mkdir 'doc' unless -d 'doc';
+file::write("doc/$_.md", "markdown::note::$_") for grep s/^note::/$1/, sort keys %data;
 
 unless ($$options{-T}) {
   file::write('xh.tex', $tex);
@@ -1863,54 +1867,68 @@ __
 meta::psection('implementation', <<'__');
 
 - sc Current issues | chp:current-issues
-  - enumerate << end
-    - item
-      Different syntax for \verb|$^| and \verb|^| (\verb|^| expects a number).
+  Sorted by roughly descending priority.
 
-    - item
-      No support for scope extension/inheritance, so all sub-scopes with new
-      variables end up polluting the parents.
+  - s1 Design problems | sec:design-problems
+    - enumerate << end
+      - item
+        \label{item:no-scope-extension}
+        No support for scope extension/inheritance, so all sub-scopes with new
+        variables end up polluting the parents. (Let's actually assume that
+        everything having to do with scope referencing is totally horked.)
 
-    - item
-      Any var/fn starting with @ or \verb|^| can't be \verb|$|-expanded without
-      some work.
+      - item
+        \label{item:obnoxious-closures}
+        Interpolation for closures is really obnoxious because you have to
+        escape everything you're not interpolating. It's also impossible to
+        define some sort of identity where \verb|$x| expands to \verb|$x| for
+        undefined variables, since some expansions are function calls rather
+        than simple values.
 
-    - item
-      It isn't obvious what kind of list should be used for what purpose.
+        It's probably possible to fix this using some kind of namespaced
+        quote/unquote operators -- but it's unclear what the syntax for that
+        should be. This feature also wouldn't address the normal function-call
+        case because it doesn't delay expansion for later statements or for
+        macros; this is probably a by-product of the fact that interpolation is
+        defined independently of evaluation.
 
-    - item
-      It also isn't obvious what kind of bracket should be used.
+        There are a few ways to solve this:
 
-    - item
-      No support for namespaces (partially due to 2).
+        - enumerate << end
+          - item Make argument interpolation a first-class idea (dangerous)
+          - item Remove macros altogether
+          - item Decouple macros from runtime state
+          - item Impose some kind of monotonicity on local bindings
+        - end
 
-    - item
-      Boxing-on-demand makes it very difficult (impossible?)~to write
-      higher-order functions that forward multiple return values.
+      - item
+        \label{item:what-kind-of-list}
+        It isn't obvious what kind of list should be used for what purpose.
 
-    - item
-      Associative list retrieval is a hack in that it doesn't work across list
-      levels. This probably gets back to 4.
+        It's not clear to me that this is a solvable problem. The degrees of
+        freedom within most data formats are specifically designed to
+        accommodate alternative layouts; whitespace-independence is generally
+        considered a virtue.
 
-    - item
-      Interpolation for closures is really obnoxious because you have to escape
-      everything you're not interpolating. It's also impossible to define some
-      sort of identity where \verb|$x| expands to \verb|$x| for undefined
-      variables, since some expansions are function calls rather than simple
-      values.
+      - item
+        \label{item:what-kind-of-bracket}
+        It also isn't obvious what kind of bracket should be used.
 
-      It's probably possible to fix this using some kind of namespaced
-      quote/unquote operators -- but it's unclear what the syntax for that
-      should be. This feature also wouldn't address the normal function-call
-      case because it doesn't delay expansion for later statements; this is
-      probably a by-product of the fact that interpolation is defined
-      independently of evaluation.
+      - item
+        \label{item:no-expression-macros}
+        There is no way to define expression-macros; e.g.~\verb|$0| to mean
+        \verb|$[$_ @/0]|.
 
-    - item
-      The level of list-splitting is generally an implementation detail; it's
-      unclear to me, for example, when it would be appropriate to forward line
-      splits or to compress them into word splits.
-  - end
+      - item
+        \label{item:ambiguous-eta-expansion}
+        Calling a single-word anonymous function with no arguments causes
+        arguments to be added spuriously.
+
+      - item
+        \label{item:associative-retrieval}
+        Associative list retrieval is a hack in that it doesn't work across
+        list levels. This probably gets back to \ref{item:what-kind-of-list}.
+    - end
 
 - sp Language reference | part:language-reference
 - sc Expansion syntax | chp:expansion-syntax
