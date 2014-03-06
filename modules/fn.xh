@@ -11,6 +11,6 @@ def defn {
     def i $(math+ $i 1)
   }
 
-  ^ 1 ${def $fname ${$'argdefs \n $'body}}
+  ^ ${def $fname ${$'argdefs \n $'body}}
 }
 _

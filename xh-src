@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  de623d31cf55c6b10e0c9afbfa4a1c6f
+# state:  a74e5bc5c95cd5b6adc8bf74be1d9744
 # istate: 50f2a98b814b6dd6c433581f1342cffb
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -1901,6 +1901,17 @@ meta::psection('implementation', <<'__');
           - item Impose some kind of monotonicity on local bindings
         - end
 
+        Beyond referencing lexical closure data, there's the added issue of
+        modifying it. Any substitution-based strategy makes it difficult to
+        have mutable closure state.\footnote{TODO:~do we want to support this?}
+
+      - item
+        \label{item:macros-too-powerful}
+        Macros may be too powerful. They can see/change runtime state at
+        expansion-time, and it isn't clear what the purpose of this is beyond
+        just having the ability to inspect arguments without quoting. They also
+        complicate the evaluation model.
+
       - item
         \label{item:what-kind-of-list}
         It isn't obvious what kind of list should be used for what purpose.
@@ -1910,9 +1921,17 @@ meta::psection('implementation', <<'__');
         accommodate alternative layouts; whitespace-independence is generally
         considered a virtue.
 
+        Does it suffice to use word lists by default and treat everything else
+        as a way to parse external data?
+
       - item
         \label{item:what-kind-of-bracket}
         It also isn't obvious what kind of bracket should be used.
+
+      - item
+        \label{item:hard-to-type}
+        A lot of commonly-used interpolation constructs involve shift-key
+        contention while typing.
 
       - item
         \label{item:no-expression-macros}
@@ -1948,9 +1967,7 @@ meta::psection('implementation', <<'__');
     xh$ echo $"foo              # one braced list
 
     xh$ echo ${foo}             # same as $foo
-    xh$ echo ${foo bar bif}     # reserved for future use
-
-    xh$ echo $@{asdf asdf}      # expands into asdf adsf
+    xh$ echo ${foo bar bif}     # transpose interpolation: {$foo $bar $bif}
 
     xh$ echo $$foo              # $ is right-associative
     xh$ echo $^$foo             # expand $foo within calling context
@@ -2483,7 +2500,9 @@ meta::psection('implementation', <<'__');
     # XH-script.
     our $globals = [{def    => \&local_def,
                      '^def' => \&def,
-                     '^'    => \&escalate,
+                     '^'    => sub {escalate $_[0], 1, @_[1..$#_]},
+                     '^^'   => sub {escalate $_[0], 2, @_[1..$#_]},
+                     '^^^'  => sub {escalate $_[0], 3, @_[1..$#_]},
                      echo   => \&echo,
                      print  => \&print_from_xh,
                      perl   => \&perl_eval,
@@ -2930,7 +2949,7 @@ meta::psection('implementation', <<'__');
         def i $(math+ $i 1)
       }
 
-      ^ 1 ${def $fname ${$'argdefs \n $'body}}
+      ^ ${def $fname ${$'argdefs \n $'body}}
     }
   - end
 

@@ -76,7 +76,9 @@ sub escalate {
 # XH-script.
 our $globals = [{def    => \&local_def,
                  '^def' => \&def,
-                 '^'    => \&escalate,
+                 '^'    => sub {escalate $_[0], 1, @_[1..$#_]},
+                 '^^'   => sub {escalate $_[0], 2, @_[1..$#_]},
+                 '^^^'  => sub {escalate $_[0], 3, @_[1..$#_]},
                  echo   => \&echo,
                  print  => \&print_from_xh,
                  perl   => \&perl_eval,

@@ -36,7 +36,17 @@ Design problems
 
     4.  Impose some kind of monotonicity on local bindings
 
-3.  [item:what-kind-of-list] It isn’t obvious what kind of list should
+    Beyond referencing lexical closure data, there’s the added issue of
+    modifying it. Any substitution-based strategy makes it difficult to
+    have mutable closure state.[^1]
+
+3.  [item:macros-too-powerful] Macros may be too powerful. They can
+    see/change runtime state at expansion-time, and it isn’t clear what
+    the purpose of this is beyond just having the ability to inspect
+    arguments without quoting. They also complicate the evaluation
+    model.
+
+4.  [item:what-kind-of-list] It isn’t obvious what kind of list should
     be used for what purpose.
 
     It’s not clear to me that this is a solvable problem. The degrees of
@@ -44,16 +54,22 @@ Design problems
     accommodate alternative layouts; whitespace-independence is
     generally considered a virtue.
 
-4.  [item:what-kind-of-bracket] It also isn’t obvious what kind of
+    Does it suffice to use word lists by default and treat everything
+    else as a way to parse external data?
+
+5.  [item:what-kind-of-bracket] It also isn’t obvious what kind of
     bracket should be used.
 
-5.  [item:no-expression-macros] There is no way to define
+6.  [item:hard-to-type] A lot of commonly-used interpolation constructs
+    involve shift-key contention while typing.
+
+7.  [item:no-expression-macros] There is no way to define
     expression-macros; e.g. `$0` to mean `$[$_ @/0]`.
 
-6.  [item:ambiguous-eta-expansion] Calling a single-word anonymous
+8.  [item:ambiguous-eta-expansion] Calling a single-word anonymous
     function with no arguments causes arguments to be added spuriously.
 
-7.  [item:associative-retrieval] Associative list retrieval is a hack in
+9.  [item:associative-retrieval] Associative list retrieval is a hack in
     that it doesn’t work across list levels. This probably gets back to
     [item:what-kind-of-list].
 
@@ -79,9 +95,7 @@ Expansion syntax
     xh$ echo $"foo              # one braced list
 
     xh$ echo ${foo}             # same as $foo
-    xh$ echo ${foo bar bif}     # reserved for future use
-
-    xh$ echo $@{asdf asdf}      # expands into asdf adsf
+    xh$ echo ${foo bar bif}     # transpose interpolation: {$foo $bar $bif}
 
     xh$ echo $$foo              # $ is right-associative
     xh$ echo $^$foo             # expand $foo within calling context
@@ -623,7 +637,9 @@ This is solved by defining the def function and list/hash accessors.
     # XH-script.
     our $globals = [{def    => \&local_def,
                      '^def' => \&def,
-                     '^'    => \&escalate,
+                     '^'    => sub {escalate $_[0], 1, @_[1..$#_]},
+                     '^^'   => sub {escalate $_[0], 2, @_[1..$#_]},
+                     '^^^'  => sub {escalate $_[0], 3, @_[1..$#_]},
                      echo   => \&echo,
                      print  => \&print_from_xh,
                      perl   => \&perl_eval,
@@ -1085,7 +1101,7 @@ Function functions
         def i $(math+ $i 1)
       }
 
-      ^ 1 ${def $fname ${$'argdefs \n $'body}}
+      ^ ${def $fname ${$'argdefs \n $'body}}
     } 
 
 List functions
@@ -1130,3 +1146,5 @@ instructions.
     def #m {
       # TODO
     } 
+
+[^1]: TODO: do we want to support this?
