@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  4affb6b8eba43b244bee231c98110325
+# state:  c6ca3e9d0564287ba83306294f228b40
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1327,7 +1327,7 @@ Some thoughts:
      calls are going to work.
   5. Multimethods are trivial, as they can be functions of nonterminals.
      Similarly, we can use the same statistical optimization methods against
-     all parse states to do branch prediction.
+     all parse states to do branch prediction and compression.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
