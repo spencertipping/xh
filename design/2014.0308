@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  c6ca3e9d0564287ba83306294f228b40
+# state:  10302f358a9b58cbd89033a54187e55b
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1328,6 +1328,37 @@ Some thoughts:
   5. Multimethods are trivial, as they can be functions of nonterminals.
      Similarly, we can use the same statistical optimization methods against
      all parse states to do branch prediction and compression.
+
+Examples.
+It should be possible to define the factorial function (pseudocode):
+
+| factorial '0'     -> '1'
+            (int n) -> (mult n (factorial (dec n)))
+
+How about a list reverse function:
+
+| reverse (nil)                          -> (nil)
+  reverse (cons (element x) (list rest)) -> (append (reverse rest) [x])
+
+How about something to parse /etc/passwd:
+
+| passwd ''                                     -> []
+  passwd (str (passwd-line x) "\n" (passwd xs)) -> (append x xs)
+  passwd-line (join ":" (field u)
+                        (field x)
+                        (int userid)
+                        (int groupid)
+                        (field groupname)
+                        (field homedir)
+                        (field shell)) -> [u x userid groupid groupname
+                                           homedir shell]
+  field -> #"[^:]*"
+
+Ok, it seems like we're just defining a regular Lisp with aggressive
+destructuring, invertible functions (when pure), and implicit control flow with
+nested success and implied preferential disjunction. It's almost like a
+language focused on transactions: either it succeeds and we get a result, or it
+fails and we try the next option.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
