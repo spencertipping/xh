@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  10302f358a9b58cbd89033a54187e55b
+# state:  ae5d4b2cd6c442cce5e8f6bac483b494
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1359,6 +1359,85 @@ destructuring, invertible functions (when pure), and implicit control flow with
 nested success and implied preferential disjunction. It's almost like a
 language focused on transactions: either it succeeds and we get a result, or it
 fails and we try the next option.
+
+Possible syntax.
+We still need prefix operators and ubiquitous quasiquoting, so how about this:
+
+| echo hi                       # normal function call, args as lazy string _
+  echo (echo hi)                # function substitution
+  def foo hi
+  echo $foo                     # variable substitution
+
+Because substitution is fundamentally a string operation, we're asserting the
+equivalence of everything to strings. However, it's worth specifying
+substitution as a list-level idea that has a flat variation:
+
+| echo $foo                     # echo gets one argument
+  echo $@foo                    # echo gets zero or more arguments
+
+What about [] vs {}?
+
+| echo [1 2 3 4]                # list of four elements
+  echo {1 2 3 4}                # map of two k/v pairs
+  echo (get {1 2 3 4} 1)        # -> 2
+  echo (get [1 2 3 4] 0)        # -> 1
+
+List <-> map could just be a matter of interpolation:
+
+| def m  {a b c d}
+  def xs [1 2 3 4]
+  echo [$@m]                    # [a b c d]
+  echo {$@xs}                   # {1 2 3 4}
+
+So it's a Lisp, really, since all semantics are determined by the list
+interpretation of values. The main philosophical difference is that all lists
+in xh originate from strings, so they keep track of brackets and whitespace.
+That is, xh's list reader is lossless. Which is great, but it also means that
+string-equivalence and list-equivalence aren't the same (kind of like Clojure's
+metadata, so maybe not the end of the world).
+
+I like the language at this point, but there are some problems:
+| 1. It's an extra character if we want to block interpolation. This may
+     actually not be an issue, but it does complicate the reader a bit.
+  2. We have no literal syntax for anonymous functions.
+  3. We still have no way to indicate that some interpolations should happen
+     and others should be quoted, beyond manually quoting stuff.
+  4. It isn't obvious that parsers are integral to this language anymore, and
+     it's even less clear how to manage parser definitions in a
+     single-namespace definition model.
+
+__
+meta::note('parser', <<'__');
+XH parser definitions.
+A self-hosting parser to try out the language so far.
+
+def xh-word  (match '\s*([^(){}\[\]"\'\s]+)')
+def xh-words (zero-or-more xh-one)
+
+def (xh-list $xs)   (str '(' (xh-words $xs) ')')
+def (xh-vector $xs) (str '[' (xh-words $xs) ']')
+def (xh-map $xs)    (str '{' (xh-words $xs) '}')
+
+def xh-string  (match '"((?:\\.|[^"])*)"')
+def xh-qstring (match '\'((?:\\.|[^\'])*)\'')
+
+This seems all wrong. The whole point of parsers is just to have transactional
+functions and backtracking, which itself hints at some kind of relational
+evaluator ... so maybe I want to do it this way:
+
+def (xh-list  $xs) (str "(" (xh-words $xs) ")")
+def (xh-words $xs) (join "" (map xh-word $xs))
+def (xh-word  $x)  (str (get $x pre-whitespace)
+                        (get $x data)
+                        (get $x post-whitespace))
+
+Almost. But how do we indicate that pre-whitespace, data, and post-whitespace
+each have a pattern? We probably need to treat the pattern as a compression
+codec:
+
+def (xh-word $x) (str (re-encode '\s*' (get $x pre-whitespace))
+                      (re-encode '[^"\'\[\](){}]+' (get $x data))
+                      (re-encode '\s*' (get $x post-whitespace)))
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
