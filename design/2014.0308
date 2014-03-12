@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  ae5d4b2cd6c442cce5e8f6bac483b494
+# state:  f057ac1b30032517eec52dc4fa3ca7e3
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1435,9 +1435,45 @@ Almost. But how do we indicate that pre-whitespace, data, and post-whitespace
 each have a pattern? We probably need to treat the pattern as a compression
 codec:
 
-def (xh-word $x) (str (re-encode '\s*' (get $x pre-whitespace))
-                      (re-encode '[^"\'\[\](){}]+' (get $x data))
-                      (re-encode '\s*' (get $x post-whitespace)))
+def (xh-word $x) (str (/'\s*'               (%x pre-whitespace))
+                      (/'[^"\'\[\](){}\s]+' (%x data))
+                      (/'\s*'               (%x post-whitespace)))
+
+Cool so far, but let's refactor a bit so that words don't contain their
+whitespace (which is lame):
+
+def xh-word            /'[^"\'\[\](){}\s]+'
+def xh-whitespace      /'\s+'
+def (xh-words $xs $ws) (->> (map (or xh-word xh-thing) $xs)
+                            (interleave (map xh-whitespace $ws))
+                            (join ""))
+
+The long way to write data structures:
+
+def (xh-list $xs $ws) (str '(' (xh-words $xs $ws) ')')
+def (xh-vec  $xs $ws) (str '[' (xh-words $xs $ws) ']')
+def (xh-map  $xs $ws) (str '{' (xh-words $xs $ws) '}')
+
+def (xh-thing {type       list
+               xs         $xs
+               whitespace $ws}) (xh-list $xs $ws)
+
+def (xh-thing {type       vec
+               xs         $xs
+               whitespace $ws}) (xh-vec $xs $ws)
+
+def (xh-thing {type       map
+               xs         $xs
+               whitespace $ws}) (xh-map $xs $ws)
+
+A shorter way:
+
+def matchers {"(" ")" "[" "]" "{" "}"}
+def (xh-thing {type       $m
+               xs         $xs
+               whitespace $ws}) (str (/'[\[({]' $m)
+                                     (xh-words $xs $ws)
+                                     (%matchers $m)))
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
