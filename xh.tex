@@ -103,7 +103,101 @@ $
 
 \chapter{Similarities to Lisp}\label{chp:similarities-to-lisp}
   xh is strongly based on the Lisp family of languages, most visibly in its
-  homoiconicity.
+  homoiconicity. Any string wrapped in curly braces is a list of lines with the
+  following contract:
+
+\begin{verbatim}
+$ def foo {bar bif
+>          baz
+>          bok quux}
+$ count $foo
+3
+$ nth $foo 0
+bar bif
+$ nth $foo 2
+bok quux
+$ def foo {
+>   bar bif
+>   baz
+>   bok quux
+> }
+$ count $foo
+3
+$ nth $foo 0
+[bar bif]
+$
+\end{verbatim}
+
+  Any string wrapped in \verb|[]| or \verb|()| is interpreted as a list of
+  words, just as it is in Clojure. Also as in Lisp in general, \verb|()|
+  interpolates its result into the surrounding context:
+
+\begin{verbatim}
+$ def foo 'hi there'
+$ echo $foo
+hi there
+$ echo (echo $foo)                  # similar to bash's $()
+hi there
+$
+\end{verbatim}
+
+  Any \verb|()| list can be prefixed with \verb|@| and/or \verb|!| with effects
+  analogous to \verb|$|; e.g.~\verb|echo !@(echo hi there)|.
+
+\chapter{Dissimilarities from everything else I know of}\label{chp:dissimilarities}
+  xh evaluates expressions outside-in:
+
+\begin{enumerate}
+\item{Variable shadowing is not generally possible.}
+       \label{item:no-variable-shadowing}
+\item{Expansion is idempotent for any set of bindings.}
+       \label{item:idempotent-expansion}
+\item{Unbound variables expand to active versions of themselves (a}
+       corollary of \ref{item:idempotent-expansion}).
+       \label{item:unbound-expansion}
+\item{Laziness is implemented by referring to unbound quantities.}
+       \label{item:laziness-unbound}
+\item{Bindings can be arbitrary list expressions, not just names (a}
+       partial corollary of \ref{item:laziness-unbound}).
+       \label{item:arbitrary-bindings}
+\item{No errors are ever thrown; all expressions that cannot be evaluated}
+       become \verb|(error)| clauses that most functions consider to be
+       opaque.
+       \label{item:no-errors}
+\item{xh has no support for syntax macros.}
+       \label{item:no-macros}
+\end{enumerate}
+
+  Unbound names are treated as though they might at some point exist. For
+  example:
+
+\begin{verbatim}
+$ echo $x
+$x
+$ def x $y
+$ echo $x
+$y
+$ def y 10
+$ echo $x
+10
+$
+\end{verbatim}
+
+  You can also bind expressions of things to express partial knowledge:
+
+\begin{verbatim}
+$ echo (count $str)
+(count $str)
+$ def (count $str) 10
+$ echo $str
+$str
+$ echo (count $str)
+10
+$
+\end{verbatim}
+
+  This is the mechanism by which xh implements lazy evaluation, and it's also
+  the reason you can serialize partially-computed lazy values.
 
 \part{Bootstrap implementation}\label{part:bootstrap-implementation}
 \chapter{Self-replication}\label{chp:self-replication}
@@ -177,5 +271,16 @@ sub image {
   join "\n", @pieces;
 }
 })} \end{perlcode}
+
+\chapter{Perl-hosted evaluator}\label{chp:perl-hosted-evaluator}
+  xh is self-hosting, but to get there we need to implement an interpreter in
+  Perl. This interpreter is semantically correct but slow and shouldn't be used
+  for anything besides bootstrapping the real compiler.
+
+\lstset{caption={modules/interpreter.pl},name={modules/interpreter.pl}}\begin{perlcode}
+BEGIN {xh::defmodule('xh::interpreter.pl', <<'_')}
+# TODO
+_
+ \end{perlcode}
 
 \end{document}

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  48d6f25a1efc404df0c5a25e775b351a
-# istate: 50f2a98b814b6dd6c433581f1342cffb
+# state:  792b395717fab65983e01be4649b1720
+# istate: 738d1e40cf16c7dd782286468c7de77f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -1934,7 +1934,101 @@ meta::psection('implementation', <<'__');
 
 - sc Similarities to Lisp | chp:similarities-to-lisp
   xh is strongly based on the Lisp family of languages, most visibly in its
-  homoiconicity.
+  homoiconicity. Any string wrapped in curly braces is a list of lines with the
+  following contract:
+
+  - verbatim << end
+    $ def foo {bar bif
+    >          baz
+    >          bok quux}
+    $ count $foo
+    3
+    $ nth $foo 0
+    bar bif
+    $ nth $foo 2
+    bok quux
+    $ def foo {
+    >   bar bif
+    >   baz
+    >   bok quux
+    > }
+    $ count $foo
+    3
+    $ nth $foo 0
+    [bar bif]
+    $
+  - end
+
+  Any string wrapped in \verb|[]| or \verb|()| is interpreted as a list of
+  words, just as it is in Clojure. Also as in Lisp in general, \verb|()|
+  interpolates its result into the surrounding context:
+
+  - verbatim << end
+    $ def foo 'hi there'
+    $ echo $foo
+    hi there
+    $ echo (echo $foo)                  # similar to bash's $()
+    hi there
+    $
+  - end
+
+  Any \verb|()| list can be prefixed with \verb|@| and/or \verb|!| with effects
+  analogous to \verb|$|; e.g.~\verb|echo !@(echo hi there)|.
+
+- sc Dissimilarities from everything else I know of | chp:dissimilarities
+  xh evaluates expressions outside-in:
+
+  - enumerate << end
+    - item Variable shadowing is not generally possible.
+           \label{item:no-variable-shadowing}
+    - item Expansion is idempotent for any set of bindings.
+           \label{item:idempotent-expansion}
+    - item Unbound variables expand to active versions of themselves (a
+           corollary of \ref{item:idempotent-expansion}).
+           \label{item:unbound-expansion}
+    - item Laziness is implemented by referring to unbound quantities.
+           \label{item:laziness-unbound}
+    - item Bindings can be arbitrary list expressions, not just names (a
+           partial corollary of \ref{item:laziness-unbound}).
+           \label{item:arbitrary-bindings}
+    - item No errors are ever thrown; all expressions that cannot be evaluated
+           become \verb|(error)| clauses that most functions consider to be
+           opaque.
+           \label{item:no-errors}
+    - item xh has no support for syntax macros.
+           \label{item:no-macros}
+  - end
+
+  Unbound names are treated as though they might at some point exist. For
+  example:
+
+  - verbatim << end
+    $ echo $x
+    $x
+    $ def x $y
+    $ echo $x
+    $y
+    $ def y 10
+    $ echo $x
+    10
+    $
+  - end
+
+  You can also bind expressions of things to express partial knowledge:
+
+  - verbatim << end
+    $ echo (count $str)
+    (count $str)
+    $ def (count $str) 10
+    $ echo $str
+    $str
+    $ echo (count $str)
+    10
+    $
+  - end
+
+  This is the mechanism by which xh implements lazy evaluation, and it's also
+  the reason you can serialize partially-computed lazy values.
 
 - sp Bootstrap implementation | part:bootstrap-implementation
 - sc Self-replication | chp:self-replication
@@ -2009,6 +2103,15 @@ meta::psection('implementation', <<'__');
       join "\n", @pieces;
     }
     })}
+  - end
+
+- sc Perl-hosted evaluator | chp:perl-hosted-evaluator
+  xh is self-hosting, but to get there we need to implement an interpreter in
+  Perl. This interpreter is semantically correct but slow and shouldn't be used
+  for anything besides bootstrapping the real compiler.
+
+  - perlmodule xh::interpreter modules/interpreter.pl << end
+    # TODO
   - end
 
 __
@@ -2107,24 +2210,14 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__4');
+meta::sdoc('xh', <<'__b');
 - include boot/xh-header
-- include modules/v.pl
-- include modules/e.pl
-- include modules/globals.pl
-- include modules/bootlist.pl
-- include modules/bootmath.pl
-- include modules/main.pl
-- include modules/bootunit.xh
-
-- include modules/fn.xh
-- include modules/list.xh
-- include modules/math.xh
+- include modules/interpreter.pl
 
 xh::main::main;
 __DATA__
 
-__4
+__b
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

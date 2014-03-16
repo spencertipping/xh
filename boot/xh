@@ -61,16 +61,9 @@ sub image {
   join "\n", @pieces;
 }
 })}
-
-
-
-
-
-
-
-
-
-
+BEGIN {xh::defmodule('xh::interpreter.pl', <<'_')}
+# TODO
+_
 
 
 xh::main::main;

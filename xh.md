@@ -62,7 +62,96 @@ Similarities to Lisp
 ====================
 
 [chp:similarities-to-lisp] xh is strongly based on the Lisp family of
-languages, most visibly in its homoiconicity.
+languages, most visibly in its homoiconicity. Any string wrapped in
+curly braces is a list of lines with the following contract:
+
+    $ def foo {bar bif
+    >          baz
+    >          bok quux}
+    $ count $foo
+    3
+    $ nth $foo 0
+    bar bif
+    $ nth $foo 2
+    bok quux
+    $ def foo {
+    >   bar bif
+    >   baz
+    >   bok quux
+    > }
+    $ count $foo
+    3
+    $ nth $foo 0
+    [bar bif]
+    $
+
+Any string wrapped in `[]` or `()` is interpreted as a list of words,
+just as it is in Clojure. Also as in Lisp in general, `()` interpolates
+its result into the surrounding context:
+
+    $ def foo 'hi there'
+    $ echo $foo
+    hi there
+    $ echo (echo $foo)                  # similar to bash's $()
+    hi there
+    $
+
+Any `()` list can be prefixed with `@` and/or `!` with effects analogous
+to `$`; e.g. `echo !@(echo hi there)`.
+
+Dissimilarities from everything else I know of
+==============================================
+
+[chp:dissimilarities] xh evaluates expressions outside-in:
+
+1.  Variable shadowing is not generally possible.
+    [item:no-variable-shadowing]
+
+2.  Expansion is idempotent for any set of bindings.
+    [item:idempotent-expansion]
+
+3.  Unbound variables expand to active versions of themselves (a
+    corollary of [item:idempotent-expansion]). [item:unbound-expansion]
+
+4.  Laziness is implemented by referring to unbound quantities.
+    [item:laziness-unbound]
+
+5.  Bindings can be arbitrary list expressions, not just names (a
+    partial corollary of [item:laziness-unbound]).
+    [item:arbitrary-bindings]
+
+6.  No errors are ever thrown; all expressions that cannot be evaluated
+    become `(error)` clauses that most functions consider to be opaque.
+    [item:no-errors]
+
+7.  xh has no support for syntax macros. [item:no-macros]
+
+Unbound names are treated as though they might at some point exist. For
+example:
+
+    $ echo $x
+    $x
+    $ def x $y
+    $ echo $x
+    $y
+    $ def y 10
+    $ echo $x
+    10
+    $
+
+You can also bind expressions of things to express partial knowledge:
+
+    $ echo (count $str)
+    (count $str)
+    $ def (count $str) 10
+    $ echo $str
+    $str
+    $ echo (count $str)
+    10
+    $
+
+This is the mechanism by which xh implements lazy evaluation, and it’s
+also the reason you can serialize partially-computed lazy values.
 
 [part:bootstrap-implementation]
 
@@ -139,6 +228,19 @@ an appropriate `BEGIN` block.
       join "\n", @pieces;
     }
     })} 
+
+Perl-hosted evaluator
+=====================
+
+[chp:perl-hosted-evaluator] xh is self-hosting, but to get there we need
+to implement an interpreter in Perl. This interpreter is semantically
+correct but slow and shouldn’t be used for anything besides
+bootstrapping the real compiler.
+
+    BEGIN {xh::defmodule('xh::interpreter.pl', <<'_')}
+    # TODO
+    _
+     
 
 [^1]: Note that things like active socket connections and external
     processes will be proxied, however; xh can’t migrate system-native
