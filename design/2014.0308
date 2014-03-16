@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  10d52f0ae7e1dd5a91efdef36e217b19
+# state:  2aec763569e4f7570585bccbc6a09899
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1577,6 +1577,61 @@ def (xh-thing {type       $m
                whitespace $ws}) (str (/'[\[({]' $m)
                                      (xh-words $xs $ws)
                                      (%matchers $m)))
+
+__
+meta::note('scoping-api', <<'__');
+Scoping API.
+I think it should be possible to write 'def' as a regular function. At that
+point the evaluator looks like this (xh syntax):
+
+| second (reduce {[$scope $result] $statement | evaluate --with-scope $scope \
+                                                         $statement}
+                 [[] nil]
+                 $statements)
+
+This example raises the interesting issue that we can't use variable names to
+refer to lambda arguments; doing so would mean we have shadowing, which
+completely fails in a situation where rewriting happens outside-in. This
+disrupts the otherwise simple rule that anonymous functions are just strings,
+since now we need to get to the variables.
+
+Actually, we have a bigger problem: any function call in any inner function
+could happen before that function is called. For example:
+
+| def f {
+    def g {+ (arg 0) (arg 1)}           # this gets expanded with f's args
+    g (inc (arg 0)) (inc (arg 1))
+  }
+
+If we have argument processing at all, it needs to be in the form of some kind
+of quasi-syntax magic that isn't a regular function call. (Actually, that's
+probably good from a usability perspective.) And as long as we're doing
+destructuring arg-bindings, we might as well handle specialization and
+alternatives too.
+
+| def factorial {
+    0  | 1
+    $n | * $n (factorial (dec $n))
+  }
+
+So really, an anonymous function is a localized scope augmentation. That's kind
+of cool. Let's write it this way:
+
+| def factorial {
+    0  | 1
+    $n | * $n (factorial (dec $n))
+  }
+
+Another cool thing is that laziness and abstract interpretation can both be
+implemented in terms of these rules. For example, suppose we load the contents
+of a file into a variable called $s. We might not know all of $s, but we
+probably do know (count $s); so (count $s) has a binding. Likewise, $s is
+ultimately accessed with things like (count) and (subs) -- and those bindings
+become available when the read requests are complete.
+
+This is great because it means that lazy evaluation is first-class in the most
+important way, and a lazy expression can be fully serialized, since each
+intermediate stage is well-defined.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
