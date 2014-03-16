@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  f057ac1b30032517eec52dc4fa3ca7e3
+# state:  10d52f0ae7e1dd5a91efdef36e217b19
 # istate: c6c56807911e59818a077d85b1572431
 # id:     33445092b373cac92261bffb76185c44
 
@@ -1224,6 +1224,74 @@ __
 meta::message_color('cc', '36');
 meta::message_color('state', 'purple');
 meta::message_color('states', 'yellow');
+meta::note('abstract-rewriting', <<'__');
+Abstract rewriting.
+An attempt to address the shortcomings of hard-quoting by using soft-quoting
+for lexical closures and deferring expansion for undefined variables. For
+example, assuming {} is a soft-quote:
+
+| $ def bar "hi there"
+  $ def foo {echo $bar}
+  $ foo
+  hi there
+  $ echo $foo
+  echo "hi there"
+  $
+
+The problem here is that expansion can happen too soon, and in some cases it
+will happen twice. For example:
+
+| $ def bar "\$bif"
+  $ def bif 10
+  $ def foo {echo $bar}                 <- $bar becomes $bif immediately
+  $ foo                                 <- evaluate "echo $bif"
+  10
+  $
+
+Now arguably $bar would actually become \$bif, since $ is known to be an active
+character. This gives us expansion idempotence, which may be the key to this
+all working out. It also gives the language some nice structure:
+
+| 1. Unbound variable names can be prefixed with $, notably within patterns. So
+     destructuring is notationally awesome.
+  2. Once a variable is bound, it becomes impossible to change or shadow
+     through a destructuring bind. So mutability is a feature of the binding
+     environment, but variables are explicitly rewriting instructions.
+
+That seems about right. The only difficulty is how we handle stuff like
+constant folding:
+
+| $ def x 10
+  $ def foo {echo $x}                   <- {echo 10}
+  $ def foo {echo (echo $x)}            <- {echo 10}, since echo is pure
+  $ def foo {echo (+ 1 $x)}             <- {echo 11}, since + is pure
+
+I think it's fine to commit to some level of evaluation like this. It means we
+can do some fun stuff like this:
+
+| $ echo (+ $x $y)
+  (+ $x $y)
+  $ echo (+ $x 1 2 3)
+  (+ $x 6)
+  $ count $x
+  (count $x)
+  $ inc (count $x)
+  (inc (count $x))
+  $ let [$x [1 2]] inc (count $x)       <- let could be a regular function!
+  3
+  $
+
+It's ok for 'let' to be a normal function because rewriting is associative and
+idempotent. The outer layer of rewriting will fail to evaluate $x, so any
+expressions involving $x will remain unevaluated but active. 'let' can then
+fetch its arguments, apply the variables either as a binding-table update or by
+manual rewriting, and then evaluate an expression. (Not terribly elegant or
+fast, but feasible.)
+
+This is cool; all we need now is to figure out what the scoping/rewriting API
+looks like.
+
+__
 meta::note('default', <<'__');
 Language trends in general.
 So far xh doesn't really respect things going on with programming languages: it
@@ -1405,6 +1473,41 @@ I like the language at this point, but there are some problems:
   4. It isn't obvious that parsers are integral to this language anymore, and
      it's even less clear how to manage parser definitions in a
      single-namespace definition model.
+
+Possible syntax'.
+The syntax above mostly works, but let's reappropriate {} for hard quoting.
+That gives us a simple way to write anonymous functions. So we have the
+following:
+
+| E[{x}]     = x
+  E[[x]]     = [E[x]]
+  E[(x ...)] = C[E[x], E[...]]          # this supports anon functions
+
+The semantics are still defined in terms of lists, which I think is probably
+fine because we have both $ and $@. Expansion, then, is:
+
+| bash                                  xh
+  $ echo hi                             $ echo hi
+  $ echo $foo                           $ echo $@foo
+  $ echo "$foo"                         $ echo $foo
+  $ echo $foo$bar                       $ echo @(str $foo $bar)
+  $ echo ${!foo}                        $ echo $@$foo
+  $ echo $(bar)                         $ echo @(bar)
+  $ echo "$(bar)"                       $ echo (bar)
+
+That solves (1) and (2) above. (3) may be a matter of writing a macro to
+implement lexical scoping. I have no idea what to do about (4).
+
+Lexical scoping.
+If the language is homoiconic, then there's no reason we couldn't just write a
+macro to implement lexical scoping through hard-quoted regions. HOWEVER, that
+seems misguided because we're compromising the integrity of the hard-quoting
+construct. In fact, it seems like a terrible idea now that I think about it.
+
+The real problem is that functions aren't strictly hard-quoted because we
+expect closure variables to work. We could use soft-quoting for functions,
+making the rule that any undefined variable expansion is represented by some
+lazy quantity (or some constant-folded abstract expression?).
 
 __
 meta::note('parser', <<'__');
