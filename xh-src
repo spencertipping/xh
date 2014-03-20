@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  182b680d1fb981f447b52297b31403ec
+# state:  1606ea737f2a904db3f46b4c420c4bb6
 # istate: 738d1e40cf16c7dd782286468c7de77f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -1888,29 +1888,29 @@ meta::psection('implementation', <<'__');
   For example:
 
   - verbatim << end
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ def baz $foo                      # no quoting necessary here by (2)
-    $ echo $baz
+    (def bar bif)
+    (def foo "hi there \$bar!")
+    (def baz $foo)                      # no quoting necessary here by (2)
+    (echo $baz)
     hi there $bar!                      # $bar unevaluated by (1)
-    $
+    ()
   - end
 
   This interpolation structure can be overridden by using one of three
   alternative forms of \verb|$|:
 
   - verbatim << end
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ echo $!foo                        # allow re-interpolation
+    (def bar bif)
+    (def foo "hi there \$bar!")
+    (echo $!foo)                        # allow re-interpolation
     hi there bif!
-    $ count [$foo]                      # single element
+    (count [$foo])                      # single element
     1
-    $ count [$@foo]                     # multiple elements
+    (count [$@foo])                     # multiple elements
     3
-    $ nth [$@!foo] 2                    # multiple and re-interpolation
+    (nth [$@!foo] 2)                    # multiple and re-interpolation
     bif!
-    $
+    ()
   - end
 
   All string values in xh programs are lifted into reader-safe quotations. This
@@ -1921,11 +1921,11 @@ meta::psection('implementation', <<'__');
   something like this:
 
   - verbatim << end
-    $ def foo "[[[["
-    $ def bar [$@!foo]
-    $ echo $bar
-    [\[\[\[\[]
-    $
+    (def foo "[[ [[")
+    (def bar [$@!foo])
+    (echo $bar)
+    [\[\[ \[\[]
+    ()
   - end
 
   We can't get xh to create an unbalanced list through any series of rewriting
@@ -1935,7 +1935,7 @@ meta::psection('implementation', <<'__');
 - sc Similarities to Lisp | chp:similarities-to-lisp
   xh is strongly based on the Lisp family of languages, most visibly in its
   homoiconicity. Any string wrapped in curly braces is a list of lines with the
-  following contract:
+  following contract (TODO:~rewrite this section):
 
   - verbatim << end
     $ def foo {bar bif

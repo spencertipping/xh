@@ -57,29 +57,29 @@
   For example:
 
 \begin{verbatim}
-$ def bar bif
-$ def foo "hi there \$bar!"
-$ def baz $foo                      # no quoting necessary here by (2)
-$ echo $baz
+(def bar bif)
+(def foo "hi there \$bar!")
+(def baz $foo)                      # no quoting necessary here by (2)
+(echo $baz)
 hi there $bar!                      # $bar unevaluated by (1)
-$
+()
 \end{verbatim}
 
   This interpolation structure can be overridden by using one of three
   alternative forms of \verb|$|:
 
 \begin{verbatim}
-$ def bar bif
-$ def foo "hi there \$bar!"
-$ echo $!foo                        # allow re-interpolation
+(def bar bif)
+(def foo "hi there \$bar!")
+(echo $!foo)                        # allow re-interpolation
 hi there bif!
-$ count [$foo]                      # single element
+(count [$foo])                      # single element
 1
-$ count [$@foo]                     # multiple elements
+(count [$@foo])                     # multiple elements
 3
-$ nth [$@!foo] 2                    # multiple and re-interpolation
+(nth [$@!foo] 2)                    # multiple and re-interpolation
 bif!
-$
+()
 \end{verbatim}
 
   All string values in xh programs are lifted into reader-safe quotations. This
@@ -90,11 +90,11 @@ $
   something like this:
 
 \begin{verbatim}
-$ def foo "[[[["
-$ def bar [$@!foo]
-$ echo $bar
-[\[\[\[\[]
-$
+(def foo "[[ [[")
+(def bar [$@!foo])
+(echo $bar)
+[\[\[ \[\[]
+()
 \end{verbatim}
 
   We can't get xh to create an unbalanced list through any series of rewriting
@@ -104,7 +104,7 @@ $
 \chapter{Similarities to Lisp}\label{chp:similarities-to-lisp}
   xh is strongly based on the Lisp family of languages, most visibly in its
   homoiconicity. Any string wrapped in curly braces is a list of lines with the
-  following contract:
+  following contract (TODO:~rewrite this section):
 
 \begin{verbatim}
 $ def foo {bar bif

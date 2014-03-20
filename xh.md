@@ -19,27 +19,27 @@ are true:
 
 For example:
 
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ def baz $foo                      # no quoting necessary here by (2)
-    $ echo $baz
+    (def bar bif)
+    (def foo "hi there \$bar!")
+    (def baz $foo)                      # no quoting necessary here by (2)
+    (echo $baz)
     hi there $bar!                      # $bar unevaluated by (1)
-    $
+    ()
 
 This interpolation structure can be overridden by using one of three
 alternative forms of `$`:
 
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ echo $!foo                        # allow re-interpolation
+    (def bar bif)
+    (def foo "hi there \$bar!")
+    (echo $!foo)                        # allow re-interpolation
     hi there bif!
-    $ count [$foo]                      # single element
+    (count [$foo])                      # single element
     1
-    $ count [$@foo]                     # multiple elements
+    (count [$@foo])                     # multiple elements
     3
-    $ nth [$@!foo] 2                    # multiple and re-interpolation
+    (nth [$@!foo] 2)                    # multiple and re-interpolation
     bif!
-    $
+    ()
 
 All string values in xh programs are lifted into reader-safe quotations.
 This causes any “active” characters such as `$` to be prefixed with
@@ -48,11 +48,11 @@ only thing you can’t undo is bracket balancing, which if undone would
 wreak havoc on your programs. You can see the effect of balancing by
 doing something like this:
 
-    $ def foo "[[[["
-    $ def bar [$@!foo]
-    $ echo $bar
-    [\[\[\[\[]
-    $
+    (def foo "[[ [[")
+    (def bar [$@!foo])
+    (echo $bar)
+    [\[\[ \[\[]
+    ()
 
 We can’t get xh to create an unbalanced list through any series of
 rewriting operations, since the contract is that any active list
@@ -63,7 +63,8 @@ Similarities to Lisp
 
 [chp:similarities-to-lisp] xh is strongly based on the Lisp family of
 languages, most visibly in its homoiconicity. Any string wrapped in
-curly braces is a list of lines with the following contract:
+curly braces is a list of lines with the following contract
+(TODO: rewrite this section):
 
     $ def foo {bar bif
     >          baz
