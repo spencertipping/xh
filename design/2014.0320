@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  5614bcde513b7e98b5b4241124b227f7
+# state:  4ffbfe9232ece93901b368331b688d84
 # istate: c6c56807911e59818a077d85b1572431
 # id:     c43692805beadf4a165af4a77600920c
 
@@ -1269,6 +1269,69 @@ Quick summary of semantics:
 Oh crap. This is a problem. We can't have xh infer a newline in the middle of a
 {} because that would violate the contract that list construction is a form of
 string concatenation. I think we have a major issue here.
+
+Possible workarounds.
+Suppose that {} interpolates without special cases. Then we probably use some
+kind of list function to get the statements from a {}, rather than
+destructuring against it directly; maybe two functions called "bl" and "lb" for
+"block->list" and "list->block":
+
+| $ def foo {
+  >   echo hi
+  >   echo there
+  > }
+  $ def (functions-called-by (lb $fn)) {
+  >   map (nth $_ 0) $fn
+  > }
+  $ functions-called-by $foo
+  [echo echo]
+  $ def (fn-replace (lb $fn-list) $find $rep) {
+  >   lb (map {[$find] $rep
+               [$x]    $x}   $fn-list)
+  > }
+  $
+
+Do we really even want lines to mean what they do here? It seems out of place.
+I think it makes sense on the command line, but as lambda-alternatives it just
+seems weird given that we're writing Lisp.
+
+__
+meta::note('line-splitting', <<'__');
+Line splitting as a language feature.
+A lot of languages use line splitting to delimit statements, which seems
+appropriate if you think of each imperative thing as being a
+"programmer-thought transaction"; that is, you commit to a state transition and
+then move on. So vertical space becomes a progression where moving downwards
+means you're defining more stuff, or at least moving forward in
+state-transition space.
+
+So in a sense, and somewhat counterintuitively, one could argue that the REPL
+itself demands a certain degree of imperativeness from your language, since the
+user is committing to statements independently and the ways in which these
+statements are connected have to do with sharing a surrounding context --
+usually imperative state of some sort (or at least definitions, which are
+arguably stateful in their own way).
+
+It's worth being careful here. We can't/shouldn't divorce notations too
+heavily; if the REPL really is imperative (as it generally is in a shell), then
+the language should also be somewhat imperative. Therefore, we need a shell
+language that is not, in fact, imperative at all.
+
+How about this, then? Newlines aren't special except as REPL statement
+terminators. All toplevel statements are paren-wrapped, but the repl gives you
+a UI around the language by assuming you're going to call a function. It
+implicitly opens a paren for you, and closes that paren when you type a newline
+(unless you're in a sublist or something). I think this wouldn't be
+particularly confusing if the prompt made it obvious:
+
+| $ xh
+  (                             <- initial state
+  (ls                           <- after typing 'ls'
+  (ls)                          <- after hitting enter
+  bin dev etc ...
+  (
+
+Ok, that looks reasonable. Let's run with it until something breaks horribly.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
