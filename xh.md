@@ -313,7 +313,7 @@ bootstrapping the real compiler.
                                        | '(?:\\.|[^'])*'
                                        | \\.
                                        | [({\[\]})]
-                                       | $split_on ) /x, $_[0];
+                                       | $split_on ) /xs, $_[0];
       my @paren_offsets;
       my @parens;
       my @result;

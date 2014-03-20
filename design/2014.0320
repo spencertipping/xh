@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  182b680d1fb981f447b52297b31403ec
-# istate: 738d1e40cf16c7dd782286468c7de77f
-# id:     d8b3d476069348db3de1c9f0407d9c1e
+# state:  5614bcde513b7e98b5b4241124b227f7
+# istate: c6c56807911e59818a077d85b1572431
+# id:     c43692805beadf4a165af4a77600920c
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
 # really gnarly). If you're curious what it's made of, I recommend reading
@@ -71,30 +71,6 @@ sub meta::externalize {
   *{"::$name"} = *{"::$escaped"} = $implementation || $attribute;
 }
 __
-meta::meta('externalize_template', <<'__');
-sub meta::externalize_template {
-  my ($name, $implementation) = @_;
-  meta::externalize "template::$name", "template::$name", $implementation;
-}
-__
-meta::meta('functor::code-templates', <<'__');
-package code;
-
-# Templates for generating named source files.
-sub template {
-  my ($name, $implementation) = @_;
-  $implementation ||= sub {
-    my ($line, $block) = @_;
-    my $append         = $line =~ s/^\h*>>\h*//o;
-
-    $line =~ s/\s+.*$//o;
-    file::write($line, ($append && "\n") . $block, mkpath => 1, append => $append);
-    "\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{${name}code}\n$block \\end{${name}code}";
-  };
-
-  meta::externalize_template $name, $implementation;
-}
-__
 meta::meta('functor::editable', <<'__');
 # An editable type. This creates a type whose default action is to open an editor
 # on whichever value is mentioned. This can be changed using different flags.
@@ -116,63 +92,6 @@ sub meta::functor::editable {
       return edit($attribute) if $command eq 'edit' or $options{default} eq 'edit' and not defined $command;
       return associate($attribute, @new_value ? join(' ', @new_value) : join('', <STDIN>)) if $command eq '=' or $command eq 'import' or $options{default} eq 'import' and not defined $command;
       return retrieve($attribute)}}}
-__
-meta::meta('functor::tex-templates', <<'__');
-package tex;
-
-# A wrapper for TeX templates. The idea is always the same, so I'm abstracting out the
-# common externalization logic here.
-sub template_for(&) {
-  my ($implementation) = @_;
-  sub {
-    my %names = @_;
-    for my $name (keys %names) {
-      ::meta::externalize_template $name, sub {
-        &$implementation($names{$name}, @_);
-      };
-    }
-  };
-}
-
-sub id {
-  map {$_ => $_} @_;
-}
-
-# Creates a one-line or multiline template based on normal TeX syntax. It's a straight
-# transfer into TeX with no preprocessing.
-*template = template_for {
-  my ($name, $line, $block) = @_;
-  $block ? "\\begin{$name}\n$block\n\\end{$name}" : "\\$name\{$line\}";
-};
-
-# Creates a labeled one-line template. This is just like normal TeX, but assumes the
-# specification of a label name after a pipe character.
-*labeled_template = template_for {
-  my ($name, $line, undef) = @_;
-  my ($real_stuff, $label) = split /\h*\|\h*/, $line;
-  "\\$name\{$real_stuff\}" . ($label && "\\label{$label}");
-};
-__
-meta::meta('template::beamer', <<'__');
-tex::template tex::id(qw/frame pause item block alertblock exampleblock/);
-
-my $fframe_template = tex::template_for {
-  my ($name, $line, $block) = @_;
-  "\\begin{frame}[fragile]\n$block\n\\end{frame}\n";
-};
-&$fframe_template(tex::id('fframe'));
-__
-meta::meta('template::code', 'code::template $_ for qw/java cpp asm javascript html resource perl ruby python/;');
-meta::meta('template::document', 'tex::template tex::id(qw/document tableofcontents maketitle title author date abstract documentclass verbatim/);');
-meta::meta('template::enumeration', 'tex::template tex::id(qw/enumerate itemize description item/);');
-meta::meta('template::math', <<'__');
-tex::template align => 'align*', nalign => 'align';
-tex::template tex::id(qw/theorem proof lemma corollary conjecture definition proposition/);
-__
-meta::meta('template::quotations', 'tex::template tex::id(qw/quotation quote/);');
-meta::meta('template::sections', <<'__');
-tex::labeled_template(s1 => 'section', s2 => 'subsection', s3 => 'subsubsection', s4 => 'paragraph', s5 => 'subparagraph');
-tex::labeled_template(sc => 'chapter', sp => 'part');
 __
 meta::meta('type::alias', <<'__');
 meta::configure 'alias', inherit => 0, trim => 1;
@@ -276,33 +195,11 @@ meta::meta('type::parent', <<'__');
 meta::define_form 'parent', \&meta::bootstrap::implementation;
 meta::configure 'parent', extension => '', inherit => 1, trim => 1;
 __
-meta::meta('type::psection', <<'__');
-# Perl TeX section (separated out to help vim syntax highlighter)
-meta::functor::editable 'psection', extension => '.perltex', inherit => 0,
-                                    default => 'edit';
-__
-meta::meta('type::resource', 'meta::functor::editable \'resource\', extension => \'.cltex\', inherit => 1, default => \'edit\';');
 meta::meta('type::retriever', <<'__');
 meta::configure 'retriever', extension => '.pl', inherit => 1, trim => 1;
 meta::define_form 'retriever', sub {
   my ($name, $value) = @_;
   $transient{retrievers}{$name} = meta::eval_in("sub {\n$value\n}", "retriever::$name");
-};
-__
-meta::meta('type::sdoc', <<'__');
-# A meta-type for other types. So retrieve('js::main') will work if you have
-# the attribute 'sdoc::js::main'. The filename will be main.js.sdoc.
-
-meta::functor::editable 'sdoc', inherit => 1, extension => sub {
-  extension_for(attribute($_[0])) . '.sdoc';
-};
-__
-meta::meta('type::section', 'meta::functor::editable \'section\', extension => \'.cltex\', inherit => 0, default => \'edit\';');
-meta::meta('type::slibrary', <<'__');
-meta::configure 'slibrary', extension => '.pl.sdoc', inherit => 1;
-meta::define_form 'slibrary', sub {
-  my ($name, $value) = @_;
-  meta::eval_in(sdoc("slibrary::$name"), "slibrary::$name");
 };
 __
 meta::meta('type::state', <<'__');
@@ -316,26 +213,6 @@ meta::meta('type::state', <<'__');
 meta::configure 'state', inherit => 0, extension => '.pl', trim => 1;
 meta::define_form 'state', \&meta::bootstrap::implementation;
 __
-meta::meta('type::template', <<'__');
-meta::configure 'template', extension => '.pl', inherit => 1;
-meta::define_form 'template', sub {
-  my ($name, $value) = @_;
-  meta::externalize "template::$name", "template::$name", meta::eval_in("sub {\n$value\n}", "template::$name");
-};
-__
-meta::meta('type::vim_highlighter', <<'__');
-# Vim highlighters don't need to be inherited. The reason is that they are most
-# often configured from the parent object using the 'vim' function. They are
-# rarely sent to anyone else and configured after the fact.
-
-meta::configure 'vim_highlighter', extension => '.vim', inherit => 0;
-meta::define_form 'vim_highlighter', \&meta::bootstrap::implementation;
-__
-meta::alias('eI', 'edit sdoc::xh');
-meta::alias('eM', 'edit function::make');
-meta::alias('ei', 'edit psection::implementation');
-meta::alias('em', 'edit section::main');
-meta::alias('r', 'sh boot/xh');
 meta::bootstrap('html', <<'__');
 <html>
   <head>
@@ -422,20 +299,12 @@ run this script with the 'usage' argument.
 =cut
 __
 meta::cache('parent-identification', <<'__');
-/home/spencertipping/r/initiative/perl-objects/tex-document d6b8b54aecc42ae92c7a8c570c5559fc
-notes a9e5975593ed5d90d943ad98405c71e5
+/home/spencertipping/r/initiative/perl-objects/notes a9e5975593ed5d90d943ad98405c71e5
 object 99aeabc9ec7fe80b1b39f5e53dc7e49e
-preprocessor 70dae4b46eb4e06798ec6f38d17d4c7b
-sdoc a1e8480e579614c01dabeecf0f963bcc
-vim-highlighters 902333a0bd6ed90ff919fe8477cb4e69
 __
 meta::cache('parent-state', <<'__');
-70dae4b46eb4e06798ec6f38d17d4c7b e25c4729aff094da49d7b9903452bcea
-902333a0bd6ed90ff919fe8477cb4e69 8d4ebdc5d3e901edca2bec5d546d6f7f
-99aeabc9ec7fe80b1b39f5e53dc7e49e 53a3afe2d7ad4234b270ac41ec84c283
-a1e8480e579614c01dabeecf0f963bcc 28d4c8a6dd79cd7fd34449a08f1b6f01
+99aeabc9ec7fe80b1b39f5e53dc7e49e e8a9b9ff0c9d275767814d9cc9ee2bf5
 a9e5975593ed5d90d943ad98405c71e5 ab9da1fb51db73a98ebc54d2e92dd8ae
-d6b8b54aecc42ae92c7a8c570c5559fc 972b55041059cf0d284a0f557e252926
 __
 meta::data('author', 'Spencer Tipping');
 meta::data('default-action', 'shell');
@@ -461,7 +330,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 __
-meta::data('permanent-identity', 'd8b3d476069348db3de1c9f0407d9c1e');
+meta::data('permanent-identity', 'c43692805beadf4a165af4a77600920c');
+meta::data('watching', '1');
 meta::function('ad', <<'__');
 my ($options, @paths) = separate_options(@_);
 @{$transient{path}} = () if $$options{-c};
@@ -505,25 +375,6 @@ for my $file (@files) {
 
       file::write($file, serialize(), noclobber => 1);
       chmod(0700, $file)})})}
-__
-meta::function('compile-tex', <<'__');
-my ($options, @documents) = separate_options(@_);
-my $temporary_directory = temporary_name();
-
-my $tex = tex(@documents);
-my $toc = $tex =~ /\\tableofcontents/;
-
-mkdir $temporary_directory;
-file::write(my $filename = "$temporary_directory/document.tex", tex(@documents));
-
-my $destination = $$options{'--pdf'} || name() . '.pdf';
-my $output = $filename;
-$output =~ s/\.tex$/.pdf/;
-
-my $opts = "-output-directory=$temporary_directory";
-
-$toc ? sh("latex $opts $filename && latex $opts $filename && pdflatex $opts $filename && mv $output $destination && rm -r $temporary_directory")
-     : sh("pdflatex $opts $filename && mv $output $destination && rm -r $temporary_directory");
 __
 meta::function('cp', <<'__');
 my $from = shift @_;
@@ -694,34 +545,6 @@ my @parent_hashes = map $inherited{$_} || '-', @definitions if $parent_hashes;
 join "\n", map strip($_), split /\n/, table_display($external ? [grep length, @externals] : [@definitions],
                                                     $sizes ? ([@sizes]) : (), $flags ? ([@flags]) : (), $hashes ? ([@hashes]) : (), $parent_hashes ? ([@parent_hashes]) : ());
 __
-meta::function('make', <<'__');
-my ($options, @stuff) = separate_options(@_);
-
-my $tex = tex();
-
-# XH bootstrapping
-mkdir 'boot' unless -d 'boot';
-file::write('boot/xh', retrieve('pp::sdoc::xh'));
-
-chmod 0700, 'boot/xh';   system 'boot/xh   --recompile > boot/xh-1';
-chmod 0700, 'boot/xh-1'; system 'boot/xh-1 --recompile > xh';
-chmod 0700, 'xh';
-
-# Non-TeX documentation
-mkdir 'doc' unless -d 'doc';
-file::write("doc/$_.md", "markdown::note::$_") for grep s/^note::/$1/, sort keys %data;
-
-unless ($$options{-T}) {
-  file::write('xh.tex', $tex);
-  compile_tex('--pdf=xh.pdf');
-
-  # Use pandoc to get markdown; this involves removing listings.sty commands
-  file::write('xh-pandoc.tex', $tex =~ s/\\lstset.*\\begin\{[^}]*code}/\\begin{verbatim}/gr
-                                    =~ s/\\end\{[^}]*code}/\\end{verbatim}/gr);
-  system 'pandoc -i xh-pandoc.tex -o xh.md';
-  unlink 'xh-pandoc.tex';
-}
-__
 meta::function('metadata-from', <<'__');
 my ($filename) = @_;
 my %metadata;
@@ -757,60 +580,6 @@ meta::function('parents', 'join "\\n", grep s/^parent:://o, sort keys %data;');
 meta::function('perl', <<'__');
 my @result = eval(join ' ', @_);
 $@ ? terminal::error($@) : wantarray ? @result : $result[0];
-__
-meta::function('preprocess', <<'__');
-# Implements a simple preprocessing language.
-# Syntax follows two forms. One is the 'line form', which gives you a way to specify arguments inline
-# but not spanning multiple lines. The other is 'block form', which gives you access to both one-line
-# arguments and a block of lines. The line parameters are passed in verbatim, and the block is
-# indentation-adjusted and then passed in as a second parameter. (Indentation is adjusted to align
-# with the name of the command.)
-#
-# Here are the forms:
-#
-# - line arguments to function
-#
-# - block line arguments << eof
-#   block contents
-#   block contents
-#   ...
-# - eof
-
-my ($string, %options) = @_;
-my $expansions         = 0;
-my $old_string         = '';
-my $limit              = $options{expansion_limit} || 100;
-my @pieces             = ();
-
-sub adjust_spaces {
-  my ($spaces, $string) = @_;
-  $string =~ s/^$spaces  //mg;
-  chomp $string;
-  $string;
-}
-
-while ($old_string ne $string and $expansions++ < $limit) {
-  $old_string = $string;
-
-  while ((my @pieces = split  /(^(\h*)-\h \S+ \h* \V* <<\h*(\w+)$ \n .*?  ^\2-\h\3$)/xms, $string) > 1 and $expansions++ < $limit) {
-    $pieces[1 + ($_ << 2)] =~ /^ (\h*)-\h(\S+)\h*(\V*)<<\h*(\w+)$ \n(.*?) ^\1-\h\4 $/xms && $externalized_functions{"template::$2"} and
-      $pieces[1 + ($_ << 2)] = &{"template::$2"}($3, adjust_spaces($1, $5))
-      for 0 .. $#pieces / 4;
-
-    @pieces[2 + ($_ << 2), 3 + ($_ << 2)] = '' for 0 .. $#pieces / 4;
-    $string = join '', @pieces;
-  }
-
-  if ((my @pieces = split     /^(\h*-\h \S+ \h* .*)$/xom, $string) > 1) {
-    $pieces[1 + ($_ << 1)] =~ /^ \h*-\h(\S+)\h*(.*)$/xom && $externalized_functions{"template::$1"} and
-      $pieces[1 + ($_ << 1)] = &{"template::$1"}($2)
-      for 0 .. $#pieces >> 1;
-
-    $string = join '', @pieces;
-  }
-}
-
-$string;
 __
 meta::function('rd', <<'__');
 if (@_) {my $pattern = join '|', @_;
@@ -855,213 +624,6 @@ meta::function('save-state', <<'__');
 my ($state_name) = @_;
 around_hook('save-state', $state_name, sub {
   associate("state::$state_name", current_state(), execute => 1)});
-__
-meta::function('sdoc', <<'__');
-# Applies SDoc processing to a file or attribute. Takes the file or attribute
-# name as the first argument and returns the processed text.
-
-my %comments_for_extension = 
-  qw|c     /*,*/  cpp   //    cc   //    h    /*,*/ java //  py  #    rb   #    pl  #   pm   #         ml   (*,*)  js  //
-     hs    --     sh    #     lisp ;;;   lsp  ;;;   s    #   scm ;;;  sc   ;;;  as  //  html <!--,-->  mli  (*,*)  cs  //
-     vim   "      elisp ;     bas  '     ada  --    asm  ;   awk #    bc   #    boo #   tex  %         fss  (*,*)  erl %
-     scala //     hx    //    io   //    j    NB.   lua  --  n   //   m    %    php //  sql  --        pov  //     pro %
-     r     #      self  ","   tcl  #     texi @c    tk   #   csh #    vala //   vbs '   v    /*,*/     vhdl --     ss  ;;;
-     haml  -#     sass  /*,*/ scss /*,*/ css  /*,*/ fig  /   waul #   hh   //   ps  %   canard nb[,]   x    /*,*/  xr  /*,*/
-     xu    /*,*/  xn    /*,*/ xbn  /*,*/ xs   /*,*/ m4   dnl|;
-
-# No extension suggests a shebang line, which generally requires # to denote a comment.
-$comments_for_extension{''} = '#';
-
-my $generated_string = 'Generated by SDoc';
-
-sub is_code    {map /^\s*[^A-Z\|\s]/o, @_}
-sub is_blank   {map /^\n/o, @_}
-sub comment    {my ($text, $s, $e) = @_; join "\n", map("$s $_" . (length $e ? " $e" : ''), split /\n/, $text)}
-
-sub paragraphs {map split(/(\n(?:\h*\n)+)/, $_), @_}
-
-my ($filename, $specified_extension) = @_;
-my $logical_filename = $filename =~ /^sdoc::(.*)$/ ? $1 : $filename;
-
-# Two possibilities here. One is that the filename is an attribute, in which case
-# we want to look up the extension in the transients table. The other is that
-# it's a real filename.
-my $extension = $specified_extension || extension_for($logical_filename) || ($filename =~ /\.sdoc$/io ? $filename =~ /\.(\w+)\.sdoc$/igo : $filename =~ /\.(\w+)$/igo)[0];
-$extension =~ s/^\.//o;
-
-my ($start, $end) = split /,/o, $comments_for_extension{lc $extension} // $comments_for_extension{''} // '#';
-
-join '', map(is_code($_) || is_blank($_) ? ($_ =~ /^\s*c\n(.*)$/so ? $1 : $_) : comment($_, $start, $end), paragraphs retrieve($filename)),
-         "\n" . comment($generated_string, $start, $end) . "\n";
-__
-meta::function('sdoc-html', <<'__');
-# Converts SDoc to logically-structured HTML. Sections end up being nested,
-# and code sections and examples are marked as such. For instance, here is some
-# sample output:
-
-# <div class='section level1'>
-#   <h1 class='title'>Foo</h1>
-#   <p>This is a paragraph...</p>
-#   <p>This is another paragraph...</p>
-#   <pre class='code'>int main () {return 0;}</pre>
-#   <pre class='quoted'>int main () {return 0} // Won't compile</pre>
-#   <div class='section level2'>
-#     <h2 class='title'>Bar</h2>
-#     ...
-#   </div>
-# </div>
-
-# It is generally good about escaping things that would interfere with HTML,
-# but within text paragraphs it lets you write literal HTML. The heuristic is
-# that known tags that are reasonably well-formed are allowed, but unknown ones
-# are escaped.
-
-my ($attribute)   = @_;
-my @paragraphs    = split /\n(?:\s*\n)+/, retrieve($attribute);
-
-my $known_tags    = join '|', qw[html head body meta script style link title div a span input button textarea option select form label iframe blockquote code caption
-                                 table tbody tr td th thead tfoot img h1 h2 h3 h4 h5 h6 li ol ul noscript p pre samp sub sup var canvas audio video strong em];
-my $section_level = 0;
-my @markup;
-
-my $indent        = sub {'  ' x ($_[0] || $section_level)};
-my $unindent      = sub {my $spaces = '  ' x ($section_level - 1); s/^$spaces//gm};
-
-my $escape_all    = sub {s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g};
-my $escape_some   = sub {s/&/&amp;/g; s/<(?!\/|($known_tags)[^>]*>.*<\/\1>)/&lt;/gs};
-
-my $code          = sub {&$escape_all(); &$unindent(); s/^c\n//;                   push @markup, &$indent() . "<pre class='code'>$_</pre>"};
-my $quoted        = sub {&$escape_all(); &$unindent(); s/^\|(\s?)/ \1/; s/^  //mg; push @markup, &$indent() . "<pre class='quoted'>$_</pre>"};
-
-my $paragraph     = sub {&$escape_some(); push @markup, &$indent() . "<p>$_</p>"};
-
-my $section       = sub {my $h = $_[0] > 6 ? 6 : $_[0]; push @markup, &$indent($_[0] - 1) . "<div class='section level$_[0]'>", &$indent($_[0]) . "<h$h>$2</h$h>"};
-my $close_section = sub {push @markup, &$indent($_[0]) . "</div>"};
-
-my $title = sub {
-  my $indentation = (length($1) >> 1) + 1;
-  &$close_section($section_level) while $section_level-- >= $indentation;
-  &$section($indentation);
-  $section_level = $indentation;
-};
-
-for (@paragraphs) {
-  &$code(),   next unless /^\h*[A-Z|]/;
-  &$quoted(), next if     /^\h*\|/;
-
-  &$title(), s/^.*\n// if /^(\s*)(\S.*)\.\n([^\n]+)/ and length("$1$2") < 60 and length("$1$2") - 10 < length($3);
-  &$paragraph();
-}
-
-&$close_section($section_level) while $section_level--;
-
-join "\n", @markup;
-__
-meta::function('sdoc-markdown', <<'__');
-# Renders a chunk of SDoc as Markdown. This involves converting quoted and
-# unquoted code and section headings, but not numbered lists.
-
-my ($attribute, %options) = @_;
-my ($adjust, $quote_code) = @options{qw/adjust quote_code/};
-$adjust //= 0;
-
-my $extension     = extension_for($attribute =~ /^sdoc::(.*)$/g) || ($attribute =~ /.*?\.([^\.]+)(?:\.sdoc)?$/gi)[0];
-my @paragraphs    = split /\n(?:\s*\n)+/, retrieve($attribute);
-
-my $section_level = 0;
-my @markup;
-
-my $indent        = sub {'  ' x ($_[0] || $section_level)};
-my $unindent      = sub {my $spaces = '  ' x ($section_level - $adjust - 1); s/^$spaces//gm; $_};
-
-my $code          = sub {goto &$quoted if $quote_code;
-                         &$unindent(); s/^c\n//;                   push @markup, "```$extension\n$_\n```"};
-my $quoted        = sub {&$unindent(); s/^\|(\s?)/ \1/; s/^  //mg; push @markup, join("\n", map &$indent(2) . $_, split /\n/)};
-
-my $heading       = sub {'#' x $_[0]};
-my $section       = sub {&$unindent(); push @markup, &$heading($_[0]) . ' ' . $2};
-
-my $title = sub {
-  my $indentation = (length($1) >> 1) + 1 + $adjust;
-  &$section($indentation);
-  $section_level = $indentation;
-};
-
-for (@paragraphs) {
-  &$code(),   next unless /^\h*[A-Z|]/;
-  &$quoted(), next if     /^\h*\|/;
-
-  &$title(), s/^.*\n// if /^(\s*)(\S.*)\.\n([^\n]+)/ and length("$1$2") < 60 and length("$1$2") - 10 < length($3);
-  push @markup, join "\n", map &$unindent(), split /\n/;
-}
-
-join "\n\n", @markup;
-__
-meta::function('sdoc-packed', <<'__');
-# An SDoc preprocessor that removes all comment paragraphs. Paragraph breaks
-# are preserved, and no "generated by SDoc" string is added.
-join "\n", grep /^\s*[^A-Z| ]/, split /\n(?:\s*\n)+/, retrieve(@_);
-__
-meta::function('sdoc-pod', <<'__');
-# Renders a chunk of SDoc as POD. This involves converting quoted and
-# unquoted code and section headings, but not numbered lists. It also
-# involves converting Markdown's code-text and link syntax.
-
-use List::Util qw/min/;
-
-my ($attribute, %options) = @_;
-my ($adjust, $quote_code) = @options{qw/adjust quote_code/};
-$adjust //= 0;
-
-my $extension     = extension_for($attribute =~ /^sdoc::(.*)$/g) || ($attribute =~ /.*?\.([^\.]+)(?:\.sdoc)?$/gi)[0];
-my @paragraphs    = split /\n(?:\s*\n)+/, retrieve($attribute);
-
-my $section_level = 0;
-my @markup;
-
-my $indent        = sub {'  ' x ($_[0] || $section_level)};
-my $unindent      = sub {my $spaces = '  ' x ($section_level - $adjust - 1); s/^$spaces//gm; $_};
-
-my $code          = sub {goto &$quoted if $quote_code;
-                         &$unindent(); s/^c\n//;                   push @markup, "=cut\n\n$_\n\n=pod"};
-my $quoted        = sub {&$unindent(); s/^\|(\s?)/ \1/; s/^  //mg; push @markup, join "\n", map "  $_", split /\n/};
-my $section       = sub {&$unindent(); push @markup, "=head$_[0] $2"};
-
-my $title = sub {
-  my $indentation = (length($1) >> 1) + 1 + $adjust;
-  &$section($indentation);
-  $section_level = $indentation;
-};
-
-for (@paragraphs) {
-  &$code(),   next unless /^\h*[A-Z|]/;
-  &$quoted(), next if     /^\h*\|/;
-
-  # Anything below here is a "normal" (i.e. commented) paragraph, so
-  # normal text-transformation rules apply.
-  s/`([^`]+?)`/C<<<<< $1 >>>>>/g;       # Markdown inline code
-  s/\[([^]]+)\]\(([^)]+)\)/L<$1|$2>/g;  # Markdown link
-
-  &$title(), s/^.*\n// if /^(\s*)(\S.*)\.\n([^\n]+)/ and length("$1$2") < 60 and length("$1$2") - 10 < length($3);
-
-  # Undo any consistent indentation within a paragraph.
-  {
-    my $paragraph         = $_;
-    my $indentation_level = min(map length(s/^(\s*).*/$1/rmg), split /\n/);
-    my $spaces            = ' ' x $indentation_level;
-    $_ = $paragraph =~ s/^$spaces//mgr;
-  }
-
-  push @markup, join "\n", map &$unindent(), split /\n/;
-}
-
-join "\n\n", @markup;
-__
-meta::function('sdocp', <<'__');
-# Renders an attribute as SDocP. This logic was taken directly from the sdoc script.
-my $attribute = retrieve($_[0]);
-sub escape {my @results = map {s/\\/\\\\/go; s/\n/\\n/go; s/'/\\'/go; $_} @_; wantarray ? @results : $results[0]}
-"sdocp('" . escape($_[0]) . "', '" . escape($attribute) . "');";
 __
 meta::function('serialize', <<'__');
 my ($options, @criteria) = separate_options(@_);
@@ -1134,10 +696,6 @@ $hash = fast_hash(join '|', $hash, grep s/^parent:://, sort keys %data)
 if $$options{'-P'};
 
 $$options{'-G'} ? $hash : fast_hash("$global_data|$hash");
-__
-meta::function('tex', <<'__');
-my @documents = @_ ? @_ : qw/main/;
-join "\n\n", map preprocess(retrieve("section::$_")), @documents;
 __
 meta::function('touch', 'associate($_, \'\') for @_;');
 meta::function('u', <<'__');
@@ -1244,12 +802,8 @@ terminal::error("Verification failed; expected $state but got $observed from $ot
 hook('after-verify', $result, observed => $observed, expected => $state);
 $result;
 __
-meta::function('vim', <<'__');
-# Installs VIM highlighters.
-file::write("$ENV{'HOME'}/.vim/syntax/$_.vim", retrieve("vim_highlighter::$_")) for grep s/^vim_highlighter:://o, keys %data;
-__
-meta::hook('before-save::make-T', 'make(\'-T\');             # Recompile bootstrap image');
-meta::hook('before-shell::ad', 'ad(\'section::|note::|sdoc::\');');
+meta::hook('before-shell::ad', 'ad(\'note::\');');
+meta::hook('before-shell::default-note', 'create(\'note::default\');');
 meta::indicator('cc', 'length ::retrieve(\'data::current-continuation\') ? "\\033[1;36mcc\\033[0;0m" : \'\';');
 meta::indicator('locked', 'is_locked() ? "\\033[1;31mlocked\\033[0;0m" : \'\';');
 meta::indicator('path', <<'__');
@@ -1619,8 +1173,12 @@ sub parse {
 
 sub execute {
   my %command = %{$_[0]};
-  die "undefined command: $command{function}" unless exists $externalized_functions{$command{function}};
-  &{"::$command{function}"}(@{$command{args}})}
+  if (exists $externalized_functions{$command{function}})
+    {&{"::$command{function}"}(@{$command{args}})}
+  elsif (exists $externalized_functions{'method-missing'})
+    {::method_missing($command{function}, @{$command{args}})}
+  else
+    {die "undefined command: $command{function}"}}
 
 sub run {execute(parse(tokenize(@_)))}
 
@@ -1644,7 +1202,7 @@ sub repl {
   my $autocomplete = $options{autocomplete} || sub {[sort(keys %data), grep !/-/, sort keys %externalized_functions]};
   my $prompt       = $options{prompt}       || \&prompt;
   my $parse        = $options{parse}        || sub {parse(tokenize(@_))};
-  my $output       = $options{output}       || sub {print join("\n", @_), "\n"};
+  my $output       = $options{output}       || sub {print join("\n", @_), "\n" if grep length, @_};
   my $command      = $options{command}      || sub {my ($command) = @_; ::around_hook('shell-command', $command, sub {&$output(::dangerous('', sub {execute($command)}))})};
 
   length $_ && &$command(&$parse($_)) while ($attribs->{completion_word} = &$autocomplete(), defined($_ = $term->readline(&$prompt())))}
@@ -1666,39 +1224,58 @@ __
 meta::message_color('cc', '36');
 meta::message_color('state', 'purple');
 meta::message_color('states', 'yellow');
-meta::parent('/home/spencertipping/r/initiative/perl-objects/tex-document', <<'__');
-function::compile-tex          dbf3cb2631af90f978447e4d0fbd98a6
-function::tex                  ac0993b62cea70c8de9c036e9f1779b8
-meta::externalize_template     ce51d3e099f0fad21cd01e5c53382e85
-meta::functor::code-templates  ded6160a67c6419fb3d4063b6c1730c2
-meta::functor::tex-templates   6ac0ee994c9328fcfc41083083d97280
-meta::template::beamer         3b73fe6a7ef271112a603b110630ad01
-meta::template::code           b8f05a71dd4637c1b4a534d5f66b69b5
-meta::template::document       18688cac3eab39087165931beb4f82de
-meta::template::enumeration    67d1cf0bb0e8946fc3b48cc30a4f5fa4
-meta::template::math           057c8fe0d91c0b85138b01c1f6a1e3b3
-meta::template::quotations     f76a27311c8a9d09550dd669e98f9a7f
-meta::template::sections       25cb0a42bf1c2f403f8f9c2e1c5e4105
-meta::type::psection           e8aca4e9d24ea3a19a0b2fb4b946ce87
-meta::type::resource           c521d2de1dcd7f9f7ec4df3557572009
-meta::type::section            fb3b53eaebc1a2433c1763eccdb781c4
-parent::preprocessor           08006c9536bfe82d4b9b8bd57832eafa
-parent::sdoc                   f1dc17f93d2120095920202bb1e5c220
-parent::vim-highlighters       ad6aeea7f2688cfd3f2cb956b76e7ec1
-resource::header               165b42e25edb90043f5d3b544adee521
-resource::header-languages     22696552702bd6d35f938ea88eed1367
-resource::header-listings      712557f5989b12ca325bdd2cd36020ef
-resource::header-packages      323964d33482e6099b0248bb4eddf2ae
-resource::header-refs          e3999cbca586d5100eb782643071ee88
-resource::header-resource      a8df924fbb715de73b8e7518e0c9e0d6
-template::item[]               2c2041b4c3b6584b6ae3610f5ab68939
-template::logical              58b30808bb307bee2ff021cade4c0f40
+meta::note('default', <<'__');
+Degrees of plurality.
+xh is in a difficult place because its syntax needs to be more streamlined than
+that of Lisp. Nobody in their right mind is going to wrap every statement they
+write with (), and if () aren't required on the command line, then nobody will
+remember to do it in shell scripts. (Beyond which, it's just silly; having just
+words at the toplevel should be fine since the rest of the world has moved to
+line-delimited statements anyway.)
+
+So let's take this at face value for a moment. We need to have two list axes,
+one for lines and one for words. This is useful anyway, since it makes it easy
+to write things like matrices. But beyond that, brace-lists of lines already
+have meaning as functions; vectors and paren-lists don't have this meaning.
+This is great because braced lists can be used to encode multiple solutions to
+a function inversion, an encoding that, combined with sufficiently lazy
+evaluation, provides both breadth-first searching and alternative
+continuations. (So we're implying that call/cc exists in some form, though
+there is no way we want to make this as general as it is in Scheme.)
+
+Quick summary of semantics:
+
+| $ nth [foo bar bif] 0
+  foo
+  $ def foo {
+  >   echo hi
+  >   echo there
+  > }
+  $ nth $foo 0
+  [echo hi]
+  $ count $foo
+  2
+  $ nth (nth $foo 0) 0
+  echo
+  $ def echo-1 (nth $foo 0)
+  $ def echo-2 (nth $foo 1)
+  $ def new-foo {$echo-1 $echo-2}
+  $ count $new-foo
+  2
+  $ == $new-foo $foo
+  1
+  $
+
+Oh crap. This is a problem. We can't have xh infer a newline in the middle of a
+{} because that would violate the contract that list construction is a form of
+string concatenation. I think we have a major issue here.
+
 __
-meta::parent('notes', <<'__');
+meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
 function::note    823227b01d6f7b953a06d41761136710
 function::notes   7229b326ac8686b2db6de98496bc7527
 meta::type::note  f81bea58841a438e4ee34608ab4f54c0
-parent::object    bd9b5c9fcca37e5531bbe3807ead1714
+parent::object    bc622153cca37e5531bbe380ee06d388
 __
 meta::parent('object', <<'__');
 bootstrap::html                         66b779578ac8b63db9b910931f5435f6
@@ -1800,7 +1377,7 @@ internal_function::with_cwd             d65eefc43140868a62d189f290da4b14
 internal_function::with_exported        a9a67054e4ce842e656fd00029e55aa2
 internal_function::with_fork            d0963ac0472c5859c31e3177b37a90e8
 library::process                        9cb64aa7459a61081116ffe86da21e44
-library::shell                          6659bbab1051efd46b4a1a713edf6b28
+library::shell                          7d7aa21e89fc1e67fc1db976ac0ddb72
 library::terminal                       7e2d045782405934a9614fe04bcfe559
 message_color::cc                       2218ef0f7425de5c717762ffb100eb43
 message_color::state                    03621cd6ac0b1a40d703f41e26c5807f
@@ -1829,678 +1406,12 @@ retriever::id                           4da6080168d32445150cc4200af7af6e
 retriever::object                       d70d593ada2f108b2909a9fc24c4f63e
 retriever::perl                         58a2d30d05c22bf6b4461d93ae46f361
 __
-meta::parent('preprocessor', <<'__');
-function::preprocess           ab5526a02ff417d4c162357dc327e7c4
-meta::type::template           bc4b0c80b5efc716b19e99b832c22bf3
-parent::object                 4426dd6f4aebae284447047265132c82
-retriever::pp                  3b5f5c5d30c5a04f72056dedaacfe7b7
-template::comment              dfe273d2dad3d8159b847545e4e5c309
-template::def                  0575aedbacf922d77f3419b817b7d579
-template::eval                 1a0e2124a05056be4abc11803883c294
-template::failing_conditional  e3a4523110dd859e828f342185de7c62
-template::include              47b5552d609d97fe7f2522d5c1027014
-template::pinclude             c07ff79bf8d642cceaa9ef844bfcb189
-__
-meta::parent('sdoc', <<'__');
-function::sdoc            9e8cc1b242cb03e86307c62f119aabc1
-function::sdoc-html       1bacf037ce7cad1b6339120e2eeab87f
-function::sdoc-markdown   6d1c6c7f8aa169e71bec33b90aca935b
-function::sdoc-packed     77ed0b1b297675176ba12fe8820284ee
-function::sdoc-pod        8e563dd87156b975d821315170f4a3bc
-function::sdocp           c3d738d982ba87418a298ff58478a85b
-meta::type::sdoc          22cd7315641d38c9d536344e83c36bed
-meta::type::slibrary      11af20c9992afa7ecaa370b2694823de
-parent::object            bd9b5c9fcca37e5531bbe3807ead1714
-retriever::code-sdoc      0096df7bf3836f5834205298823ef0f3
-retriever::html-sdoc      05a3a1c747d4690741e663d34417bd32
-retriever::markdown-sdoc  84cf06d9f78005ccde36fb96334779cb
-retriever::pod-sdoc       cc507b28f8bb550b8cb9edd05c577ec0
-retriever::sdoc           aea0d1024f5bb8c9a0cb10fb4fdf279a
-retriever::sdoc-packed    99b9ce123e95f677800585d5deae545d
-retriever::sdocp          bb733b4bf092d4405d24b509d52eb193
-__
-meta::parent('vim-highlighters', <<'__');
-function::vim                cf9e37026f6cd1499a6dd258fbbcd060
-meta::type::vim_highlighter  38829105cbe400cb36d45357882c77fd
-parent::object               20c70a494394d86d886f9f03e94e330b
-__
-meta::psection('implementation', <<'__');
-
-- sp Language reference | part:language-reference
-- sc Similarities to TCL | chp:similarities-to-tcl
-  Every xh value is a string. This includes functions, closures, lazy
-  expressions, scope chains, call stacks, and heaps. Asserting string
-  equivalence makes it possible to serialize any value losslessly, including a
-  running xh process.\footnote{Note that things like active socket connections
-  and external processes will be proxied, however; xh can't migrate
-  system-native things.}
-
-  Although the string equivalence is available, most operations have
-  higher-level structure. For example, the \verb|$| operator, which performs
-  string interpolation, interpolates values in such a way that two things are
-  true:
-
-  - enumerate << end
-    - item No interpolated value will be further interpolated (idempotence).
-    - item The interpolated value will be read as a single list element.
-  - end
-
-  For example:
-
-  - verbatim << end
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ def baz $foo                      # no quoting necessary here by (2)
-    $ echo $baz
-    hi there $bar!                      # $bar unevaluated by (1)
-    $
-  - end
-
-  This interpolation structure can be overridden by using one of three
-  alternative forms of \verb|$|:
-
-  - verbatim << end
-    $ def bar bif
-    $ def foo "hi there \$bar!"
-    $ echo $!foo                        # allow re-interpolation
-    hi there bif!
-    $ count [$foo]                      # single element
-    1
-    $ count [$@foo]                     # multiple elements
-    3
-    $ nth [$@!foo] 2                    # multiple and re-interpolation
-    bif!
-    $
-  - end
-
-  All string values in xh programs are lifted into reader-safe quotations. This
-  causes any ``active'' characters such as \verb|$| to be prefixed with
-  backslashes, a transformation you can mostly undo by using \verb|$@!|. The
-  only thing you can't undo is bracket balancing, which if undone would wreak
-  havoc on your programs. You can see the effect of balancing by doing
-  something like this:
-
-  - verbatim << end
-    $ def foo "[[[["
-    $ def bar [$@!foo]
-    $ echo $bar
-    [\[\[\[\[]
-    $
-  - end
-
-  We can't get xh to create an unbalanced list through any series of rewriting
-  operations, since the contract is that any active list characters are either
-  positive and balanced, or escaped.
-
-- sc Similarities to Lisp | chp:similarities-to-lisp
-  xh is strongly based on the Lisp family of languages, most visibly in its
-  homoiconicity. Any string wrapped in curly braces is a list of lines with the
-  following contract:
-
-  - verbatim << end
-    $ def foo {bar bif
-    >          baz
-    >          bok quux}
-    $ count $foo
-    3
-    $ nth $foo 0
-    bar bif
-    $ nth $foo 2
-    bok quux
-    $ def foo {
-    >   bar bif
-    >   baz
-    >   bok quux
-    > }
-    $ count $foo
-    3
-    $ nth $foo 0
-    bar bif
-    $
-  - end
-
-  Any string wrapped in \verb|[]| or \verb|()| is interpreted as a list of
-  words, just as it is in Clojure. Also as in Lisp in general, \verb|()|
-  interpolates its result into the surrounding context:
-
-  - verbatim << end
-    $ def foo 'hi there'
-    $ echo $foo
-    hi there
-    $ echo (echo $foo)                  # similar to bash's $()
-    hi there
-    $
-  - end
-
-  Any \verb|()| list can be prefixed with \verb|@| and/or \verb|!| with effects
-  analogous to \verb|$|; e.g.~\verb|echo !@(echo hi there)|.
-
-- sc Dissimilarities from everything else I know of | chp:dissimilarities
-  xh evaluates expressions outside-in:
-
-  - enumerate << end
-    - item Variable shadowing is not generally possible.
-           \label{item:no-variable-shadowing}
-    - item Expansion is idempotent for any set of bindings.
-           \label{item:idempotent-expansion}
-    - item Unbound variables expand to active versions of themselves (a
-           corollary of \ref{item:idempotent-expansion}).
-           \label{item:unbound-expansion}
-    - item Laziness is implemented by referring to unbound quantities.
-           \label{item:laziness-unbound}
-    - item Bindings can be arbitrary list expressions, not just names (a
-           partial corollary of \ref{item:laziness-unbound}).
-           \label{item:arbitrary-bindings}
-    - item No errors are ever thrown; all expressions that cannot be evaluated
-           become \verb|(error)| clauses that most functions consider to be
-           opaque.
-           \label{item:no-errors}
-    - item xh has no support for syntax macros.
-           \label{item:no-macros}
-  - end
-
-  Unbound names are treated as though they might at some point exist. For
-  example:
-
-  - verbatim << end
-    $ echo $x
-    $x
-    $ def x $y
-    $ echo $x
-    $y
-    $ def y 10
-    $ echo $x
-    10
-    $
-  - end
-
-  You can also bind expressions of things to express partial knowledge:
-
-  - verbatim << end
-    $ echo (count $str)
-    (count $str)
-    $ def (count $str) 10
-    $ echo $str
-    $str
-    $ echo (count $str)
-    10
-    $
-  - end
-
-  This is the mechanism by which xh implements lazy evaluation, and it's also
-  the reason you can serialize partially-computed lazy values.
-
-- sc Functions | chp:functions
-  xh supports two equivalent ways to write function-like relations:
-
-  - verbatim << end
-    $ def (foo $x) {echo hi there, $x!}
-    $ foo spencer
-    hi there, spencer!
-    $
-  - end
-
-  This is named definition by destructuring, which works great for most cases.
-  When you're writing an anonymous function, however, you'll need to describe
-  the mappings individually:
-
-  - verbatim << end
-    $ reduce {[$total +$x] + $total $x
-              [$total *$x] * $total $x} \
-             0 \
-             [+1 +2 *5 +1]
-    16
-    $
-  - end
-
-- sp Bootstrap implementation | part:bootstrap-implementation
-- sc Self-replication | chp:self-replication
-  - perl boot/xh-header << end
-    #!/usr/bin/env perl
-    BEGIN {
-    print STDERR q{
-    NOTE: Development image
-
-    If you see this note after installing the shell, it's probably because
-    you're running a version that has not yet rebuilt itself (maybe you got the
-    wrong file from the Git repo?). You can do this, but it will be really
-    slow and may use a lot of memory. There are two ways to fix this:
-
-    1. Download the standard image from http://spencertipping.com/xh
-    2. Have this image recompile itself by running xh.recompile-in-place (this
-       will take some time because it stress-tests your Perl runtime)
-
-    Note also that bootstrapping requires Perl 5.14 or later, whereas running a
-    compiled image just requires Perl 5.10.
-
-    };
-    }
-
-    BEGIN {eval(our $xh_bootstrap = q{
-    # xh: the X shell | https://github.com/spencertipping/xh
-    # Copyright (C) 2014, Spencer Tipping
-    # Licensed under the terms of the MIT source code license
-
-    # For the benefit of HTML viewers (long story):
-    # <body style='display:none'>
-    # <script src='http://spencertipping.com/xh/page.js'></script>
-    use 5.014;
-    package xh;
-    our %modules;
-    our @module_ordering;
-
-    our %compilers = (pl => sub {
-      my $package = $_[0] =~ s/\./::/gr;
-      eval "{package ::$package;\n$_[1]\n}";
-      die "error compiling module $_[0]: $@" if $@;
-    });
-
-    sub defmodule {
-      my ($name, $code, @args) = @_;
-      chomp($modules{$name} = $code);
-      push @module_ordering, $name;
-      my ($base, $extension) = split /\.(\w+$)/, $name;
-      die "undefined module extension '$extension' for $name"
-        unless exists $compilers{$extension};
-      $compilers{$extension}->($base, $code, @args);
-    }
-
-    chomp($modules{bootstrap} = $::xh_bootstrap);
-    undef $::xh_bootstrap;
-  - end
-
-  At this point we need a way to reproduce the image. Since the bootstrap code
-  is already stored, we can just wrap it and each defined module into an
-  appropriate \verb|BEGIN| block.
-
-  - perl >> boot/xh-header << end
-    sub image {
-      my @pieces = "#!/usr/bin/env perl";
-      push @pieces, "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
-                    $modules{bootstrap},
-                    '_';
-      push @pieces, "BEGIN {xh::defmodule('$_', <<'_')}",
-                    $modules{$_},
-                    '_' for @module_ordering;
-      push @pieces, "xh::main::main;\n__DATA__";
-      join "\n", @pieces;
-    }
-    })}
-  - end
-
-- sc Perl-hosted evaluator | chp:perl-hosted-evaluator
-  xh is self-hosting, but to get there we need to implement an interpreter in
-  Perl. This interpreter is mostly semantically correct but slow and shouldn't
-  be used for anything besides bootstrapping the real compiler.
-
-  - perlmodule xh::interpreter modules/interpreter.pl << end
-    use Memoize qw/memoize/;
-    use List::Util qw/max/;
-
-    sub active_regions {
-      # Returns a series of numbers that describes, in pre-order, regions of
-      # the given string that should be interpolated. The numeric list has the
-      # following format:
-      #
-      # (offset << 32 | len), (offset << 32 | len) ...
-
-      my @pieces = split /(\\.|\$@?!?\w+|\$@?!?\{[^}]+\}|@?!?\(|[')])/s, $_[0];
-      my $offset = 0;
-      my @result;
-      my @quote_offsets;
-
-      for (@pieces) {
-        if (@quote_offsets && substr($_[0], $quote_offsets[-1], 1) eq "'") {
-          # We're inside a hard-quote, so ignore everything except for the next
-          # hard-quote.
-          pop @quote_offsets if /^'/;
-        } else {
-          if (/^'/ || /^@?!?\(/) {
-            push @quote_offsets, $offset;
-          } elsif (/^\$/) {
-            push @result, $offset << 32 | length;
-          } elsif (/^\)/) {
-            my $start = pop @quote_offsets;
-            push @result, $start << 32 | $offset + 1 - $start;
-          }
-        }
-        $offset += length;
-      }
-
-      sort {$a <=> $b} @result;
-    }
-
-    memoize 'active_regions';
-
-    our $whitespace = qr/\s+/;
-    our $newlines   = qr/\n(?:\s*\n)*/;
-    our %closers    = ('(' => ')', '[' => ']', '{' => '}');
-
-    sub element_regions {
-      # Returns integer-encoded regions describing the positions of list
-      # elements. The list passed into this function should be unwrapped; that
-      # is, it should have no braces.
-      my ($is_vertical, $xs) = @_;
-      my $split_on           = $is_vertical ? $newlines : $whitespace;
-      my $offset             = 0;
-      my @pieces             = split / ( "(?:\\.|[^"])*"
-                                       | '(?:\\.|[^'])*'
-                                       | \\.
-                                       | [({\[\]})]
-                                       | $split_on ) /xs, $_[0];
-      my @paren_offsets;
-      my @parens;
-      my @result;
-      my $item_start = -1;
-
-      for (@pieces) {
-        unless (@paren_offsets) {
-          if (/$split_on/ || /^[)\]}]/) {
-            # End any item if we have one.
-            push @result, $item_start << 32 | $offset - $item_start
-            if $item_start >= 0;
-            $item_start = -1;
-          } else {
-            # Start an item unless we've already done so.
-            $item_start = $offset if $item_start < 0;
-          }
-        }
-
-        # Update bracket tracking.
-        if ($_ eq $closers{$parens[-1]}) {
-          if (@parens) {
-            pop @paren_offsets;
-            pop @parens;
-          } else {
-            die 'illegal closing brace: ... '
-              . substr($xs, max(0, $offset - 10), 20)
-              . ' ...'
-              . "\n(whole string is $xs)";
-          }
-        } elsif (/^[(\[{]/) {
-          push @paren_offsets, $offset;
-          push @parens, $_;
-        }
-
-        $offset += length;
-      }
-
-      push @result, $item_start << 32 | $offset if $item_start >= 0;
-      @result;
-    }
-
-    memoize 'element_regions';
-
-    sub xh_list_box {
-      $_[0] !~ /^[({\[]/ && element_regions(0, $_[0]) > 1
-        ? "[$_[0]]"
-        : $_[0];
-    }
-
-    sub xh_list_unbox {
-      return $1 if $_[0] =~ /^\[(.*)\]$/
-                || $_[0] =~ /^\((.*)\)$/
-                || $_[0] =~ /^\{(.*)\}$/;
-      $_[0];
-    }
-
-    sub parse_list {
-      my $unboxed = xh_list_unbox $_[0];
-      map xh_list_box(substr $unboxed, $_ >> 32, $_ & 0xffffffff),
-          element_regions 0, $unboxed;
-    }
-
-    sub parse_block {
-      my $unboxed = xh_list_unbox $_[0];
-      map xh_list_box(substr $unboxed, $_ >> 32, $_ & 0xffffffff),
-          element_regions 1, $unboxed;
-    }
-
-    sub into_list  {'(' . join(' ',  map xh_list_box($_), @_) . ')'}
-    sub into_vec   {'[' . join(' ',  map xh_list_box($_), @_) . ']'}
-    sub into_block {'{' . join("\n",                      @_) . '}'}
-
-    sub xh_vecp   {$_[0] =~ /^\[.*\]$/}
-    sub xh_listp  {$_[0] =~ /^\(.*\)$/}
-    sub xh_blockp {$_[0] =~ /^\{.*\}$/}
-    sub xh_varp   {$_[0] =~ /^\$/}
-
-    sub xh_count {
-      scalar element_regions 0, xh_list_unbox $_[0];
-    }
-
-    sub xh_nth {(parse_list $_[0])[$_[1]]}
-
-    sub xh_nth_eq {
-      # FIXME
-      my ($copy, $i, $v) = @_;
-      my @regions        = element_regions 0, $copy;
-      my $r              = $regions[$i];
-      substr($copy, $r >> 32, $r & 0xffffffff) = $v;
-      $copy;
-    }
-
-    sub xh_vcount {
-      scalar element_regions 1, xh_list_unbox $_[0];
-    }
-
-    sub xh_vnth {
-      my @regions = element_regions 1, $_[0];
-      my $r       = $regions[$_[1]];
-      xh_list_box substr $_[0], $r >> 32, $r & 0xffffffff;
-    }
-
-    sub xh_vnth_eq {
-      my ($copy, $i, $v) = @_;
-      my @regions        = element_regions 1, $copy;
-      my $r              = $regions[$i];
-      substr($copy, $r >> 32, $r & 0xffffffff) = $v;
-      $copy;
-    }
-
-    sub destructuring_bind;
-    sub destructuring_bind {
-      # Both $pattern and $v should be quoted; that is, the string character [
-      # should be encoded as \[.
-      my ($pattern, $v) = @_;
-      my @pattern_elements = element_regions 0, $pattern;
-      my @v_elements       = element_regions 0, $v;
-      my %bindings;
-
-      # NOTE: no $@ matching
-      return undef unless @v_elements == @pattern_elements;
-
-      # NOTE: no foo$bar matching (partial constants)
-      for (my $i = 0; $i < @pattern_elements; ++$i) {
-        my $pi = xh_nth $pattern, $i;
-        my $vi = xh_nth $v,       $i;
-
-        return undef if $pi !~ /^\$/ && $pi ne $vi;
-
-        my @pattern_regions = element_regions 0, $pi;
-        my @v_regions       = element_regions 0, $vi;
-        return undef unless @pattern_regions == 1 && $pi =~ /^\$/
-                         || @pattern_regions == @v_regions;
-
-        if (xh_vecp $pi) {
-          my $sub_bind = destructuring_bind $pi, $vi;
-          return undef unless ref $sub_bind;
-          my %sub_bindings = %$sub_bind;
-          for (keys %sub_bindings) {
-            return undef if exists $bindings{$_}
-                         && $bindings{$_} ne $sub_bindings{$_};
-            $bindings{$_} = $sub_bindings{$_};
-          }
-        } elsif (xh_listp $pi) {
-          die "TODO: implement list binding for $pi";
-        } elsif ($pi =~ /^\$\{?(\w+)\}?$/) {
-          return undef if exists $bindings{$1} && $bindings{$1} ne $vi;
-          $bindings{$1} = $vi;
-        } elsif ($pi =~ /^\$/) {
-          die "illegal binding form: $pi";
-        } else {
-          return undef unless $pi eq $vi;
-        }
-      }
-
-      {%bindings};
-    }
-
-    sub invoke;
-    sub interpolate;
-    sub interpolate {
-      # Takes a string and a compiled binding hash and interpolates all
-      # applicable substrings outside-in. This process may involve full
-      # evaluation if () subexpressions are present, and is in general
-      # quadratic or worse in the length of the string.
-      my $bindings              = $_[0];
-      my @interpolation_regions = active_regions $_[1];
-      my @result_pieces;
-
-      for (@interpolation_regions) {
-        my $slice = substr $_[0], $_ >> 32, $_ & 0xffffffff;
-
-        # NOTE: no support for complex ${} expressions
-        if ($slice =~ /^\$(@?!?)\{?(\w+)\}?$/) {
-          # Expand a named variable that may or may not be defined yet.
-          push @result_pieces,
-               exists ${$bindings}{$2} ?
-                   $1 eq ''  ? xh_listquote(xh_deactivate $bindings->{$2})
-                 : $1 eq '@' ? xh_deactivate($bindings->{$2})
-                 : $1 eq '!' ? xh_listquote($bindings->{$2})
-                 :             $bindings->{$2}
-               : "\$$slice";
-        } elsif ($slice =~ /^\((.*)\)$/s) {
-          push @result_pieces, invoke $bindings, parse_list interpolate $1;
-        } else {
-          push @result_pieces, $slice;
-        }
-      }
-
-      join '', @result_pieces;
-    }
-
-    sub xh_function_cases {
-      my @result;
-      my @so_far;
-      for (parse_vlist $_[0]) {
-        my ($command, @args) = parse_list $_;
-        if (xh_vecp $command) {
-          push @result, into_block @so_far if @so_far;
-          @so_far = ($command, into_list @args);
-        }
-      }
-      push @result, into_block @so_far if @so_far;
-      @result;
-    }
-
-    sub evaluate;
-    sub invoke {
-      # NOTE: no support for (foo bar $x)-style conditional destructuring;
-      # these are all rewritten into lambda forms
-      my ($bindings, $f, @args) = @_;
-      my $args = into_vec @args;
-
-      # Resolve f into a lambda form if it's still in word form.
-      $f = $bindings->{$f} if exists $bindings->{$f};
-
-      # Escape into perl
-      return $f->($bindings, @args) if ref $f eq 'CODE';
-
-      my %nested_bindings = %$bindings;
-      for (xh_function_cases $f) {
-        my ($formals, @body) = parse_block $_;
-        if (my $maybe_bindings = destructuring_bind $formals, $args) {
-          $nested_bindings{$_} = $$maybe_bindings{$_}
-          for keys %$maybe_bindings;
-          return evaluate {%nested_bindings}, into_block @body;
-        }
-      }
-
-      return into_list $f, @args;
-    }
-
-    sub evaluate {
-      my ($bindings, $block) = @_;
-      my @statements         = parse_block $block;
-      my $result;
-
-      # NOTE: this function updates $bindings in place.
-      for (@statements) {
-        # Each statement is an invocation, which for now we assume all to be
-        # functions.
-        #
-        # NOTE: this is semantically incomplete as we don't consider
-        # macro-bindings.
-        $result = invoke $bindings, parse_list interpolate $bindings, $_;
-      }
-      $result;
-    }
-  - end
-
-__
-meta::resource('header', <<'__');
-- include resource::header-packages
-- include resource::header-listings
-
-- include resource::header-refs
-
-- include resource::header-languages
-- include resource::header-resource
-__
-meta::resource('header-languages', <<'__');
-\lstnewenvironment{asmcode}       {}{}
-\lstnewenvironment{cppcode}       {\lstset{language=c++}}{}
-\lstnewenvironment{javacode}      {\lstset{language=java}}{}
-\lstnewenvironment{javascriptcode}{}{}
-\lstnewenvironment{htmlcode}      {\lstset{language=html}}{}
-\lstnewenvironment{perlcode}      {\lstset{language=perl}}{}
-\lstnewenvironment{rubycode}      {\lstset{language=ruby}}{}
-\lstnewenvironment{pythoncode}    {\lstset{language=python}}{}
-
-__
-meta::resource('header-listings', <<'__');
-\definecolor{gray}{rgb}{0.6,0.6,0.6}
-
-\usepackage{caption}
-\DeclareCaptionFormat{listing}{\llap{\color{gray}#1\hspace{10pt}}\tt{}#3}
-\captionsetup[lstlisting]{format=listing, singlelinecheck=false, margin=0pt, font={bf}}
-
-\lstset{columns=fixed,basicstyle={\tt},numbers=left,firstnumber=auto,basewidth=0.5em,showstringspaces=false,numberstyle={\color{gray}\scriptsize}}
-__
-meta::resource('header-packages', <<'__');
-\usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb,amsthm,pxfonts,listings,color}
-\usepackage[colorlinks]{hyperref}
-__
-meta::resource('header-refs', '\\newcommand{\\Ref}[2]{\\hyperref[#2]{#1 \\ref*{#2}}}');
-meta::resource('header-resource', '\\lstnewenvironment{resourcecode}{}{}');
-meta::retriever('code-sdoc', <<'__');
-# Lets you specify the SDoc extension manually. For instance:
-# code.js::sdoc::foo causes sdoc::foo to be SDoc-rendered using Javascript comments.
-my ($name) = @_;
-return undef unless $name =~ s/^code\.(\w+)::// and defined retrieve($name);
-sdoc($name, $1);
-__
 meta::retriever('file', '-f $_[0] ? file::read($_[0]) : undef;');
 meta::retriever('global', <<'__');
 # Returns the global data stashed at the end of this perl object
 $_[0] eq 'self' ? $global_data : undef;
 __
-meta::retriever('html-sdoc', <<'__');
-my ($attribute) = @_;
-return undef unless $attribute =~ s/^html::/sdoc::/ and defined retrieve($attribute) || $attribute =~ s/^sdoc::// && defined retrieve($attribute);
-sdoc_html($attribute);
-__
 meta::retriever('id', '$_[0] =~ /^id::/ ? substr($_[0], 4) : undef;');
-meta::retriever('markdown-sdoc', <<'__');
-my ($attribute) = @_;
-return undef unless $attribute =~ s/^markdown(?:\.(\d+))?(\.q)?::/sdoc::/;
-my ($adjust, $quote_code) = ($1, $2);
-return undef unless defined retrieve($attribute) || $attribute =~ s/^sdoc::// && defined retrieve($attribute);
-sdoc_markdown($attribute, adjust     => $adjust,
-                          quote_code => $quote_code);
-__
 meta::retriever('object', <<'__');
 # Fetch a property from another Perl object. This uses the 'cat' function.
 return undef unless $_[0] =~ /^object::(.*?)::(.*)$/ && -x $1 && qx|$1 is '$2'|;
@@ -2510,270 +1421,6 @@ meta::retriever('perl', <<'__');
 # Lets you use the result of evaluating some Perl expression
 return undef unless $_[0] =~ /^perl::(.*)$/;
 eval $1;
-__
-meta::retriever('pod-sdoc', <<'__');
-my ($attribute) = @_;
-return undef unless $attribute =~ s/^pod(?:\.(\d+))?(\.q)?::/sdoc::/;
-my ($adjust, $quote_code) = ($1, $2);
-
-return undef unless defined retrieve($attribute) || $attribute =~ s/^sdoc::// && defined retrieve($attribute);
-sdoc_pod($attribute, adjust     => $adjust,
-                     quote_code => $quote_code);
-__
-meta::retriever('pp', <<'__');
-return undef unless namespace($_[0]) eq 'pp';
-my $attr = retrieve(attribute($_[0]));
-defined $attr ? preprocess($attr) : undef;
-__
-meta::retriever('sdoc', 'exists $data{"sdoc::$_[0]"} ? sdoc("sdoc::$_[0]", extension_for($_[0])) : undef;');
-meta::retriever('sdoc-packed', <<'__');
-return undef unless $_[0] =~ /^sdoc-packed::(.*)$/;
-exists $data{"sdoc::$1"} ? sdoc_packed("sdoc::$1") : undef;
-__
-meta::retriever('sdocp', <<'__');
-return undef unless $_[0] =~ /^sdocp::(.*)$/;
-exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
-__
-meta::sdoc('xh', <<'__b');
-- include boot/xh-header
-- include modules/interpreter.pl
-
-xh::main::main;
-__DATA__
-
-__b
-meta::section('main', <<'__');
-- documentclass report
-- include resource::header
-
-\newcommand{\bs}{\textbackslash}
-\setcounter{tocdepth}{0}
-\lstnewenvironment{xhcode}{}{}
-
-- title  X shell
-- author Spencer Tipping
-
-- document << end
-  - maketitle
-  - tableofcontents
-
-  - include psection::implementation
-- end
-
-__
-meta::template('comment', '\'\';     # A mechanism for line or block comments.');
-meta::template('def', <<'__');
-# Define a new template. Analogous to the C preprocessor's #define directive.
-# For example:
-#
-# - def foo x, y, z << end
-#   hello $x, $y, and $z!
-#   This is an ${x}message.
-# - end
-#
-# You can then use that template immediately:
-#
-# - foo 3, 4, 5
-#
-# Interpolation is achieved by evaling a Perl heredoc; the usual caveats apply.
-# A variable called $body is automatically bound to the body contents if there
-# are any; for example:
-#
-# - def named x << end
-#   name $x {
-#   $body
-#   }
-# - end
-#
-# - named 'foo' << end
-#   woohoo
-# - end
-#
-# You can define a "plural" form like this:
-#
-# - def -p say_hi_to << end
-#   Hi $_!
-# - end
-#
-# - say_hi_to Foo, Bar, Baz
-#
-# Plural forms still have the $body variable (which doesn't change across
-# arguments), but they can't take formal parameters.
-
-my ($options, $name, @args) = separate_options(split /\s+/, $_[0]);
-my @formals                 = map split(/,\s*/), @args;
-my $body                    = $_[1];
-
-my $formal_list             = join(', ', map "\$$_", @formals);
-my $parameter_bindings      = "my ($formal_list) = split /,\\s*/, \$_[0]";
-my $body_binding            = "my \$body = \$_[1]";
-my $heredoc_delimiter       = state();
-
-# This will work great unless you put large hexadecimal barewords on otherwise
-# blank lines in your code. At that point there's a 2^-128 chance that it will
-# bomb out horribly.
-my $plural = $$options{'--plural'} || $$options{'-p'};
-
-die "- def $name: cannot use formal parameters with the -p option"
-if $plural && @formals;
-
-$plural ? meta::externalize "template::$name", "- def -p $name",
-            eval "sub {\n$body_binding;\n" .
-                 "join \"\\n\", map <<$heredoc_delimiter, " .
-                                    "split /,\\s*/, \$_[0];\n" .
-                 "$body\n" .
-                 "$heredoc_delimiter\n}"
-
-        : meta::externalize "template::$name", "- def $name @formals",
-            eval "sub {\n$parameter_bindings;\n$body_binding;\n" .
-                 "<<$heredoc_delimiter\n$body\n$heredoc_delimiter\n}";
-
-die $@ if $@;
-
-# No output from this template.
-'';
-
-__
-meta::template('eval', <<'__');
-my $result = eval $_[0];
-terminal::warning("Error during template evaluation: $@") if $@;
-$result;
-__
-meta::template('failing_conditional', <<'__');
-my ($commands)    = @_;
-my $should_return = $commands =~ / if (.*)$/ && ! eval $1;
-terminal::warning("eval of template condition failed: $@") if $@;
-$should_return;
-__
-meta::template('include', <<'__');
-my ($commands) = @_;
-return '' if template::failing_conditional($commands);
-join "\n", map retrieve($_), split /\s+/, $commands;
-__
-meta::template('item[]', '"\\\\item[$_[0]]";');
-meta::template('logical', <<'__');
-# Creates a logical section that is delimited only by TeX comments.
-my ($name, $body) = @_;
-$body =~ s/^\s*(.*\S)\s*$/\1/;
-"% ${name}\n$body";
-
-__
-meta::template('perlmodule', <<'__');
-my ($line, $block) = @_;
-my ($name, $line)  = split /\s+/, $line, 2;
-my $append         = $line =~ s/^\h*>>\h*//;
-
-my $wrapped = qq{BEGIN {xh::defmodule('$name.pl', <<'_')}
-$block
-_
-};
-
-$line =~ s/\s+.*$//o;
-file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
-"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{perlcode}\n$wrapped \\end{perlcode}";
-
-__
-meta::template('pinclude', <<'__');
-# Just like the regular include, but makes sure to insert paragraph boundaries
-# (this is required for SDoc to function properly).
-
-my ($commands) = @_;
-return '' if template::failing_conditional($commands);
-my $text = join "\n\n", map retrieve($_), split /\s+/, $commands;
-"\n\n$text\n\n";
-__
-meta::template('xhmodule', <<'__');
-my ($line, $block) = @_;
-my ($name, $line)  = split /\s+/, $line, 2;
-my $append         = $line =~ s/^\h*>>\h*//;
-
-my $wrapped = qq{BEGIN {xh::defmodule('$name.xh', <<'_')}
-$block
-_
-};
-
-$line =~ s/\s+.*$//o;
-file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
-"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{xhcode}\n$block \\end{xhcode}";
-
-__
-meta::vim_highlighter('cltex', <<'__');
-" Cleaner TeX
-" Maintainer: Spencer Tipping <spencer@spencertipping.com>
-" Language:   Cleaner TeX (a variant of LaTeX with support for a bunch of embedded languages)
-
-if version < 600
-  syntax clear
-elseif exists("b:current_syntax")
-  finish
-endif
-
-syn match   cltEofMarker      /<<\s*\w\+/ contained
-syn region  cltLineComment    matchgroup=cltCode start=/^\s*- comment / end=/$/ contained
-syn region  cltLogicalComment matchgroup=cltCode start=/^\s*- logical / end=/<</ contained
-syn match   cltLine           /^\s*- .*$/ contains=cltEofMarker,cltLineComment,cltLogicalComment
-
-syn case match | syn include @cpp           syntax/cpp.vim        | unlet b:current_syntax
-syn case match | syn include @java          syntax/java.vim       | unlet b:current_syntax
-syn case match | syn include @asm           syntax/asm.vim        | unlet b:current_syntax
-syn case match | syn include @javascript    syntax/javascript.vim | unlet b:current_syntax
-syn case match | syn include @html          syntax/html.vim       | unlet b:current_syntax
-syn case match | syn include @perl          syntax/perl.vim       | unlet b:current_syntax
-syn case match | syn include @ruby          syntax/ruby.vim       | unlet b:current_syntax
-syn case match | syn include @python        syntax/python.vim     | unlet b:current_syntax
-
-syn case match
-
-syn region  cltCpp         matchgroup=cltCode start=/^\z(\s*\)- cpp .*<<\s*\z(\w\+\)$/        end=/^\z1- \z2$/ contains=@cpp
-syn region  cltJava        matchgroup=cltCode start=/^\z(\s*\)- java .*<<\s*\z(\w\+\)$/       end=/^\z1- \z2$/ contains=@java
-syn region  cltAsm         matchgroup=cltCode start=/^\z(\s*\)- asm .*<<\s*\z(\w\+\)$/        end=/^\z1- \z2$/ contains=@asm
-syn region  cltJavascript  matchgroup=cltCode start=/^\z(\s*\)- javascript .*<<\s*\z(\w\+\)$/ end=/^\z1- \z2$/ contains=@javascript
-syn region  cltHtml        matchgroup=cltCode start=/^\z(\s*\)- html .*<<\s*\z(\w\+\)$/       end=/^\z1- \z2$/ contains=@html
-syn region  cltPerl        matchgroup=cltCode start=/^\z(\s*\)- perl .*<<\s*\z(\w\+\)$/       end=/^\z1- \z2$/ contains=@perl
-syn region  cltRuby        matchgroup=cltCode start=/^\z(\s*\)- ruby .*<<\s*\z(\w\+\)$/       end=/^\z1- \z2$/ contains=@ruby
-syn region  cltPython      matchgroup=cltCode start=/^\z(\s*\)- python .*<<\s*\z(\w\+\)$/     end=/^\z1- \z2$/ contains=@python
-syn region  cltResource    matchgroup=cltCode start=/^\z(\s*\)- resource .*<<\s*\z(\w\+\)$/   end=/^\z1- \z2$/
-syn region  cltComment     matchgroup=cltCode start=/^\z(\s*\)- comment .*<<\s*\z(\w\+\)$/    end=/^\z1- \z2$/
-
-syn cluster cltStuff       add=cltCpp,cltJava,cltAsm,cltJavascript,cltHtml,cltResource,cltComment,cltLine,cltPerl,cltRuby,cltPython
-
-syn region  cltDocument    start=/\%^/ end=/\%$/ contains=@cltStuff
-
-hi link cltLine            Special
-hi link cltKeyword         String
-hi link cltResource        String
-hi link cltEofMarker       String
-
-hi link cltCode            Special
-hi link cltDocument        Comment
-hi link cltComment         Type
-hi link cltLineComment     Type
-hi link cltLogicalComment  Type
-
-let b:current_syntax = "cltex"
-
-__
-meta::vim_highlighter('perltex', <<'__');
-" Literate Perl in TeX
-" Maintainer: Spencer Tipping <spencer@spencertipping.com>
-
-if version < 600
-  syntax clear
-elseif exists("b:current_syntax")
-  finish
-endif
-
-runtime syntax/perl.vim
-
-syn case match
-syn match  pltPreprocessor /^\s*- .*$/ containedin=pltImpliedComment
-syn region pltImpliedComment matchgroup=pltPreprocessor start=/\%^\|^\s*- end$/ end=/^\s*- perl.*$\|\%$/ keepend containedin=ALL
-
-hi link pltImpliedComment Comment
-hi link pltPreprocessor   PreProc
-
-let b:current_syntax = "perltex"
-
 __
 internal::main();
 
