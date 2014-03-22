@@ -4,9 +4,9 @@ Similarities to TCL
 ===================
 
 [chp:similarities-to-tcl] Every xh value is a string. This includes
-functions, closures, lazy expressions, scope chains, call stacks, and
-heaps. Asserting string equivalence makes it possible to serialize any
-value losslessly, including a running xh process.[^1]
+lists, functions, closures, lazy expressions, scope chains, call stacks,
+and heaps. Asserting string equivalence makes it possible to serialize
+any value losslessly, including a running xh process.[^1]
 
 Although the string equivalence is available, most operations have
 higher-level structure. For example, the `$` operator, which performs
@@ -22,8 +22,14 @@ For example:
     (def bar bif)
     (def foo "hi there \$bar!")
     (def baz $foo)                      # no quoting necessary here by (2)
+    (identity $baz)
+    "hi there \$bar!"
     (echo $baz)
     hi there $bar!                      # $bar unevaluated by (1)
+    (identity $foo)
+    "hi there \$bar!"                   # $foo == $baz, of course
+    (echo $foo)
+    hi there $bar!
     ()
 
 This interpolation structure can be overridden by using one of three
@@ -51,12 +57,67 @@ doing something like this:
     (def foo "[[ [[")
     (def bar [$@!foo])
     (echo $bar)
-    [\[\[ \[\[]
+    ["[[ [["]
     ()
 
-We can’t get xh to create an unbalanced list through any series of
-rewriting operations, since the contract is that any active list
-characters are either positive and balanced, or escaped.
+Type hints
+----------
+
+[sec:type-hints] The string form of a value conveys its type. xh syntax
+supports the following structures:
+
+    [x y z ...]                       # array/vector
+    {x y z ...}                       # map
+    (x y z ...)                       # interpolated (active!) list
+    $x                                # interpolated (active!) variable
+    bareword                          # string with interpolation
+    -42.0                             # string with interpolation
+    "..."                             # string with interpolation
+    '...'                             # string with no interpolation
+    \x                                # single-character string, no interp
+
+When you ask xh about the type of a value, xh looks at the first byte
+and figures it out.[^2] Because of this, not all strings are convertible
+to values despite all values being convertible to strings. You can
+easily convert between types by interpolating:
+
+    (def list-form [1 2 3 4])
+    (def string-form "$@list-form")
+    (identity $list-form)
+    [1 2 3 4]
+    (identity $string-form)
+    "1 2 3 4"
+    (def map-form {$@list-form})
+    (identity $map-form)
+    {1 2 3 4}
+    ()
+
+Therefore the meaning of `$@x` could be interpreted as, “the untyped
+version of x,” and `$!@x` could be, “eval the untyped version of x.”
+
+Laziness and localization
+-------------------------
+
+[sec:laziness-and-localization] xh is a distributed runtime with
+serializable lazy values, which is a potential problem if you want to
+avoid proxying all over the place. Fortunately, a more elegant solution
+exists in most cases. Rather than using POSIX calls directly, xh
+programs access system resources like files through a slight
+indirection:
+
+    (def some-bytes (subs /etc/passwd 0 4096))
+    (echo $some-bytes)                # $some-bytes is lazy
+
+This is clearly trivial if the def and echo execute on the same machine.
+But the echo can also be moved trivially by adding a hostname component
+to the file:
+
+    (def some-bytes (subs /etc/passwd 0 4096))
+    (identity $some-bytes)
+    (subs @host1/etc/passwd 0 4096)
+
+This @host1 namespace allows any remote xh runtime to negotiate with the
+original host, making lazy values fully mobile (albeit possibly slower).
 
 Similarities to Lisp
 ====================
@@ -148,8 +209,8 @@ to describe the mappings individually:
 
     (reduce {[$total +$x] (+ $total $x)
              [$total *$x] (* $total $x)} \
-             0 \
-             [+1 +2 *5 +1])
+            0 \
+            [+1 +2 *5 +1])
     16
     ()
 
@@ -519,3 +580,7 @@ bootstrapping the real compiler.
 [^1]: Note that things like active socket connections and external
     processes will be proxied, however; xh can’t migrate system-native
     things.
+
+[^2]: Note that xh is in no way required to represent these values as
+    strings internally. It just lies so convincingly that you would
+    never know the difference.

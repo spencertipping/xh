@@ -27,7 +27,7 @@
 \setcounter{tocdepth}{0}
 \lstnewenvironment{xhcode}{}{}
 
-\title{X shell}
+\title{xh}
 \author{Spencer Tipping}
 
 \begin{document}
@@ -37,7 +37,7 @@
 
 \part{Language reference}\label{part:language-reference}
 \chapter{Similarities to TCL}\label{chp:similarities-to-tcl}
-  Every xh value is a string. This includes functions, closures, lazy
+  Every xh value is a string. This includes lists, functions, closures, lazy
   expressions, scope chains, call stacks, and heaps. Asserting string
   equivalence makes it possible to serialize any value losslessly, including a
   running xh process.\footnote{Note that things like active socket connections
@@ -60,8 +60,14 @@
 (def bar bif)
 (def foo "hi there \$bar!")
 (def baz $foo)                      # no quoting necessary here by (2)
+(identity $baz)
+"hi there \$bar!"
 (echo $baz)
 hi there $bar!                      # $bar unevaluated by (1)
+(identity $foo)
+"hi there \$bar!"                   # $foo == $baz, of course
+(echo $foo)
+hi there $bar!
 ()
 \end{verbatim}
 
@@ -93,13 +99,75 @@ bif!
 (def foo "[[ [[")
 (def bar [$@!foo])
 (echo $bar)
-[\[\[ \[\[]
+["[[ [["]
 ()
 \end{verbatim}
 
-  We can't get xh to create an unbalanced list through any series of rewriting
-  operations, since the contract is that any active list characters are either
-  positive and balanced, or escaped.
+\section{Type hints}\label{sec:type-hints}
+    The string form of a value conveys its type. xh syntax supports the
+    following structures:
+
+\begin{verbatim}
+[x y z ...]                       # array/vector
+{x y z ...}                       # map
+(x y z ...)                       # interpolated (active!) list
+$x                                # interpolated (active!) variable
+bareword                          # string with interpolation
+-42.0                             # string with interpolation
+"..."                             # string with interpolation
+'...'                             # string with no interpolation
+\x                                # single-character string, no interp
+\end{verbatim}
+
+    When you ask xh about the type of a value, xh looks at the first byte and
+    figures it out.\footnote{Note that xh is in no way required to represent
+    these values as strings internally. It just lies so convincingly that you
+    would never know the difference.} Because of this, not all strings are
+    convertible to values despite all values being convertible to strings. You
+    can easily convert between types by interpolating:
+
+\begin{verbatim}
+(def list-form [1 2 3 4])
+(def string-form "$@list-form")
+(identity $list-form)
+[1 2 3 4]
+(identity $string-form)
+"1 2 3 4"
+(def map-form {$@list-form})
+(identity $map-form)
+{1 2 3 4}
+()
+\end{verbatim}
+
+    Therefore the meaning of \verb|$@x| could be interpreted as, ``the untyped
+    version of {\tt x},'' and \verb|$!@x| could be, ``eval the untyped version
+    of {\tt x}.''
+
+\section{Laziness and localization}\label{sec:laziness-and-localization}
+    xh is a distributed runtime with serializable lazy values, which is a
+    potential problem if you want to avoid proxying all over the place.
+    Fortunately, a more elegant solution exists in most cases. Rather than
+    using POSIX calls directly, xh programs access system resources like files
+    through a slight indirection:
+
+\begin{verbatim}
+(def some-bytes (subs /etc/passwd 0 4096))
+(echo $some-bytes)                # $some-bytes is lazy
+\end{verbatim}
+
+    This is clearly trivial if the {\tt def} and {\tt echo} execute on the same
+    machine. But the {\tt echo} can also be moved trivially by adding a
+    hostname component to the file:
+
+\begin{verbatim}
+(def some-bytes (subs /etc/passwd 0 4096))
+(identity $some-bytes)
+(subs @host1/etc/passwd 0 4096)
+\end{verbatim}
+
+    This {\tt @host1} namespace allows any remote xh runtime to negotiate with
+    the original host, making lazy values fully mobile (albeit possibly
+    slower).
 
 \chapter{Similarities to Lisp}\label{chp:similarities-to-lisp}
   xh is strongly based on the Lisp family of languages, most visibly in its
@@ -191,8 +259,8 @@ hi there, spencer!
 \begin{verbatim}
 (reduce {[$total +$x] (+ $total $x)
          [$total *$x] (* $total $x)} \
-         0 \
-         [+1 +2 *5 +1])
+        0 \
+        [+1 +2 *5 +1])
 16
 ()
 \end{verbatim}
