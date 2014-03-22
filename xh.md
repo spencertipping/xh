@@ -63,39 +63,16 @@ Similarities to Lisp
 
 [chp:similarities-to-lisp] xh is strongly based on the Lisp family of
 languages, most visibly in its homoiconicity. Any string wrapped in
-curly braces is a list of lines with the following contract
-(TODO: rewrite this section):
+`[]`, `{}`, or `()` is interpreted as a list of words, just as it is in
+Clojure. Also as in Lisp in general, `()` interpolates its result into
+the surrounding context:
 
-    $ def foo {bar bif
-    >          baz
-    >          bok quux}
-    $ count $foo
-    3
-    $ nth $foo 0
-    bar bif
-    $ nth $foo 2
-    bok quux
-    $ def foo {
-    >   bar bif
-    >   baz
-    >   bok quux
-    > }
-    $ count $foo
-    3
-    $ nth $foo 0
-    bar bif
-    $
-
-Any string wrapped in `[]` or `()` is interpreted as a list of words,
-just as it is in Clojure. Also as in Lisp in general, `()` interpolates
-its result into the surrounding context:
-
-    $ def foo 'hi there'
-    $ echo $foo
+    (def foo 'hi there')
+    (echo $foo)
     hi there
-    $ echo (echo $foo)                  # similar to bash's $()
+    (echo (echo $foo))                  # similar to bash's $()
     hi there
-    $
+    ()
 
 Any `()` list can be prefixed with `@` and/or `!` with effects analogous
 to `$`; e.g. `echo !@(echo hi there)`.
@@ -130,26 +107,26 @@ Dissimilarities from everything else I know of
 Unbound names are treated as though they might at some point exist. For
 example:
 
-    $ echo $x
+    (echo $x)
     $x
-    $ def x $y
-    $ echo $x
+    (def x $y)
+    (echo $x)
     $y
-    $ def y 10
-    $ echo $x
+    (def y 10)
+    (echo $x)
     10
-    $
+    ()
 
 You can also bind expressions of things to express partial knowledge:
 
-    $ echo (count $str)
+    (echo (count $str))
     (count $str)
-    $ def (count $str) 10
-    $ echo $str
+    (def (count $str) 10)
+    (echo $str)
     $str
-    $ echo (count $str)
+    (echo (count $str))
     10
-    $
+    ()
 
 This is the mechanism by which xh implements lazy evaluation, and it’s
 also the reason you can serialize partially-computed lazy values.
@@ -160,21 +137,21 @@ Functions
 [chp:functions] xh supports two equivalent ways to write function-like
 relations:
 
-    $ def (foo $x) {echo hi there, $x!}
-    $ foo spencer
+    (def (foo $x) {echo hi there, $x!})
+    (foo spencer)
     hi there, spencer!
-    $
+    ()
 
 This is named definition by destructuring, which works great for most
 cases. When you’re writing an anonymous function, however, you’ll need
 to describe the mappings individually:
 
-    $ reduce {[$total +$x] + $total $x
-              [$total *$x] * $total $x} \
+    (reduce {[$total +$x] (+ $total $x)
+             [$total *$x] (* $total $x)} \
              0 \
-             [+1 +2 *5 +1]
+             [+1 +2 *5 +1])
     16
-    $
+    ()
 
 [part:bootstrap-implementation]
 
@@ -299,22 +276,18 @@ bootstrapping the real compiler.
 
     memoize 'active_regions';
 
-    our $whitespace = qr/\s+/;
-    our $newlines   = qr/\n(?:\s*\n)*/;
-    our %closers    = ('(' => ')', '[' => ']', '{' => '}');
-
+    our %closers = ('(' => ')', '[' => ']', '{' => '}');
     sub element_regions {
       # Returns integer-encoded regions describing the positions of list
       # elements. The list passed into this function should be unwrapped; that
       # is, it should have no braces.
-      my ($is_vertical, $xs) = @_;
-      my $split_on           = $is_vertical ? $newlines : $whitespace;
-      my $offset             = 0;
-      my @pieces             = split / ( "(?:\\.|[^"])*"
-                                       | '(?:\\.|[^'])*'
-                                       | \\.
-                                       | [({\[\]})]
-                                       | $split_on ) /xs, $_[0];
+      my ($xs)   = @_;
+      my $offset = 0;
+      my @pieces = split / ( "(?:\\.|[^"])*"
+                           | '(?:\\.|[^'])*'
+                           | \\.
+                           | [({\[\]})]
+                           | \s+ ) /xs, $_[0];
       my @paren_offsets;
       my @parens;
       my @result;
@@ -322,7 +295,7 @@ bootstrapping the real compiler.
 
       for (@pieces) {
         unless (@paren_offsets) {
-          if (/$split_on/ || /^[)\]}]/) {
+          if (/\s+/ || /^[)\]}]/) {
             # End any item if we have one.
             push @result, $item_start << 32 | $offset - $item_start
             if $item_start >= 0;
@@ -377,15 +350,9 @@ bootstrapping the real compiler.
           element_regions 0, $unboxed;
     }
 
-    sub parse_block {
-      my $unboxed = xh_list_unbox $_[0];
-      map xh_list_box(substr $unboxed, $_ >> 32, $_ & 0xffffffff),
-          element_regions 1, $unboxed;
-    }
-
-    sub into_list  {'(' . join(' ',  map xh_list_box($_), @_) . ')'}
-    sub into_vec   {'[' . join(' ',  map xh_list_box($_), @_) . ']'}
-    sub into_block {'{' . join("\n",                      @_) . '}'}
+    sub into_list  {'(' . join(' ', map xh_list_box($_), @_) . ')'}
+    sub into_vec   {'[' . join(' ', map xh_list_box($_), @_) . ']'}
+    sub into_block {'{' . join(' ', map xh_list_box($_), @_) . '}'}
 
     sub xh_vecp   {$_[0] =~ /^\[.*\]$/}
     sub xh_listp  {$_[0] =~ /^\(.*\)$/}
@@ -402,24 +369,6 @@ bootstrapping the real compiler.
       # FIXME
       my ($copy, $i, $v) = @_;
       my @regions        = element_regions 0, $copy;
-      my $r              = $regions[$i];
-      substr($copy, $r >> 32, $r & 0xffffffff) = $v;
-      $copy;
-    }
-
-    sub xh_vcount {
-      scalar element_regions 1, xh_list_unbox $_[0];
-    }
-
-    sub xh_vnth {
-      my @regions = element_regions 1, $_[0];
-      my $r       = $regions[$_[1]];
-      xh_list_box substr $_[0], $r >> 32, $r & 0xffffffff;
-    }
-
-    sub xh_vnth_eq {
-      my ($copy, $i, $v) = @_;
-      my @regions        = element_regions 1, $copy;
       my $r              = $regions[$i];
       substr($copy, $r >> 32, $r & 0xffffffff) = $v;
       $copy;
@@ -508,6 +457,7 @@ bootstrapping the real compiler.
     }
 
     sub xh_function_cases {
+      # FIXME
       my @result;
       my @so_far;
       for (parse_vlist $_[0]) {

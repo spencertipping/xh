@@ -37,22 +37,18 @@ sub active_regions {
 
 memoize 'active_regions';
 
-our $whitespace = qr/\s+/;
-our $newlines   = qr/\n(?:\s*\n)*/;
-our %closers    = ('(' => ')', '[' => ']', '{' => '}');
-
+our %closers = ('(' => ')', '[' => ']', '{' => '}');
 sub element_regions {
   # Returns integer-encoded regions describing the positions of list
   # elements. The list passed into this function should be unwrapped; that
   # is, it should have no braces.
-  my ($is_vertical, $xs) = @_;
-  my $split_on           = $is_vertical ? $newlines : $whitespace;
-  my $offset             = 0;
-  my @pieces             = split / ( "(?:\\.|[^"])*"
-                                   | '(?:\\.|[^'])*'
-                                   | \\.
-                                   | [({\[\]})]
-                                   | $split_on ) /xs, $_[0];
+  my ($xs)   = @_;
+  my $offset = 0;
+  my @pieces = split / ( "(?:\\.|[^"])*"
+                       | '(?:\\.|[^'])*'
+                       | \\.
+                       | [({\[\]})]
+                       | \s+ ) /xs, $_[0];
   my @paren_offsets;
   my @parens;
   my @result;
@@ -60,7 +56,7 @@ sub element_regions {
 
   for (@pieces) {
     unless (@paren_offsets) {
-      if (/$split_on/ || /^[)\]}]/) {
+      if (/\s+/ || /^[)\]}]/) {
         # End any item if we have one.
         push @result, $item_start << 32 | $offset - $item_start
         if $item_start >= 0;
@@ -115,15 +111,9 @@ sub parse_list {
       element_regions 0, $unboxed;
 }
 
-sub parse_block {
-  my $unboxed = xh_list_unbox $_[0];
-  map xh_list_box(substr $unboxed, $_ >> 32, $_ & 0xffffffff),
-      element_regions 1, $unboxed;
-}
-
-sub into_list  {'(' . join(' ',  map xh_list_box($_), @_) . ')'}
-sub into_vec   {'[' . join(' ',  map xh_list_box($_), @_) . ']'}
-sub into_block {'{' . join("\n",                      @_) . '}'}
+sub into_list  {'(' . join(' ', map xh_list_box($_), @_) . ')'}
+sub into_vec   {'[' . join(' ', map xh_list_box($_), @_) . ']'}
+sub into_block {'{' . join(' ', map xh_list_box($_), @_) . '}'}
 
 sub xh_vecp   {$_[0] =~ /^\[.*\]$/}
 sub xh_listp  {$_[0] =~ /^\(.*\)$/}
@@ -140,24 +130,6 @@ sub xh_nth_eq {
   # FIXME
   my ($copy, $i, $v) = @_;
   my @regions        = element_regions 0, $copy;
-  my $r              = $regions[$i];
-  substr($copy, $r >> 32, $r & 0xffffffff) = $v;
-  $copy;
-}
-
-sub xh_vcount {
-  scalar element_regions 1, xh_list_unbox $_[0];
-}
-
-sub xh_vnth {
-  my @regions = element_regions 1, $_[0];
-  my $r       = $regions[$_[1]];
-  xh_list_box substr $_[0], $r >> 32, $r & 0xffffffff;
-}
-
-sub xh_vnth_eq {
-  my ($copy, $i, $v) = @_;
-  my @regions        = element_regions 1, $copy;
   my $r              = $regions[$i];
   substr($copy, $r >> 32, $r & 0xffffffff) = $v;
   $copy;
@@ -246,6 +218,7 @@ sub interpolate {
 }
 
 sub xh_function_cases {
+  # FIXME
   my @result;
   my @so_far;
   for (parse_vlist $_[0]) {
