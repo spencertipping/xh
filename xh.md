@@ -23,66 +23,61 @@ illusion that your values function as strings.
 Examples
 --------
 
-[sec:examples] In these examples, `$` indicates the bash prompt and `[]`
-indicate the xh prompt (neither needs to be typed).
+[sec:examples] In these examples, `$` indicates the bash prompt and the
+outermost `()` indicate the xh prompt (neither needs to be typed).
 
     bash                              xh
-    $ echo hi                         [ . hi ]
-    $ foo=bar                         [ =d foo bar ]
-    $ echo $foo                       [ . @foo ]
-    $ echo "$foo"                     [ . $foo ]
-    $ echo "$(eval $foo)"             [ . !foo ]
-    $ echo $(eval $foo)               [ . @!foo ]
-    $ find . -name '*.txt'            [ find . -name '*.txt' ]
-    $ ls name\ with\ spaces           [ ls name\ with\ spaces ]
-    $ rm x && touch x                 [ rm x && touch x ]
-    $ for f in $files; do             [ =m f[rm $_ && touch $_] $files ]
+    $ echo hi                         (. hi)
+    $ foo=bar                         (def foo bar)
+    $ echo $foo                       (. @foo)
+    $ echo "$foo"                     (. $foo)
+    $ echo "$(eval $foo)"             (. !foo)
+    $ echo $(eval $foo)               (. @!foo)
+    $ find . -name '*.txt'            (find . -name '*.txt')
+    $ ls name\ with\ spaces           (ls name\ with\ spaces)
+    $ rm x && touch x                 (rm x && touch x)
+
+    $ for f in $files; do             (map fn(rm $_ && touch $_) $files)
     >   rm "$f" && touch "$f"
     > done
-    $ if [[ -x foo ]]; then           [ -x foo && ./foo arg1 arg2 @_ ]
+
+    $ if [[ -x foo ]]; then           (if (-x foo) (./foo arg1 arg2 @_))
     >   ./foo arg1 arg2 "$@"
     > fi
-    $ # this is a comment             [ # this is a comment ]
-    $ ls | wc -l                      [ ls | wc -l ]
-    $ ls | while read f; do           [ ls | =f -S ]
+
+    $ # this is a comment             (# this is a comment)
+    $ ls | wc -l                      (ls | wc -l)
+
+    $ ls | while read f; do           (ls | =f -S)
     >   [[ -S $f ]] && echo $f
     > done
 
-xh also shares some design elements with Haskell:
+Some xh features have no analog in bash, for instance data structures:
 
-    haskell                           xh
-    > f x | x == 0    = 1             [ =d [f 0]  1
-          | otherwise = x * f (x-1)        [f $n] [* $n [f.-1 $n]] ]
+    clojure                           xh
+    (def m {})                        (def m {})
+    (assoc m :foo 5)                  {foo 5 @m}
+    (assoc m :foo 5)                  (assoc $m foo 5)
+    (dissoc m :foo :bar)              (dissoc $m foo bar)
+    (:foo m)                          ($m foo)
+    (get m :foo 0)                    ($m foo 0)
+    (map? m)                          (map? $m)
+    (contains? m :foo)                (contains? $m foo)
 
-    > nats = 1 : map (+ 1) nats       [ =d nats {1 @nats=m:+1} ]
-    > take 5 nats                     [ =i $nats 0+5 ]
-    > f x = y * 2 where y = x + 1     [ =d [f $x] [*2 $y %w y [+1 $x]] ]
-    > let y = 10 in y + 1             [ +1 $y %w y 10 ]
+    (def v [])                        (def v [])
+    (conj v 1 2 3)                    [@v 1 2 3]
+    (conj v 1 2 3)                    (push $v 1 2 3)
 
-And with Prolog:[^1]
+    (def s #{})                       (def s s[])
+    (contains? s :foo)                ($s foo)
+    (contains? s :foo)                (contains? $s foo)
 
-    prolog                            xh
-    :- f(a, b).                       [ =d [f a] b ]
-    f(a, X) :- g(b, X).               [ =d [f a] [g b] ]
-    ?- f(a, X).                       [ =b $x [f a] ]
-    ?- f(X, b).                       [ =b [f $x] b ]
-    ?- f(X, Y).                       # no direct equivalent
-
-Special characters
-------------------
-
-[sec:special-characters]
-
-    !         expand without quoting
-    @         expand without singularizing
-    #         quote
-    $         expand
-    %         invoke macro
-    []        expand the result of a function call
-    =         not a special character, just the prefix for most xh builtins
-    ""        string with interpolation (like in bash)
-    ''        string without interpolation
-    {}        string with interpolation, used as a list or map
+    (fn [x] (inc x))                  fn(inc $_)
+    (fn [x] (inc x))                  (fn [$x] (inc $x))
+    (fn ([x]   (inc x))               (fn [$x]    (inc $x)
+        ([x y] (+ x y)))                  [$x $y] (+ $x $y))
+    (comp f g h)                      (comp f g h)
+    (partial f x)                     (partial f x)
 
 [part:self-hosting-implementation]
 
@@ -91,12 +86,16 @@ xh-script parser
 
 [chp:xh-script-parser] Defined in terms of structural equivalence
 between quoted and unquoted forms by specifying the behavior of the
-quote function, written in xh as =q.
+quote function.
 
-    [=d [=q [@xs]] "\[@[=m =q @xs]\]"
-        [=q {@xs}] "{@[=m =q @xs]}"
-        [=q ""]]
-    # TODO 
+    (def (quote [@xs])               (str "[" (qw $xs) "]")
+         (quote {@xs})               (str "{" (qw $xs) "}")
+         (quote "@s")                (str "\\\"" (qw $s) "\\\"")
+         (quote (re '^([@!$])$' $x)) (str "\\" $x)
+         (quote !x)                  (qw @(re '^([@!\$]+)(.*)$' $x))
+         (quote $x)                  $x
+
+         ^where (qw $xs) (join " " (map quote $xs))) 
 
 [part:bootstrap-implementation]
 
@@ -172,6 +171,3 @@ an appropriate `BEGIN` block.
       join "\n", @pieces;
     }
     })} 
-
-[^1]: There’s a lot more in common than is evident here, but I’m not
-    familiar enough with Prolog syntax to list better analogies.

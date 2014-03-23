@@ -1,6 +1,10 @@
 BEGIN {xh::defmodule('parse.xh', <<'_')}
-[=d [=q [@xs]] "\[@[=m =q @xs]\]"
-    [=q {@xs}] "{@[=m =q @xs]}"
-    [=q ""]]
-# TODO
+(def (quote [@xs])               (str "[" (qw $xs) "]")
+     (quote {@xs})               (str "{" (qw $xs) "}")
+     (quote "@s")                (str "\\\"" (qw $s) "\\\"")
+     (quote (re '^([@!$])$' $x)) (str "\\" $x)
+     (quote !x)                  (qw @(re '^([@!\$]+)(.*)$' $x))
+     (quote $x)                  $x
+
+     ^where (qw $xs) (join " " (map quote $xs)))
 _
