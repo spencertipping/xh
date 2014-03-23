@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  0be0e6c261ab1d2d08a532c8aad57872
+# state:  cc4407f222f7a24c41826a703c57f2de
 # istate: 738d1e40cf16c7dd782286468c7de77f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -1901,18 +1901,17 @@ meta::psection('implementation', <<'__');
       $ find . -name '*.txt'            [ find . -name '*.txt' ]
       $ ls name\ with\ spaces           [ ls name\ with\ spaces ]
       $ rm x && touch x                 [ rm x && touch x ]
-      $ for f in $files; do             [ =m [%f rm $_ && touch $_] $files ]
+      $ for f in $files; do             [ =m f[rm $_ && touch $_] $files ]
       >   rm "$f" && touch "$f"
       > done
-      $ if [[ -x foo ]]; then           [ -x ./foo %a ^/ arg1 arg2 @_ ]
+      $ if [[ -x foo ]]; then           [ -x foo && ./foo arg1 arg2 @_ ]
       >   ./foo arg1 arg2 "$@"
       > fi
       $ # this is a comment             [ # this is a comment ]
       $ ls | wc -l                      [ ls | wc -l ]
-      $ ls | while read f; do           [ =f -S [ls] ]
+      $ ls | while read f; do           [ ls | =f -S ]
       >   [[ -S $f ]] && echo $f
       > done
-      $
     - end
 
     \noindent xh also shares some design elements with Haskell:
@@ -1923,7 +1922,7 @@ meta::psection('implementation', <<'__');
             | otherwise = x * f (x-1)        [f $n] [* $n [f.-1 $n]] ]
 
       > nats = 1 : map (+ 1) nats       [ =d nats {1 @nats=m:+1} ]
-      > take 5 nats                     [ =i $nats 0:5 ]
+      > take 5 nats                     [ =i $nats 0+5 ]
       > f x = y * 2 where y = x + 1     [ =d [f $x] [*2 $y %w y [+1 $x]] ]
       > let y = 10 in y + 1             [ +1 $y %w y 10 ]
     - end
@@ -1946,15 +1945,26 @@ meta::psection('implementation', <<'__');
       !         expand without quoting
       @         expand without singularizing
       #         quote
-      $         expand or partially apply
+      $         expand
       %         invoke macro
-      ^         reuse previously-mentioned word
       []        expand the result of a function call
       =         not a special character, just the prefix for most xh builtins
       ""        string with interpolation (like in bash)
       ''        string without interpolation
       {}        string with interpolation, used as a list or map
     - end
+
+- sp Self-hosting implementation | part:self-hosting-implementation
+- sc xh-script parser | chp:xh-script-parser
+  Defined in terms of structural equivalence between quoted and unquoted forms
+  by specifying the behavior of the quote function, written in xh as {\tt =q}.
+
+  - xhmodule parse modules/parse.xh << end
+    [=d [=q [@xs]] "\[@[=m =q @xs]\]"
+        [=q {@xs}] "{@[=m =q @xs]}"
+        [=q ""]]
+    # TODO
+  - end
 
 - sp Bootstrap implementation | part:bootstrap-implementation
 - sc Self-replication | chp:self-replication

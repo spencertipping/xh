@@ -1,0 +1,6 @@
+BEGIN {xh::defmodule('parse.xh', <<'_')}
+[=d [=q [@xs]] "\[@[=m =q @xs]\]"
+    [=q {@xs}] "{@[=m =q @xs]}"
+    [=q ""]]
+# TODO
+_

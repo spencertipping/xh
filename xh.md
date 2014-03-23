@@ -36,18 +36,17 @@ indicate the xh prompt (neither needs to be typed).
     $ find . -name '*.txt'            [ find . -name '*.txt' ]
     $ ls name\ with\ spaces           [ ls name\ with\ spaces ]
     $ rm x && touch x                 [ rm x && touch x ]
-    $ for f in $files; do             [ =m [%f rm $_ && touch $_] $files ]
+    $ for f in $files; do             [ =m f[rm $_ && touch $_] $files ]
     >   rm "$f" && touch "$f"
     > done
-    $ if [[ -x foo ]]; then           [ -x ./foo %a ^/ arg1 arg2 @_ ]
+    $ if [[ -x foo ]]; then           [ -x foo && ./foo arg1 arg2 @_ ]
     >   ./foo arg1 arg2 "$@"
     > fi
     $ # this is a comment             [ # this is a comment ]
     $ ls | wc -l                      [ ls | wc -l ]
-    $ ls | while read f; do           [ =f -S [ls] ]
+    $ ls | while read f; do           [ ls | =f -S ]
     >   [[ -S $f ]] && echo $f
     > done
-    $
 
 xh also shares some design elements with Haskell:
 
@@ -56,7 +55,7 @@ xh also shares some design elements with Haskell:
           | otherwise = x * f (x-1)        [f $n] [* $n [f.-1 $n]] ]
 
     > nats = 1 : map (+ 1) nats       [ =d nats {1 @nats=m:+1} ]
-    > take 5 nats                     [ =i $nats 0:5 ]
+    > take 5 nats                     [ =i $nats 0+5 ]
     > f x = y * 2 where y = x + 1     [ =d [f $x] [*2 $y %w y [+1 $x]] ]
     > let y = 10 in y + 1             [ +1 $y %w y 10 ]
 
@@ -77,14 +76,27 @@ Special characters
     !         expand without quoting
     @         expand without singularizing
     #         quote
-    $         expand or partially apply
+    $         expand
     %         invoke macro
-    ^         reuse previously-mentioned word
     []        expand the result of a function call
     =         not a special character, just the prefix for most xh builtins
     ""        string with interpolation (like in bash)
     ''        string without interpolation
     {}        string with interpolation, used as a list or map
+
+[part:self-hosting-implementation]
+
+xh-script parser
+================
+
+[chp:xh-script-parser] Defined in terms of structural equivalence
+between quoted and unquoted forms by specifying the behavior of the
+quote function, written in xh as =q.
+
+    [=d [=q [@xs]] "\[@[=m =q @xs]\]"
+        [=q {@xs}] "{@[=m =q @xs]}"
+        [=q ""]]
+    # TODO 
 
 [part:bootstrap-implementation]
 
