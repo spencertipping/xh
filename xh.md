@@ -36,6 +36,8 @@ outermost `()` indicate the xh prompt (neither needs to be typed).
     $ find . -name '*.txt'            (find . -name '*.txt')
     $ ls name\ with\ spaces           (ls name\ with\ spaces)
     $ rm x && touch x                 (rm x && touch x)
+    $ ls | wc -l                      (ls | wc -l)
+    $ cat foo > bar                   (cat foo > bar)
 
     $ for f in $files; do             (map fn(rm $_ && touch $_) $files)
     >   rm "$f" && touch "$f"
@@ -44,9 +46,6 @@ outermost `()` indicate the xh prompt (neither needs to be typed).
     $ if [[ -x foo ]]; then           (if (-x foo) (./foo arg1 arg2 @_))
     >   ./foo arg1 arg2 "$@"
     > fi
-
-    $ # this is a comment             (# this is a comment)
-    $ ls | wc -l                      (ls | wc -l)
 
     $ ls | while read f; do           (ls | =f -S)
     >   [[ -S $f ]] && echo $f
@@ -86,16 +85,19 @@ xh-script parser
 
 [chp:xh-script-parser] Defined in terms of structural equivalence
 between quoted and unquoted forms by specifying the behavior of the
-quote function.
+quote relation. Note the free variable `$ws` whenever we join multiple
+words together; this allows whitespace to be stored as a transient
+quantity and reused across function inversions.
 
-    (def (quote [@xs])               (str "[" (qw $xs) "]")
-         (quote {@xs})               (str "{" (qw $xs) "}")
-         (quote "@s")                (str "\\\"" (qw $s) "\\\"")
-         (quote (re '^([@!$])$' $x)) (str "\\" $x)
-         (quote !x)                  (qw @(re '^([@!\$]+)(.*)$' $x))
-         (quote $x)                  $x
+    (def (quote [@xs])             (str "[" (qw $xs) "]")
+         (quote {@xs})             (str "{" (qw $xs) "}")
+         (quote "@s")              (str "\\\"" (qw $s) "\\\"")
+         (quote (re '^[@!$]$' $x)) (str "\\" $x)
+         (quote !x)                (str @(match '^([@!\$]+)(.*)$' $x))
+         (quote $x)                $x
+         ^where (qw $xs) (join (re '^\s+$' $ws) (map quote $xs)))
 
-         ^where (qw $xs) (join " " (map quote $xs))) 
+    (def (parse (quote $x)) $x) 
 
 [part:bootstrap-implementation]
 

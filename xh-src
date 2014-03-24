@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  05bfec41df858d645a5271cba979193e
-# istate: 738d1e40cf16c7dd782286468c7de77f
+# state:  9ef93a82186bda20a2fd3ccf023d640d
+# istate: 30b69067041d864bea298cc486c031a2
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -324,17 +324,14 @@ meta::define_form 'template', sub {
 };
 __
 meta::meta('type::vim_highlighter', <<'__');
-# Vim highlighters don't need to be inherited. The reason is that they are most
-# often configured from the parent object using the 'vim' function. They are
-# rarely sent to anyone else and configured after the fact.
-
-meta::configure 'vim_highlighter', extension => '.vim', inherit => 0;
+meta::configure 'vim_highlighter', extension => '.vim', inherit => 1;
 meta::define_form 'vim_highlighter', \&meta::bootstrap::implementation;
 __
 meta::alias('eI', 'edit sdoc::xh');
 meta::alias('eM', 'edit function::make');
 meta::alias('ei', 'edit psection::implementation');
 meta::alias('em', 'edit section::main');
+meta::alias('ev', 'edit vim_highlighter::xh');
 meta::alias('r', 'sh boot/xh');
 meta::bootstrap('html', <<'__');
 <html>
@@ -431,11 +428,11 @@ vim-highlighters 902333a0bd6ed90ff919fe8477cb4e69
 __
 meta::cache('parent-state', <<'__');
 70dae4b46eb4e06798ec6f38d17d4c7b e25c4729aff094da49d7b9903452bcea
-902333a0bd6ed90ff919fe8477cb4e69 8d4ebdc5d3e901edca2bec5d546d6f7f
-99aeabc9ec7fe80b1b39f5e53dc7e49e 53a3afe2d7ad4234b270ac41ec84c283
+902333a0bd6ed90ff919fe8477cb4e69 c95a8082ead9d770f119bedbc2159743
+99aeabc9ec7fe80b1b39f5e53dc7e49e e8a9b9ff0c9d275767814d9cc9ee2bf5
 a1e8480e579614c01dabeecf0f963bcc 28d4c8a6dd79cd7fd34449a08f1b6f01
 a9e5975593ed5d90d943ad98405c71e5 ab9da1fb51db73a98ebc54d2e92dd8ae
-d6b8b54aecc42ae92c7a8c570c5559fc 972b55041059cf0d284a0f557e252926
+d6b8b54aecc42ae92c7a8c570c5559fc 00cc35d0aa33db024dff3996cb4b4f5d
 __
 meta::data('author', 'Spencer Tipping');
 meta::data('default-action', 'shell');
@@ -1248,7 +1245,10 @@ meta::function('vim', <<'__');
 # Installs VIM highlighters.
 file::write("$ENV{'HOME'}/.vim/syntax/$_.vim", retrieve("vim_highlighter::$_")) for grep s/^vim_highlighter:://o, keys %data;
 __
-meta::hook('before-save::make-T', 'make(\'-T\');             # Recompile bootstrap image');
+meta::hook('before-save::make-T', <<'__');
+make('-T');             # Recompile bootstrap image
+vim();                  # Update vim highlighters
+__
 meta::hook('before-shell::ad', 'ad(\'section::|note::|sdoc::\');');
 meta::indicator('cc', 'length ::retrieve(\'data::current-continuation\') ? "\\033[1;36mcc\\033[0;0m" : \'\';');
 meta::indicator('locked', 'is_locked() ? "\\033[1;31mlocked\\033[0;0m" : \'\';');
@@ -1619,8 +1619,12 @@ sub parse {
 
 sub execute {
   my %command = %{$_[0]};
-  die "undefined command: $command{function}" unless exists $externalized_functions{$command{function}};
-  &{"::$command{function}"}(@{$command{args}})}
+  if (exists $externalized_functions{$command{function}})
+    {&{"::$command{function}"}(@{$command{args}})}
+  elsif (exists $externalized_functions{'method-missing'})
+    {::method_missing($command{function}, @{$command{args}})}
+  else
+    {die "undefined command: $command{function}"}}
 
 sub run {execute(parse(tokenize(@_)))}
 
@@ -1644,7 +1648,7 @@ sub repl {
   my $autocomplete = $options{autocomplete} || sub {[sort(keys %data), grep !/-/, sort keys %externalized_functions]};
   my $prompt       = $options{prompt}       || \&prompt;
   my $parse        = $options{parse}        || sub {parse(tokenize(@_))};
-  my $output       = $options{output}       || sub {print join("\n", @_), "\n"};
+  my $output       = $options{output}       || sub {print join("\n", @_), "\n" if grep length, @_};
   my $command      = $options{command}      || sub {my ($command) = @_; ::around_hook('shell-command', $command, sub {&$output(::dangerous('', sub {execute($command)}))})};
 
   length $_ && &$command(&$parse($_)) while ($attribs->{completion_word} = &$autocomplete(), defined($_ = $term->readline(&$prompt())))}
@@ -1684,7 +1688,7 @@ meta::type::resource           c521d2de1dcd7f9f7ec4df3557572009
 meta::type::section            fb3b53eaebc1a2433c1763eccdb781c4
 parent::preprocessor           08006c9536bfe82d4b9b8bd57832eafa
 parent::sdoc                   f1dc17f93d2120095920202bb1e5c220
-parent::vim-highlighters       ad6aeea7f2688cfd3f2cb956b76e7ec1
+parent::vim-highlighters       507017d9049148df454cb6e6351d54b4
 resource::header               165b42e25edb90043f5d3b544adee521
 resource::header-languages     22696552702bd6d35f938ea88eed1367
 resource::header-listings      712557f5989b12ca325bdd2cd36020ef
@@ -1693,6 +1697,8 @@ resource::header-refs          e3999cbca586d5100eb782643071ee88
 resource::header-resource      a8df924fbb715de73b8e7518e0c9e0d6
 template::item[]               2c2041b4c3b6584b6ae3610f5ab68939
 template::logical              58b30808bb307bee2ff021cade4c0f40
+vim_highlighter::cltex         f5509cad8ff3e24b329496bec95424c3
+vim_highlighter::perltex       201dd0473161461c30c376071a06804e
 __
 meta::parent('notes', <<'__');
 function::note    823227b01d6f7b953a06d41761136710
@@ -1800,7 +1806,7 @@ internal_function::with_cwd             d65eefc43140868a62d189f290da4b14
 internal_function::with_exported        a9a67054e4ce842e656fd00029e55aa2
 internal_function::with_fork            d0963ac0472c5859c31e3177b37a90e8
 library::process                        9cb64aa7459a61081116ffe86da21e44
-library::shell                          6659bbab1051efd46b4a1a713edf6b28
+library::shell                          7d7aa21e89fc1e67fc1db976ac0ddb72
 library::terminal                       7e2d045782405934a9614fe04bcfe559
 message_color::cc                       2218ef0f7425de5c717762ffb100eb43
 message_color::state                    03621cd6ac0b1a40d703f41e26c5807f
@@ -1861,8 +1867,8 @@ retriever::sdocp          bb733b4bf092d4405d24b509d52eb193
 __
 meta::parent('vim-highlighters', <<'__');
 function::vim                cf9e37026f6cd1499a6dd258fbbcd060
-meta::type::vim_highlighter  38829105cbe400cb36d45357882c77fd
-parent::object               20c70a494394d86d886f9f03e94e330b
+meta::type::vim_highlighter  24fef13e4ba4faa67f4a0a4d19d19cc2
+parent::object               bc622153cca37e5531bbe380ee06d388
 __
 meta::psection('implementation', <<'__');
 
@@ -1901,6 +1907,8 @@ meta::psection('implementation', <<'__');
       $ find . -name '*.txt'            (find . -name '*.txt')
       $ ls name\ with\ spaces           (ls name\ with\ spaces)
       $ rm x && touch x                 (rm x && touch x)
+      $ ls | wc -l                      (ls | wc -l)
+      $ cat foo > bar                   (cat foo > bar)
 
       $ for f in $files; do             (map fn(rm $_ && touch $_) $files)
       >   rm "$f" && touch "$f"
@@ -1909,9 +1917,6 @@ meta::psection('implementation', <<'__');
       $ if [[ -x foo ]]; then           (if (-x foo) (./foo arg1 arg2 @_))
       >   ./foo arg1 arg2 "$@"
       > fi
-
-      $ # this is a comment             (# this is a comment)
-      $ ls | wc -l                      (ls | wc -l)
 
       $ ls | while read f; do           (ls | =f -S)
       >   [[ -S $f ]] && echo $f
@@ -1951,17 +1956,20 @@ meta::psection('implementation', <<'__');
 - sp Self-hosting implementation | part:self-hosting-implementation
 - sc xh-script parser | chp:xh-script-parser
   Defined in terms of structural equivalence between quoted and unquoted forms
-  by specifying the behavior of the quote function.
+  by specifying the behavior of the quote relation. Note the free variable
+  \verb|$ws| whenever we join multiple words together; this allows whitespace
+  to be stored as a transient quantity and reused across function inversions.
 
   - xhmodule parse modules/parse.xh << end
-    (def (quote [@xs])               (str "[" (qw $xs) "]")
-         (quote {@xs})               (str "{" (qw $xs) "}")
-         (quote "@s")                (str "\\\"" (qw $s) "\\\"")
-         (quote (re '^([@!$])$' $x)) (str "\\" $x)
-         (quote !x)                  (qw @(re '^([@!\$]+)(.*)$' $x))
-         (quote $x)                  $x
+    (def (quote [@xs])             (str "[" (qw $xs) "]")
+         (quote {@xs})             (str "{" (qw $xs) "}")
+         (quote "@s")              (str "\\\"" (qw $s) "\\\"")
+         (quote (re '^[@!$]$' $x)) (str "\\" $x)
+         (quote !x)                (str @(match '^([@!\$]+)(.*)$' $x))
+         (quote $x)                $x
+         ^where (qw $xs) (join (re '^\s+$' $ws) (map quote $xs)))
 
-         ^where (qw $xs) (join " " (map quote $xs)))
+    (def (parse (quote $x)) $x)
   - end
 
 - sp Bootstrap implementation | part:bootstrap-implementation
@@ -2364,16 +2372,70 @@ elseif exists("b:current_syntax")
   finish
 endif
 
+syn include @xh syntax/xh.vim
+if exists("b:current_syntax")
+  unlet b:current_syntax
+endif
+
 runtime syntax/perl.vim
 
 syn case match
 syn match  pltPreprocessor /^\s*- .*$/ containedin=pltImpliedComment
 syn region pltImpliedComment matchgroup=pltPreprocessor start=/\%^\|^\s*- end$/ end=/^\s*- perl.*$\|\%$/ keepend containedin=ALL
+syn region pltXhRegion       matchgroup=pltPreprocessor start=/^\s*- xh.*$/ end=/^\s*- end$/ contained containedin=pltImpliedComment contains=@xh keepend
 
 hi link pltImpliedComment Comment
 hi link pltPreprocessor   PreProc
 
 let b:current_syntax = "perltex"
+
+__
+meta::vim_highlighter('xh', <<'__');
+" Language:   xh
+" Maintainer: Spencer Tipping
+
+if !exists("main_syntax")
+  if version < 600
+    syntax clear
+  elseif exists("b:current_syntax")
+    finish
+  endif
+  let main_syntax = 'xh'
+endif
+
+syn case match
+set iskeyword=37,38,42-63,65-90,94-122,124,127-255
+
+syn region xhShebang start=/\%^#!/ end=/$/
+syn region xhList       matchgroup=xhInterpolationParens start=/\(@!\|@\|!\)\?\k*(/ end=/)/ contains=@xhTop
+syn region xhVector     matchgroup=xhParens              start=/\k*\[/              end=/]/ contains=@xhTop
+syn region xhMap        matchgroup=xhParens              start=/\k*{/               end=/}/ contains=@xhTop
+syn region xhSoftString matchgroup=xhQuoteMarks          start=/\k*"/               end=/"/ contains=xhSoftEscape,@xhInterpolable
+syn region xhHardString matchgroup=xhQuoteMarks          start=/\k*'/               end=/'/ contains=xhHardEscape
+
+syn cluster xhTop add=xhList,xhVector,xhMap,xhSoftString,xhHardString,xhInterpolatedWord,xhBuiltin,xhEscapedWord
+syn cluster xhInterpolable add=xhList,xhInterpolatedWord
+
+syn match xhSoftEscape /\\./     contained
+syn match xhHardEscape /\\[\\']/ contained
+
+syn keyword xhBuiltin def
+syn match xhInterpolatedWord /\(@!\|[!@$]\)\k\+/
+
+syn match xhEscapedWord /\^\+\k\+/
+
+hi def link xhShebang             Special
+hi def link xhBuiltin             Keyword
+hi def link xhParens              Special
+hi def link xhQuoteMarks          Special
+hi def link xhSoftString          String
+hi def link xhHardString          String
+hi def link xhInterpolatedWord    Identifier
+hi def link xhInterpolationParens Type
+hi def link xhEscapedWord         Special
+
+hi def link xhSoftEscape          Special
+hi def link xhHardEscape          Special
 
 __
 internal::main();

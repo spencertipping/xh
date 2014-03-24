@@ -1,10 +1,11 @@
 BEGIN {xh::defmodule('parse.xh', <<'_')}
-(def (quote [@xs])               (str "[" (qw $xs) "]")
-     (quote {@xs})               (str "{" (qw $xs) "}")
-     (quote "@s")                (str "\\\"" (qw $s) "\\\"")
-     (quote (re '^([@!$])$' $x)) (str "\\" $x)
-     (quote !x)                  (qw @(re '^([@!\$]+)(.*)$' $x))
-     (quote $x)                  $x
+(def (quote [@xs])             (str "[" (qw $xs) "]")
+     (quote {@xs})             (str "{" (qw $xs) "}")
+     (quote "@s")              (str "\\\"" (qw $s) "\\\"")
+     (quote (re '^[@!$]$' $x)) (str "\\" $x)
+     (quote !x)                (str @(match '^([@!\$]+)(.*)$' $x))
+     (quote $x)                $x
+     ^where (qw $xs) (join (re '^\s+$' $ws) (map quote $xs)))
 
-     ^where (qw $xs) (join " " (map quote $xs)))
+(def (parse (quote $x)) $x)
 _
