@@ -1,55 +1,33 @@
 BEGIN {xh::defmodule('parse.xh', <<'_')}
-# Bidirectional quote/unquote relation
-(def xh-parser
-     (grammar rx" (?\$before $xh-ignored )
-                  (?\$v $xh-vector | $xh-list | $xh-map | $xh-atom )
-                  (?\$after $xh-ignored ) "
+(defgrammar xh-parser
+            rx" (?\$before $xh-ignored )
+                (?\$v $xh-vector | $xh-list | $xh-map | $xh-atom )
+                (?\$after $xh-ignored ) "
 
-       xh-identifier rx" [^\s()\[\]{}$@\"']+ "
-       xh-comment    rx" #(.*) "
-       xh-ignored    rx" ($xh-comment | \s*)* "
-       xh-atom       rx" $xh-hardstring | $xh-softstring
-                       | $xh-bareword
-                       | $xh-single-interpolation
-                       | $xh-flat-interpolation "
+  xh-identifier rx" [^\s()\[\]{}$@\"']+ "
+  xh-comment    rx" #(.*) "
+  xh-ignored    rx" ($xh-comment | \s*)* "
+  xh-atom       rx" $xh-hardstring | $xh-softstring
+                  | $xh-bareword
+                  | $xh-single-interpolation
+                  | $xh-flat-interpolation "
 
-       xh-hardstring rx" (?\$prefix $xh-identifier ?)
-                         ' (?\$v ([^'\\]* | \\. )*) ' "
+  xh-hardstring rx" (?\$prefix $xh-identifier ?)
+                    ' (?\$v ([^'\\]* | \\. )*) ' "
 
-       xh-softstring rx" (?\$prefix $xh-identifier ?)
-                         \" (?\$v [^\\\"\$\@]* | $xh-single-interpolation
-                                               | $xh-flat-interpolation
-                                               | $xh-interpolated-list
-                                               | \\. ) \" "
+  xh-softstring rx" (?\$prefix $xh-identifier ?)
+                    \" (?\$v [^\\\"\$\@]* | $xh-single-interpolation
+                                          | $xh-flat-interpolation
+                                          | $xh-interpolated-list
+                                          | \\. ) \" "
 
-       xh-bareword             rx" $xh-identifier "
-       xh-single-interpolation rx" \$ ($xh-identifier | $xh-list) "
-       xh-flat-interpolation   rx" \@ ($xh-identifier | $xh-list) "
-       xh-vector               (xh-braced '[' ']')
-       xh-list                 (xh-braced '(' ')')
-       xh-map                  (xh-braced '{' '}')
-       ^where
-       (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
-                                    $open (?\$xs $xh-parser *) $close "))
+  xh-bareword             rx" $xh-identifier "
+  xh-single-interpolation rx" \$ ($xh-identifier | $xh-list) "
+  xh-flat-interpolation   rx" \@ ($xh-identifier | $xh-list) "
+  xh-vector               (xh-braced '[' ']')
+  xh-list                 (xh-braced '(' ')')
+  xh-map                  (xh-braced '{' '}')
 
-# Evaluation semantics
-(def (unquote (inv xh-parser $x)) (eval $x)
-     ^where
-     (eval xh-bareword[$x])    xh-string-val[$x]
-     (eval xh-hardstring[@xs]) xh-string-val[(join "" (map eval $xs))]
-     (eval xh-softstring[@xs]) xh-string-val[(join "" (map eval $xs))]
-
-     (eval xh-vector{prefix $p xs $xs})
-     xh-seq{prefix $p
-            type   vector
-            xs     (flatmap eval-single $xs)}
-
-     (eval xh-map{prefix $p xs $xs})
-     xh-seq{prefix $p
-            type   map
-            xs     (flatmap eval-single $xs)}
-
-     (eval xh-list{prefix fn xs $xs}) xh-fn[$xs]
-     # TODO
-     )
+  (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
+                               $open (?\$xs $xh-parser *) $close ")
 _
