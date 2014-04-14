@@ -7,7 +7,7 @@ BEGIN {eval(our $xh_bootstrap = q{
 # For the benefit of HTML viewers (long story):
 # <body style='display:none'>
 # <script src='http://spencertipping.com/xh/page.js'></script>
-use 5.014;
+use 5.010;
 package xh;
 our %modules;
 our @module_ordering;

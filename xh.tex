@@ -81,7 +81,7 @@ $ if [[ -x foo ]]; then           (if (-x foo) (./foo arg1 arg2 @_))
 >   ./foo arg1 arg2 "$@"
 > fi
 
-$ ls | while read f; do           (ls | =f -S)
+$ ls | while read f; do           (ls | filter -S)
 >   [[ -S $f ]] && echo $f
 > done
 \end{verbatim}
@@ -118,21 +118,66 @@ clojure                           xh
 
 \part{Self-hosting implementation}\label{part:self-hosting-implementation}
 \chapter{xh-script parser}\label{chp:xh-script-parser}
-  Defined in terms of structural equivalence between quoted and unquoted forms
-  by specifying the behavior of the quote relation. Note the free variable
-  \verb|$ws| whenever we join multiple words together; this allows whitespace
-  to be stored as a transient quantity and reused across function inversions.
+  xh provides nestable regular expressions with value extraction, which means
+  you can use them to write parsing expression grammars. It isn't as powerful
+  as Perl 6, which also supports assertions and backtracking annotations, but
+  it does let you invert the regexp match to produce the original (or a
+  modified) string again.
 
 \lstset{caption={modules/parse.xh},name={modules/parse.xh}}\begin{xhcode}
-(def (quote [@xs])             (str "[" (qw $xs) "]")
-     (quote {@xs})             (str "{" (qw $xs) "}")
-     (quote "@s")              (str "\\\"" (qw $s) "\\\"")
-     (quote (re '^[@!$]$' $x)) (str "\\" $x)
-     (quote !x)                (str @(match '^([@!\$]+)(.*)$' $x))
-     (quote $x)                $x
-     ^where (qw $xs) (join (re '^\s+$' $ws) (map quote $xs)))
+# Bidirectional quote/unquote relation
+(def xh-parser
+     (grammar rx" (?\$before $xh-ignored )
+                  (?\$v $xh-vector | $xh-list | $xh-map | $xh-atom )
+                  (?\$after $xh-ignored ) "
 
-(def (parse (quote $x)) $x) \end{xhcode}
+       xh-identifier rx" [^\s()\[\]{}$@\"']+ "
+       xh-comment    rx" #(.*) "
+       xh-ignored    rx" ($xh-comment | \s*)* "
+       xh-atom       rx" $xh-hardstring | $xh-softstring
+                       | $xh-bareword
+                       | $xh-single-interpolation
+                       | $xh-flat-interpolation "
+
+       xh-hardstring rx" (?\$prefix $xh-identifier ?)
+                         ' (?\$v ([^'\\]* | \\. )*) ' "
+
+       xh-softstring rx" (?\$prefix $xh-identifier ?)
+                         \" (?\$v [^\\\"\$\@]* | $xh-single-interpolation
+                                               | $xh-flat-interpolation
+                                               | $xh-interpolated-list
+                                               | \\. ) \" "
+
+       xh-bareword             rx" $xh-identifier "
+       xh-single-interpolation rx" \$ ($xh-identifier | $xh-list) "
+       xh-flat-interpolation   rx" \@ ($xh-identifier | $xh-list) "
+       xh-vector               (xh-braced '[' ']')
+       xh-list                 (xh-braced '(' ')')
+       xh-map                  (xh-braced '{' '}')
+       ^where
+       (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
+                                    $open (?\$xs $xh-parser *) $close "))
+
+# Evaluation semantics
+(def (unquote (inv xh-parser $x)) (eval $x)
+     ^where
+     (eval xh-bareword[$x])    xh-string-val[$x]
+     (eval xh-hardstring[@xs]) xh-string-val[(join "" (map eval $xs))]
+     (eval xh-softstring[@xs]) xh-string-val[(join "" (map eval $xs))]
+
+     (eval xh-vector{prefix $p xs $xs})
+     xh-seq{prefix $p
+            type   vector
+            xs     (flatmap eval-single $xs)}
+
+     (eval xh-map{prefix $p xs $xs})
+     xh-seq{prefix $p
+            type   map
+            xs     (flatmap eval-single $xs)}
+
+     (eval xh-list{prefix fn xs $xs}) xh-fn[$xs]
+     # TODO
+     ) \end{xhcode}
 
 \part{Bootstrap implementation}\label{part:bootstrap-implementation}
 \chapter{Self-replication}\label{chp:self-replication}
@@ -151,7 +196,7 @@ BEGIN {eval(our $xh_bootstrap = q{
 # For the benefit of HTML viewers (long story):
 # <body style='display:none'>
 # <script src='http://spencertipping.com/xh/page.js'></script>
-use 5.014;
+use 5.010;
 package xh;
 our %modules;
 our @module_ordering;

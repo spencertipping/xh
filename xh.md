@@ -1,15 +1,14 @@
 [part:language-reference]
 
-Introduction
+Introduction {#chp:introduction}
 ============
 
-[chp:introduction] As a programming language, xh gives you two fairly
-uncommon invariants:
+As a programming language, xh gives you two fairly uncommon invariants:
 
-1.  Every value is fully expressible as a string, and behaves as such.
-    [item:values-are-strings]
+1.  <span>Every value is fully expressible as a string, and behaves as
+    such.</span> [item:values-are-strings]
 
-2.  Every computation can be expressed as a series of
+2.  <span>Every computation can be expressed as a series of</span>
     string-transformation rules. [item:computation-is-transformation]
 
 xh’s string transformations are all about expansion, which corresponds
@@ -20,11 +19,11 @@ defined in terms of the string representations of values, though xh is
 at liberty to use any representation that convincingly maintains the
 illusion that your values function as strings.
 
-Examples
+Examples {#sec:examples}
 --------
 
-[sec:examples] In these examples, `$` indicates the bash prompt and the
-outermost `()` indicate the xh prompt (neither needs to be typed).
+In these examples, `$` indicates the bash prompt and the outermost `()`
+indicate the xh prompt (neither needs to be typed).
 
     bash                              xh
     $ echo hi                         (. hi)
@@ -47,7 +46,7 @@ outermost `()` indicate the xh prompt (neither needs to be typed).
     >   ./foo arg1 arg2 "$@"
     > fi
 
-    $ ls | while read f; do           (ls | =f -S)
+    $ ls | while read f; do           (ls | filter -S)
     >   [[ -S $f ]] && echo $f
     > done
 
@@ -80,35 +79,78 @@ Some xh features have no analog in bash, for instance data structures:
 
 [part:self-hosting-implementation]
 
-xh-script parser
+xh-script parser {#chp:xh-script-parser}
 ================
 
-[chp:xh-script-parser] Defined in terms of structural equivalence
-between quoted and unquoted forms by specifying the behavior of the
-quote relation. Note the free variable `$ws` whenever we join multiple
-words together; this allows whitespace to be stored as a transient
-quantity and reused across function inversions.
+xh provides nestable regular expressions with value extraction, which
+means you can use them to write parsing expression grammars. It isn’t as
+powerful as Perl 6, which also supports assertions and backtracking
+annotations, but it does let you invert the regexp match to produce the
+original (or a modified) string again.
 
-    (def (quote [@xs])             (str "[" (qw $xs) "]")
-         (quote {@xs})             (str "{" (qw $xs) "}")
-         (quote "@s")              (str "\\\"" (qw $s) "\\\"")
-         (quote (re '^[@!$]$' $x)) (str "\\" $x)
-         (quote !x)                (str @(match '^([@!\$]+)(.*)$' $x))
-         (quote $x)                $x
-         ^where (qw $xs) (join (re '^\s+$' $ws) (map quote $xs)))
+    # Bidirectional quote/unquote relation
+    (def xh-parser
+         (grammar rx" (?\$before $xh-ignored )
+                      (?\$v $xh-vector | $xh-list | $xh-map | $xh-atom )
+                      (?\$after $xh-ignored ) "
 
-    (def (parse (quote $x)) $x) 
+           xh-identifier rx" [^\s()\[\]{}$@\"']+ "
+           xh-comment    rx" #(.*) "
+           xh-ignored    rx" ($xh-comment | \s*)* "
+           xh-atom       rx" $xh-hardstring | $xh-softstring
+                           | $xh-bareword
+                           | $xh-single-interpolation
+                           | $xh-flat-interpolation "
+
+           xh-hardstring rx" (?\$prefix $xh-identifier ?)
+                             ' (?\$v ([^'\\]* | \\. )*) ' "
+
+           xh-softstring rx" (?\$prefix $xh-identifier ?)
+                             \" (?\$v [^\\\"\$\@]* | $xh-single-interpolation
+                                                   | $xh-flat-interpolation
+                                                   | $xh-interpolated-list
+                                                   | \\. ) \" "
+
+           xh-bareword             rx" $xh-identifier "
+           xh-single-interpolation rx" \$ ($xh-identifier | $xh-list) "
+           xh-flat-interpolation   rx" \@ ($xh-identifier | $xh-list) "
+           xh-vector               (xh-braced '[' ']')
+           xh-list                 (xh-braced '(' ')')
+           xh-map                  (xh-braced '{' '}')
+           ^where
+           (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
+                                        $open (?\$xs $xh-parser *) $close "))
+
+    # Evaluation semantics
+    (def (unquote (inv xh-parser $x)) (eval $x)
+         ^where
+         (eval xh-bareword[$x])    xh-string-val[$x]
+         (eval xh-hardstring[@xs]) xh-string-val[(join "" (map eval $xs))]
+         (eval xh-softstring[@xs]) xh-string-val[(join "" (map eval $xs))]
+
+         (eval xh-vector{prefix $p xs $xs})
+         xh-seq{prefix $p
+                type   vector
+                xs     (flatmap eval-single $xs)}
+
+         (eval xh-map{prefix $p xs $xs})
+         xh-seq{prefix $p
+                type   map
+                xs     (flatmap eval-single $xs)}
+
+         (eval xh-list{prefix fn xs $xs}) xh-fn[$xs]
+         # TODO
+         ) 
 
 [part:bootstrap-implementation]
 
-Self-replication
+Self-replication {#chp:self-replication}
 ================
 
-[chp:self-replication] **Note:** This implementation requires Perl 5.14
-or later, but the self-compiled xh image will run on anything back to
-5.10. For this and other reasons, mostly performance-related, you should
-always use the xh-compiled image rather than bootstrapping in
-production.
+<span>**Note:**</span> This implementation requires Perl 5.14 or later,
+but the self-compiled xh image will run on anything back to 5.10. For
+this and other reasons, mostly performance-related, you should always
+use the xh-compiled image rather than bootstrapping in production.
 
     #!/usr/bin/env perl
     BEGIN {eval(our $xh_bootstrap = q{
@@ -119,7 +161,7 @@ production.
     # For the benefit of HTML viewers (long story):
     # <body style='display:none'>
     # <script src='http://spencertipping.com/xh/page.js'></script>
-    use 5.014;
+    use 5.010;
     package xh;
     our %modules;
     our @module_ordering;
