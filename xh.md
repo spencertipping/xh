@@ -120,6 +120,17 @@ original (or a modified) string again.
       (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
                                    $open (?\$xs $xh-parser *) $close ") 
 
+Evaluation semantics {#chp:evaluation-semantics}
+====================
+
+xh evaluation semantics can be defined in terms of parse trees. While
+we’re at it, we also define the useful <span>unquote</span> (analogous
+to Clojure’s <span>read-string</span>) and <span>quote</span> (analogous
+to Clojure’s <span>pr-str</span>).
+
+    (def (unquote $s) (grammar-apply $xh-parser $s)
+         (quote   $s) (grammar-parse $xh-parser $s)) 
+
 Perl backend {#chp:perl-backend}
 ============
 

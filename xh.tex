@@ -157,6 +157,15 @@ clojure                           xh
   (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
                                $open (?\$xs $xh-parser *) $close ") \end{xhcode}
 
+\chapter{Evaluation semantics}\label{chp:evaluation-semantics}
+  xh evaluation semantics can be defined in terms of parse trees. While we're
+  at it, we also define the useful {\tt unquote} (analogous to Clojure's {\tt
+  read-string}) and {\tt quote} (analogous to Clojure's {\tt pr-str}).
+
+\lstset{caption={modules/eval.xh},name={modules/eval.xh}}\begin{xhcode}
+(def (unquote $s) (grammar-apply $xh-parser $s)
+     (quote   $s) (grammar-parse $xh-parser $s)) \end{xhcode}
+
 \chapter{Perl backend}\label{chp:perl-backend}
   As things stand, we have a perfectly good parser written in
   \ref{chp:xh-script-parser} and no way to execute it. This chapter doesn't

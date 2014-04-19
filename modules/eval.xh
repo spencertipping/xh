@@ -1,0 +1,4 @@
+BEGIN {xh::defmodule('eval.xh', <<'_')}
+(def (unquote $s) (grammar-apply $xh-parser $s)
+     (quote   $s) (grammar-parse $xh-parser $s))
+_

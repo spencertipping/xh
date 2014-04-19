@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  41a6658d4aa18811726d872de8ee618a
+# state:  a5062d78550f037d9f6168807ed5ae94
 # istate: 7401fbbed567bacdb3a9f90cd244153d
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -1993,6 +1993,16 @@ meta::psection('implementation', <<'__');
 
       (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
                                    $open (?\$xs $xh-parser *) $close ")
+  - end
+
+- sc Evaluation semantics | chp:evaluation-semantics
+  xh evaluation semantics can be defined in terms of parse trees. While we're
+  at it, we also define the useful {\tt unquote} (analogous to Clojure's {\tt
+  read-string}) and {\tt quote} (analogous to Clojure's {\tt pr-str}).
+
+  - xhmodule eval modules/eval.xh << end
+    (def (unquote $s) (grammar-apply $xh-parser $s)
+         (quote   $s) (grammar-parse $xh-parser $s))
   - end
 
 - sc Perl backend | chp:perl-backend
