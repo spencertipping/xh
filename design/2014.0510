@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  030bdbfb9cc667467db2477c36c6cbb2
+# state:  cb6dbab9fc003d49fedf75f1e9427227
 # istate: c6c56807911e59818a077d85b1572431
 # id:     718edd13f5b15e308e7ecf9597899570
 
@@ -1278,6 +1278,118 @@ Just planning this out from a top-down perspective (again).
      done. Should have full access to POSIX.
   7. Statistics. This will be increasingly useful to sysops as statistical
      problems become more commonplace.
+
+File management.
+Every piece of data anywhere, including terminal input and program output,
+should be accessible in a file. Files should be content-addressible, for
+instance "what came after the regexp X?". I should be able to cat stuff to the
+terminal as a way to store things.
+
+Files should be mobile between machines, and xh should fully track this. I
+should be able to "tag" files with various labels.
+
+XH should never cause the disk to fill up. It should figure out what to store,
+possibly with hints from the user, and delete things on-demand. The most
+important stuff should be stored back into the xh image so I can get to it
+after downloading xh over the internet.
+
+Data integration.
+xh should be able to parse JSON, XML, CSV, TSV, and HTML. It should be able to
+open sockets and HTTP connections, and apply custom parsers to streams. It
+needs to have a reasonable set of data structures, possibly extensible, to
+represent intermediate results.
+
+Distributed computing.
+xh should maintain a list of servers I have ssh access to, and should connect
+to them automatically. I should be able to construct wildcards that refer to
+files on different machines, and xh should transparently localize program
+execution to the files being accessed.
+
+There should be a few different mechanisms for data access:
+
+| 1. Run the program on the remote system, forwarding stdin, stdout, and stderr
+     (default).
+  2. Run the program locally, streaming file data sequentially using a fifo.
+  3. Run the program locally, transferring all of the file data into a
+     temporary using rsync or similar. The temporary is then subject to GC.
+
+Completion.
+Every keystroke matters. xh should spend a lot of effort trying to figure out
+what I'm about to do next, or how to make my life easier. It should know things
+such as:
+
+| 1. How to install any program I might want to run, ideally by looking through
+     command-not-found-data.
+  2. The likelihood that I'll refer to any given file at any moment.
+  3. The likelihood that I'll cd somewhere at any moment.
+  4. The options I'm likely to use with a program.
+  5. The environment variables I'm likely to define.
+
+Its job is to minimize the amount of effort associated with any action it can
+predict; in other words, it should compress keystrokes in a mnemonically
+sensible way.
+
+An invariant across all completion features is that it can never cause
+perceptible delays. All completion must be fully nonblocking, and because
+keystrokes are being compressed the results must be identical with or without
+any delay reading the data. Compression should be aware of the following
+variables:
+
+| 1. The number of keystrokes saved per alias (aliases create cognitive
+     overhead).
+  2. The typing effort involved (xh can figure this out based on profiling
+     keystroke timing and use of backspace to fix errors).
+
+In addition to completion, xh should give me transparent previews. For example,
+if I'm editing a pipeline I should be able to see the data at any given moment.
+I should also be able to preview any file, HTTP destination, stdout stream, or
+other data source _nondestructively_; that is, previewing it doesn't require me
+to then reinitialize the data source to get the full stream. This means xh
+needs to cache whatever content has been previewed and be able to replay it.
+
+Configuration.
+All personal information like keystroke compression tables, frequently-used
+directories, etc, should be stored in the xh image for later use. This data
+shouldn't require any manual maintenance.
+
+Programming.
+xh-script should be powerful enough to do things like writing nonblocking
+webservers, parsing files, mixing data from various sources, writing and
+kicking off distributed computing jobs, etc. It should make sysadmin stuff
+especially easy, but it also needs to be both abstractable and fast. For
+example, I might want to build a height map of all buildings in Los Angeles
+given a bunch of lat/lng, ground elevation, and suite numbers, then export as
+CSV. Or maybe simulate traffic patterns, or optimize a statistical model.
+
+Any script I type on the command line must be stored and indexed. Definitions
+should be indexed by name and fully versioned so I can see how something
+changed. I should be able to preview any function call and inspect data flowing
+through a program. Debugging data should be saved as an auxiliary stream, and
+like program output should be content-addressible and culled by anticipated
+importance.
+
+I should be able to transparently access resources on other systems, and pass
+things around easily. It's ok for resources to be anchored to specific
+machines; this will happen if I want to refer to the stdout of a running
+process or something. xh should transparently forward this wherever I need it.
+
+XH should implement its own heap allocation that uses a nonblocking disk swap
+strategy. No program should cause thrashing, and programs should support
+hundreds or thousands of virtual threads. Execution semantics should be
+identical regardless of a program's physical location.
+
+Data structures should be an algebraic abstraction, not a statement of
+implementation. For example, I should be able to use a MySQL database as either
+a list or an associative map. The internet could be a lazy map from URLs to
+parsed HTML documents. The filesystem could be a lazy map from name to
+contents. It should be easy to assert these interpretations.
+
+Finally, the language should be homoiconic. It's just no fun otherwise.
+
+Statistics.
+This should be a library, but it should probably ship with the core. XH should
+use it internally for autocomplete prediction and other statistical problems.
+No idea what the API should look like.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
