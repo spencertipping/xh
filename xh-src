@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  a5062d78550f037d9f6168807ed5ae94
-# istate: 7401fbbed567bacdb3a9f90cd244153d
+# state:  db15c0d3804fd9847311404265827621
+# istate: 2bdb9ed119b54ededd8a959ccfd63d18
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -1872,149 +1872,6 @@ parent::object               bc622153cca37e5531bbe380ee06d388
 __
 meta::psection('implementation', <<'__');
 
-- sp Language reference | part:language-reference
-- sc Introduction | chp:introduction
-  As a programming language, xh gives you two fairly uncommon invariants:
-
-  - enumerate << end
-    - item Every value is fully expressible as a string, and behaves as such.
-           \label{item:values-are-strings}
-    - item Every computation can be expressed as a series of
-           string-transformation rules.
-           \label{item:computation-is-transformation}
-  - end
-
-  xh's string transformations are all about expansion, which corresponds
-  roughly to the kind of interpolation found in shell script or TCL. Unlike
-  those languages, however, xh string interpolation itself has invariants, some
-  of which you can disable. The semantics of xh are all defined in terms of the
-  string representations of values, though xh is at liberty to use any
-  representation that convincingly maintains the illusion that your values
-  function as strings.
-
-  - s1 Examples | sec:examples
-    In these examples, \verb|$| indicates the bash prompt and the outermost
-    \verb|()| indicate the xh prompt (neither needs to be typed).
-
-    - verbatim << end
-      bash                              xh
-      $ echo hi                         (. hi)
-      $ foo=bar                         (def foo bar)
-      $ echo $foo                       (. @foo)
-      $ echo "$foo"                     (. $foo)
-      $ echo "$(eval $foo)"             (. !foo)
-      $ echo $(eval $foo)               (. @!foo)
-      $ find . -name '*.txt'            (find . -name '*.txt')
-      $ ls name\ with\ spaces           (ls name\ with\ spaces)
-      $ rm x && touch x                 (rm x && touch x)
-      $ ls | wc -l                      (ls | wc -l)
-      $ cat foo > bar                   (cat foo > bar)
-
-      $ for f in $files; do             (map fn(rm $_ && touch $_) $files)
-      >   rm "$f" && touch "$f"
-      > done
-
-      $ if [[ -x foo ]]; then           (if (-x foo) (./foo arg1 arg2 @_))
-      >   ./foo arg1 arg2 "$@"
-      > fi
-
-      $ ls | while read f; do           (ls | filter -S)
-      >   [[ -S $f ]] && echo $f
-      > done
-    - end
-
-    \noindent Some xh features have no analog in bash, for instance data
-    structures:
-
-    - verbatim << end
-      clojure                           xh
-      (def m {})                        (def m {})
-      (assoc m :foo 5)                  {foo 5 @m}
-      (assoc m :foo 5)                  (assoc $m foo 5)
-      (dissoc m :foo :bar)              (dissoc $m foo bar)
-      (:foo m)                          ($m foo)
-      (get m :foo 0)                    ($m foo 0)
-      (map? m)                          (map? $m)
-      (contains? m :foo)                (contains? $m foo)
-
-      (def v [])                        (def v [])
-      (conj v 1 2 3)                    [@v 1 2 3]
-      (conj v 1 2 3)                    (push $v 1 2 3)
-
-      (def s #{})                       (def s s[])
-      (contains? s :foo)                ($s foo)
-      (contains? s :foo)                (contains? $s foo)
-
-      (fn [x] (inc x))                  fn(inc $_)
-      (fn [x] (inc x))                  (fn [$x] (inc $x))
-      (fn ([x]   (inc x))               (fn [$x]    (inc $x)
-          ([x y] (+ x y)))                  [$x $y] (+ $x $y))
-      (comp f g h)                      (comp f g h)
-      (partial f x)                     (partial f x)
-    - end
-
-- sp Self-hosting implementation | part:self-hosting-implementation
-- sc xh-script parser | chp:xh-script-parser
-  xh provides nestable regular expressions with value extraction, which means
-  you can use them to write parsing expression grammars. It isn't as powerful
-  as Perl 6, which also supports assertions and backtracking annotations, but
-  it does let you invert the regexp match to produce the original (or a
-  modified) string again.
-
-  - xhmodule parse modules/parse.xh << end
-    (defgrammar xh-parser
-                rx" (?\$before $xh-ignored )
-                    (?\$v $xh-vector | $xh-list | $xh-map | $xh-atom )
-                    (?\$after $xh-ignored ) "
-
-      xh-identifier rx" [^\s()\[\]{}$@\"']+ "
-      xh-comment    rx" #(.*) "
-      xh-ignored    rx" ($xh-comment | \s*)* "
-      xh-atom       rx" $xh-hardstring | $xh-softstring
-                      | $xh-bareword
-                      | $xh-single-interpolation
-                      | $xh-flat-interpolation "
-
-      xh-hardstring rx" (?\$prefix $xh-identifier ?)
-                        ' (?\$v ([^'\\]* | \\. )*) ' "
-
-      xh-softstring rx" (?\$prefix $xh-identifier ?)
-                        \" (?\$v [^\\\"\$\@]* | $xh-single-interpolation
-                                              | $xh-flat-interpolation
-                                              | $xh-interpolated-list
-                                              | \\. ) \" "
-
-      xh-bareword             rx" $xh-identifier "
-      xh-single-interpolation rx" \$ ($xh-identifier | $xh-list) "
-      xh-flat-interpolation   rx" \@ ($xh-identifier | $xh-list) "
-      xh-vector               (xh-braced '[' ']')
-      xh-list                 (xh-braced '(' ')')
-      xh-map                  (xh-braced '{' '}')
-
-      (xh-braced $open $close) rx" (?\$prefix $xh-identifier ?)
-                                   $open (?\$xs $xh-parser *) $close ")
-  - end
-
-- sc Evaluation semantics | chp:evaluation-semantics
-  xh evaluation semantics can be defined in terms of parse trees. While we're
-  at it, we also define the useful {\tt unquote} (analogous to Clojure's {\tt
-  read-string}) and {\tt quote} (analogous to Clojure's {\tt pr-str}).
-
-  - xhmodule eval modules/eval.xh << end
-    (def (unquote $s) (grammar-apply $xh-parser $s)
-         (quote   $s) (grammar-parse $xh-parser $s))
-  - end
-
-- sc Perl backend | chp:perl-backend
-  As things stand, we have a perfectly good parser written in
-  \ref{chp:xh-script-parser} and no way to execute it. This chapter doesn't
-  really help; instead, we make the hole deeper and write an xh-to-Perl
-  compiler in xh-script. There are good reasons to do it this way.
-
-  - xhmodule perl modules/perl.xh << end
-    # TODO
-  - end
-
 - sp Bootstrap implementation | part:bootstrap-implementation
 - sc Self-replication | chp:self-replication
   {\bf Note:} This implementation requires Perl 5.14 or later, but the
@@ -2186,14 +2043,13 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__b');
+meta::sdoc('xh', <<'__2');
 - include boot/xh-header
-- include modules/interpreter.pl
 
 xh::main::main;
 __DATA__
 
-__b
+__2
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

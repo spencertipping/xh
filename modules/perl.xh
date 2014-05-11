@@ -1,3 +1,0 @@
-BEGIN {xh::defmodule('perl.xh', <<'_')}
-# TODO
-_
