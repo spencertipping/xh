@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  cb6dbab9fc003d49fedf75f1e9427227
+# state:  f8818ad1857c4f2d5799b42842d35a40
 # istate: c6c56807911e59818a077d85b1572431
 # id:     718edd13f5b15e308e7ecf9597899570
 
@@ -1224,6 +1224,31 @@ __
 meta::message_color('cc', '36');
 meta::message_color('state', 'purple');
 meta::message_color('states', 'yellow');
+meta::note('architecture', <<'__');
+Architecture.
+I think it's ok to have xh be Perl-hosted, not self-hosted, at least initially.
+It's a lot of work to write a self-hosting compiler, and it isn't clear that we
+need that kind of performance just yet. With that in mind, xh has the following
+base-layer components implemented in Perl:
+
+| 1. Image management layer; this is some bootstrap Perl code to set up an
+     internal key/value store.
+  2. xh-script base data structures.
+  3. Parser reducer -> Perl compiler.
+  4. xh-script text -> parse-tree reducers.
+  5. xh-script parse-tree -> Perl code reducers.
+  6. xh runtime bindings, e.g. heap, definition table, gc, thread scheduler,
+     etc.
+
+On top of that, the following are written in xh-script:
+
+| 1. Later on: self-hosting xh-script compiler
+  2. REPL interface
+  3. Virtual filesystem support
+  4. JSON, HTTP, SSH, etc, protocol support
+  5. Distributed computing library
+
+__
 meta::note('default', <<'__');
 Focusing the design.
 Right now xh is being designed as this really advanced FP Lisp with all kinds
