@@ -1,23 +1,18 @@
-[part:bootstrap-implementation]
+[part:xh-runtime]
 
 Self-replication {#chp:self-replication}
 ================
 
-<span>**Note:**</span> This implementation requires Perl 5.14 or later,
-but the self-compiled xh image will run on anything back to 5.10. For
-this and other reasons, mostly performance-related, you should always
-use the xh-compiled image rather than bootstrapping in production.
-
     #!/usr/bin/env perl
     BEGIN {eval(our $xh_bootstrap = q{
-    # xh: the X shell | https://github.com/spencertipping/xh
+    # xh | https://github.com/spencertipping/xh
     # Copyright (C) 2014, Spencer Tipping
     # Licensed under the terms of the MIT source code license
 
     # For the benefit of HTML viewers (long story):
     # <body style='display:none'>
     # <script src='http://spencertipping.com/xh/page.js'></script>
-    use 5.010;
+    use 5.014;
     package xh;
     our %modules;
     our @module_ordering;
@@ -71,3 +66,13 @@ an appropriate `BEGIN` block.
       join "\n", @pieces;
     }
     })} 
+
+SSH routing fabric {#chp:ssh-routing-fabric}
+==================
+
+xh does all of its distributed communication over SSH stdin/stdout
+tunnels (since remote hosts may have port forwarding disabled), which
+means that we need to implement a datagram format, routing logic, and a
+priority-aware traffic scheduler.
+
+TODO: datagram format

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 BEGIN {eval(our $xh_bootstrap = q{
-# xh: the X shell | https://github.com/spencertipping/xh
+# xh | https://github.com/spencertipping/xh
 # Copyright (C) 2014, Spencer Tipping
 # Licensed under the terms of the MIT source code license
 
 # For the benefit of HTML viewers (long story):
 # <body style='display:none'>
 # <script src='http://spencertipping.com/xh/page.js'></script>
-use 5.010;
+use 5.014;
 package xh;
 our %modules;
 our @module_ordering;

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  db15c0d3804fd9847311404265827621
+# state:  8d721540b42c4662e70b3ade8100a2c7
 # istate: 2bdb9ed119b54ededd8a959ccfd63d18
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -1872,24 +1872,19 @@ parent::object               bc622153cca37e5531bbe380ee06d388
 __
 meta::psection('implementation', <<'__');
 
-- sp Bootstrap implementation | part:bootstrap-implementation
+- sp xh runtime | part:xh-runtime
 - sc Self-replication | chp:self-replication
-  {\bf Note:} This implementation requires Perl 5.14 or later, but the
-  self-compiled xh image will run on anything back to 5.10. For this and other
-  reasons, mostly performance-related, you should always use the xh-compiled
-  image rather than bootstrapping in production.
-
   - perl boot/xh-header << end
     #!/usr/bin/env perl
     BEGIN {eval(our $xh_bootstrap = q{
-    # xh: the X shell | https://github.com/spencertipping/xh
+    # xh | https://github.com/spencertipping/xh
     # Copyright (C) 2014, Spencer Tipping
     # Licensed under the terms of the MIT source code license
 
     # For the benefit of HTML viewers (long story):
     # <body style='display:none'>
     # <script src='http://spencertipping.com/xh/page.js'></script>
-    use 5.010;
+    use 5.014;
     package xh;
     our %modules;
     our @module_ordering;
@@ -1946,6 +1941,14 @@ meta::psection('implementation', <<'__');
     }
     })}
   - end
+
+- sc SSH routing fabric | chp:ssh-routing-fabric
+  xh does all of its distributed communication over SSH stdin/stdout tunnels
+  (since remote hosts may have port forwarding disabled), which means that we
+  need to implement a datagram format, routing logic, and a priority-aware
+  traffic scheduler.
+
+  TODO: datagram format
 
 __
 meta::resource('header', <<'__');
