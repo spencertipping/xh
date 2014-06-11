@@ -56,6 +56,93 @@ sub image {
   join "\n", @pieces;
 }
 })}
+BEGIN {xh::defmodule('xh::fabric.pl', <<'_')}
+use Sys::Hostname;
+use Time::HiRes qw/time/;
+use Digest::SHA qw/sha256/;
+# Mutable state space definition for the routing fabric. You should create
+# one of these for every separate xh network you plan to interface with.
+
+sub fabric_client {
+  my ($name, $bindings) = @_;
+  $name //= $ENV{USER} . '@' . hostname . '.local';
+  return {rpc_bindings     => $bindings // {},
+          instance_name    => $name,
+          instance_id      => 0,
+          edge_pipes       => {},
+          network_topology => {},
+          send_queue       => [],
+          blocked_rpcs     => {},
+          routing_cache    => {},
+          packet_timings   => {}};
+}
+
+sub fabric_rpc_bind {
+  my ($state, %bindings) = @_;
+  my $bindings = $state->{rpc_bindings};
+  $bindings->{$_} = $bindings{$_} for keys %bindings;
+  $state;
+}
+use constant header_pack_format        => 'C32 N N d n C C n';
+use constant signed_header_pack_format => 'C32 ' . header_pack_format;
+
+use constant signed_header_length    => 32 + 32+4+4+8+2+1+1+2;
+use constant header_signature_length => 32;
+
+our $nonce_state = sha256(time . hostname);
+sub packet_nonce {$nonce_state = sha256(time . $nonce_state)}
+
+sub encode_packet {
+  my ($state, $destination_name, $message_type, $priority, $deadline)
+    = @_;
+  die "data is too long: " . length($_[5]) . " (max is 65535 bytes)"
+    if length $_[5] >= 65536;
+
+  my $destination_id = $state->{routing_cache}{$destination_name};
+  return undef unless defined $destination_id;
+
+  my $header = pack header_pack_format, packet_nonce,
+                                        $state->{instance_id},
+                                        $destination_id->{endpoint_id},
+                                        time,
+                                        length $_[5],
+                                        $message_type,
+                                        $priority,
+                                        $deadline;
+  my $packet = $header . $_[5];
+  sha256($packet) . $packet;
+}
+
+sub decode_packet_header {
+  unpack signed_header_pack_format, $_[0];
+}
+
+sub signature_is_valid {
+  my $sha = substr $_[0], 0, header_signature_length;
+  $sha eq sha256(substr $_[0], header_signature_length);
+}
+use constant {forgetful_rpc  => 0,
+              functional_rpc => 1,
+              rpc_reply      => 2,
+              rpc_error      => 3,
+              routing_error  => 4};
+use constant {realtime_priority => 0,
+              high_priority     => 16,
+              normal_priority   => 256,
+              low_priority      => 32768};
+
+use constant {realtime_deadline          => 0,
+              imperceptible_deadline     => 20,
+              short_interactive_deadline => 50,
+              long_interactive_deadline  => 100,
+              process_blocking_deadline  => 250,
+              background_deadline        => 2000,
+              far_deadline               => 32768};
+sub recompute_routing_cache {
+  my ($state) = @_;
+}
+_
+
 
 xh::main::main;
 __DATA__

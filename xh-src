@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  b5d50ca6be3e18f9444c1870df2682c3
-# istate: 598cc18ebf77f8f0a9e96434b375f9a4
+# state:  6c173f340f76be888586c1b91cd8fafc
+# istate: cbcc59ced871d2ce386b67c51f01e5f9
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -1954,14 +1954,13 @@ meta::psection('implementation', <<'__');
   kilobytes excluding the packet header. The fabric client will deal with
   larger requests and responses, but it will cause additional round-trips.
 
-  - perl src/fabric.pl << end
-    package xh::fabric;
-    - include src/fabric/dependencies.pl
-    - include src/fabric/state.pl
-    - include src/fabric/packet-format.pl
-    - include src/fabric/message-types.pl
-    - include src/fabric/standard-priorities.pl
-    - include src/fabric/routing-rpcs.pl
+  - perlmodule xh::fabric src/fabric.pl << end
+    -- include src/fabric/dependencies.pl
+    -- include src/fabric/state.pl
+    -- include src/fabric/packet-format.pl
+    -- include src/fabric/message-types.pl
+    -- include src/fabric/standard-priorities.pl
+    -- include src/fabric/routing-rpcs.pl
   - end
 
   - perl src/fabric/dependencies.pl << end
@@ -1977,14 +1976,15 @@ meta::psection('implementation', <<'__');
     sub fabric_client {
       my ($name, $bindings) = @_;
       $name //= $ENV{USER} . '@' . hostname . '.local';
-      return {rpc_bindings     => $bindings,
+      return {rpc_bindings     => $bindings // {},
               instance_name    => $name,
               instance_id      => 0,
               edge_pipes       => {},
               network_topology => {},
               send_queue       => [],
               blocked_rpcs     => {},
-              routing_cache    => {}};
+              routing_cache    => {},
+              packet_timings   => {}};
     }
 
     sub fabric_rpc_bind {
@@ -1992,11 +1992,6 @@ meta::psection('implementation', <<'__');
       my $bindings = $state->{rpc_bindings};
       $bindings->{$_} = $bindings{$_} for keys %bindings;
       $state;
-    }
-
-    sub fabric_is_initialized {
-      my ($state) = @_;
-      !!$state->{instance_id};
     }
   - end
 
@@ -2033,7 +2028,8 @@ meta::psection('implementation', <<'__');
       sub packet_nonce {$nonce_state = sha256(time . $nonce_state)}
 
       sub encode_packet {
-        my ($state, $destination_name, $message_type, $priority, $deadline) = @_;
+        my ($state, $destination_name, $message_type, $priority, $deadline)
+          = @_;
         die "data is too long: " . length($_[5]) . " (max is 65535 bytes)"
           if length $_[5] >= 65536;
 
@@ -2057,7 +2053,7 @@ meta::psection('implementation', <<'__');
       }
 
       sub signature_is_valid {
-        my ($sha) = decode_packet_header $_[0];
+        my $sha = substr $_[0], 0, header_signature_length;
         $sha eq sha256(substr $_[0], header_signature_length);
       }
     - end
@@ -2151,9 +2147,13 @@ meta::psection('implementation', <<'__');
     - end
 
     All of these are continuously measured and periodically propagated as
-    network topology metadata.
+    network topology metadata. When this propagation happens, each instance
+    recomputes its routing cache to pick up on any changes in optimal routes.
 
     - perl src/fabric/routing-rpcs.pl << end
+      sub recompute_routing_cache {
+        my ($state) = @_;
+      }
     - end
 
   - s1 Clock offset estimation | sec:clock-offset-estimation
@@ -2255,13 +2255,14 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__2');
+meta::sdoc('xh', <<'__3');
 - include boot/xh-header
+- include src/fabric.pl
 
 xh::main::main;
 __DATA__
 
-__2
+__3
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
@@ -2382,15 +2383,20 @@ meta::template('perlmodule', <<'__');
 my ($line, $block) = @_;
 my ($name, $line)  = split /\s+/, $line, 2;
 my $append         = $line =~ s/^\h*>>\h*//;
+my $preprocessed   = preprocess($block =~ s/^(\s*)--(\s)/\1-\2/mgr);
 
 my $wrapped = qq{BEGIN {xh::defmodule('$name.pl', <<'_')}
-$block
+$preprocessed
 _
 };
 
 $line =~ s/\s+.*$//o;
 file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
-"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{perlcode}\n$wrapped \\end{perlcode}";
+
+qq[\\lstset{caption={$line] . ($append && ' (continued)') . qq[},name={$line}}\\begin{perlcode}
+BEGIN {xh::defmodule('$name.pl', <<'_')}
+$block
+_ \\end{perlcode}];
 
 __
 meta::template('pinclude', <<'__');
