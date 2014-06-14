@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  d57258d4d46e4601b920c03f47c44f5b
+# state:  e1b67a001576ec34c2fb1b2c05b962b1
 # istate: c6c56807911e59818a077d85b1572431
 # id:     6205a70c2b0eab717882ea4f2b97ae05
 
@@ -1291,11 +1291,11 @@ function that binds one or more values. Syntax-wise we have this:
   [1 2 3]                       <- array literal
   {1 2 3 4}                     <- map literal
 
-List, array, and map literals can all be prefixed with a word; this becomes a
-value tag:
+Any literal can be tagged:
 
 | fn(1 2 3)                     <- list literal tagged as "fn"
   point[x y]                    <- array literal tagged as "point"
+  r"foo"                        <- string literal tagged as "r" (for regex)
 
 That's about it for the syntax. Maps don't always need an even number of forms
 like they do in Clojure; if you have an odd number, the last binding maps to
@@ -1309,7 +1309,67 @@ or a map with "fn":
 I guess it's ok for the evaluator to treat these forms specially? Need to think
 about how it knows to do this. Can the user define more fn() equivalents?
 
+The unescaped newline and the semicolon are each list terminators. If the
+parser is streaming (which it should be), then this is not a problem; there's
+no defined "arity" for a read operation, so processing a stream of "here's a
+new value" requests shouldn't be too hard. (Maybe think this through some
+more.)
 
+| fn(echo hi)                   <- structure needs to be ((echo hi))
+  fn(echo hi; echo there)       <- structure is ((echo hi) (echo there))
+
+Strange and unfortunate. It means newlines are significant all over the place,
+which probably isn't what we want. I really need to figure this out.
+
+In a sense it's checkmate: either whitespace matters (traditional), or it
+doesn't (Lisp), and xh wants both in a context-dependent way. That isn't going
+to work. We can't defer parsing like that.
+
+So let's do this. The whole point of newlines-as-statement-terminators is to
+make it easy to use the repl. That can be a hack that lets the user enter
+commands, just like a Lisp repl (but I guess multi-reading until we see the
+unescaped newline).
+
+Semantically significant type tags.
+We need to have a way to express at least the following:
+
+| 1. Anonymous functions: fn(echo hi)
+  2. Sets (data structure): s[x y z]
+  3. Regular expressions: r"foo"
+
+In general, we should encode as much as possible using type tags; numeric
+quantities, for example, can be unit-quantified:
+
+| + 5.km 10.ft                  <- I guess we have unit conversions somewhere
+
+Type tags suffer from the problem that they're just words; it would be nice to
+support more complex forms. Complex dimensional quantities, for example:
+
+| 9.8.[m s.-2]
+
+And the syntax sucks. Maybe worth taking a page from Clojure and treating these
+things as metadata? So values have sets of metadata values. What could go
+wrong?
+
+| 9.8 ^[m s-2]
+
+Metadata should follow, not precede, values; we want to front-load the
+important information as much as possible.
+
+All of this is awkward, though; type tags for lists, vector, and maps clearly
+fit into the syntax nicely, but getting them onto string literals feels forced.
+It also isn't obvious that it serves any purpose outside of doing stuff like
+dimensional math, which arguably is better served by just parsing the numeric
+strings:
+
+| + 5km 10ft                    <- let the numeric parser handle it
+
+Ok, so type tags apply only when you're using syntax (quotation marks, parens,
+etc). I'm not going to complicate literals by having special quasi-infix
+operators that behave magically. Moreover, tags serve the narrow purpose of
+refining the intent of a value, not some more complicated thing that would
+necessitate a data structure. Type tags are not namespaced in any way; a fn()
+is always a fn(), and multiple libraries can use this tag in different ways.
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
