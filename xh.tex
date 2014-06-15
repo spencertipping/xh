@@ -35,8 +35,8 @@
 \tableofcontents{}
 
 
-\part{introduction}\label{part:introduction}
-\chapter{design constraints}\label{chp:design-constraints}
+\part{design}\label{part:design}
+\chapter{constraints}\label{chp:design-constraints}
   xh is designed to be a powerful and ergonomic interface to multiple systems,
   many of which are remote. As such, it's subject to programming language,
   shell, and distributed-systems constraints:
@@ -430,6 +430,148 @@
      \ref{i:transitive-topology})
 \end{enumerate}
 
+\chapter{xh-script}\label{chp:design-xh-script}
+  These constraints are based on the ones in
+  \Ref{chapter}{chp:design-constraints}.
+
+\begin{enumerate}
+\item{}\label{is:evaluation-identities}
+  Evaluation of any expression may happen at any time; the only scheduling
+  constraint is the realization of lazy expressions, whose status is
+  visible by looking at their quoted forms. Therefore, the evaluator is, to
+  some degree, associative, commutative, and idempotent.
+    (Initial assumption,
+     \ref{i:distributed-computation} above,
+     \ref{i:trivial-debugging} above,
+     \ref{i:live-preview} above,
+     \ref{i:nonblocking} above,
+     \ref{i:lazy-evaluation} above,
+     \ref{i:lazy-introspection} above,
+     \ref{i:abstract-evaluation} above)
+
+\item{}\label{is:relational-evaluation}
+  Relational evaluation is possible by using {\tt amb}, which returns any
+  of the given presumably-equivalent values. xh-script is relational and
+  invertible, though inversion is not always lossless and may produce
+  perpetually-unresolved unknowns representing degrees of freedom.
+    (Initial assumption,
+     \ref{i:trivial-debugging} above,
+     \ref{i:lazy-evaluation} above,
+     \ref{i:lazy-introspection} above,
+     \ref{i:abstract-evaluation} above,
+     \ref{i:self-hosting-runtime} above,
+     \ref{i:representational-abstraction} above,
+     \ref{i:priority-scheduler} above,
+     \ref{is:evaluation-identities})
+\item{}\label{is:best-first-search}
+  Due to functions like {\tt amb}, evaluation proceeds as a best-first
+  search through the space of values. You can influence this search by
+  defining the {\tt abstraction} relation for a particular class of
+  expressions.
+    (\ref{i:not-slow} above,
+     \ref{is:relational-evaluation})
+\item{}\label{is:no-cut-operator}
+  Unlike Prolog, xh defines no cut primitive. You should use {\tt
+  abstraction} to locally grade the search space instead.
+    (\ref{i:trivial-debugging} above,
+     \ref{is:evaluation-identities},
+     \ref{is:best-first-search})
+
+\item{}\label{is:unquote-structure-preserving}
+  The unquoting operators \verb|$|, \verb|$@|, \verb|()|, and \verb|@()|
+  each preserve some aspect of structure:
+\begin{itemize}
+\item{}
+  \verb|$| and \verb|()| preserve list structure and atom count, and
+  strictly decrease quotation level.
+\item{}
+  \verb|$@| and \verb|@()| preserve list levels while varying atom
+  count, and strictly decrease quotation level.
+\item{}
+  \verb|$!| and \verb|!()| locally preserve list structure, atom count,
+  and quotation level. These are the only forms that won't block when
+  expanding unrealized lazy values.
+\end{itemize}
+  Operators that decrease quotation level will block if the result requires
+  quoting to represent fully.
+    (Initial assumption,
+     \ref{i:real-programming} above,
+     \ref{i:unquoting} above,
+     \ref{i:not-slow} above)
+\item{}\label{is:stack-local-scoping}
+  All scoping is done by passing a second argument to {\tt unquote}; this
+  enables variable resolution during the unquoting operation.
+    (Initial assumption,
+     \ref{i:unquoting} above,
+     \ref{i:mutable-symbol-table} above,
+     \ref{is:evaluation-identities})
+\item{}\label{is:no-variable-shadowing}
+  Variable shadowing is impossible.
+    (\ref{is:evaluation-identities},
+     \ref{is:stack-local-scoping})
+\item{}\label{is:unquoting-vs-parsing}
+  Unquoting and structural parsing are orthogonal operations provided by
+  {\tt unquote} and {\tt read}, respectively.
+    (\ref{i:data-structures-can-be-quoted} above,
+     \ref{i:lazy-introspection} above,
+     \ref{is:evaluation-identities},
+     \ref{is:unquote-structure-preserving})
+
+\item{}\label{is:runtime-as-receiver}
+  Whether via RPC or locally, statements issued to an xh runtime can be
+  interpreted as messages being sent to a receiver; the reply is sent along
+  whatever continuation is specified. The runtime doesn't differentiate
+  between local and remote requests, including those made by functions.
+    (\ref{i:imperative} above,
+     \ref{i:xh-threading} above,
+     \ref{i:thread-mobility} above,
+     \ref{i:state-ownership} above)
+\item{}\label{is:function-variable-namespaces}
+  Functions and variables exist in separate namespaces.
+    (\ref{i:feel-like-shell} above,
+     \ref{i:unquoting} above,
+     \ref{is:stack-local-scoping},
+     \ref{is:runtime-as-receiver})
+\item{}\label{is:function-literals-as-messages}
+  Function literals are self-invoking when used as messages.
+    (\ref{is:function-variable-namespaces})
+\item{}\label{is:no-real-continuations}
+  Continuations are simulated in terms of lazy evaluation, but are never
+  first-class.
+    (\ref{i:tracing-jit} above,
+     \ref{i:lazy-introspection} above,
+     \ref{i:abstract-evaluation} above,
+     \ref{is:runtime-as-receiver})
+\item{}\label{is:transient-definitions}
+  Some definitions are ``transient,'' in which case they are used to
+  resolve blocked lazy values but then may be discarded at any point.
+    (\ref{i:distributed-computation} above,
+     \ref{i:no-oome} above,
+     \ref{i:lazy-evaluation} above,
+     \ref{is:runtime-as-receiver})
+\item{}\label{is:global-definition-universality}
+  Global definitions can apply to values at any time, and to values on
+  different machines (i.e.~their existence is broadcast).
+    (\ref{i:lazy-evaluation} above,
+     \ref{is:transient-definitions})
+
+\item{}\label{is:macros-cannot-exist}
+  Syntactic macros cannot exist because invocation commutes with expansion,
+  but functions may operate on terms whose values are undefined.
+    (\ref{is:evaluation-identities},
+     \ref{is:unquote-structure-preserving})
+\item{}\label{is:errors-cannot-exist}
+  Errors cannot exist, but are represented by lazy values that contain
+  undefined quantities that will never be realized. These undefined
+  quantities are the unevaluated backtraces to the error-causing
+  subexpressions.
+    (\ref{i:trivial-debugging} above,
+     \ref{i:lazy-evaluation} above,
+     \ref{i:abstract-evaluation} above,
+     \ref{is:evaluation-identities})
+\end{enumerate}
+
+\part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
 \lstset{caption={boot/xh-header},name={boot/xh-header}}\begin{perlcode}
 #!/usr/bin/env perl
