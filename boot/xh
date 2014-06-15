@@ -56,6 +56,49 @@ sub image {
   join "\n", @pieces;
 }
 })}
+BEGIN {xh::defmodule('xh::v.pl', <<'_')}
+use parent qw/Exporter/;
+our @EXPORT = qw/read/;
+
+sub new {
+  my ($class, $type, $tag, @values) = @_;
+  bless [$type, $tag, @values], $class;
+}
+sub parse {
+  my @return_values;
+  my @context = (\@return_values);
+
+  while ($_[0] =~ /\G (?: \s* | #.*)*
+                      (?: (?<tag> [^\s()\[\]{}"']+)?
+                          (?: (?<listopen>   \()
+                            | (?<vectoropen> \[)
+                            | (?<mapopen>    \{)
+                            | "(?<dstring>   (?:[^"]*|\\[\s\S]))"
+                            | '(?<sstring>   (?:[^']*|\\[\s\S]))')
+                        | (?<word>        (?: [^\s()\[\]{}'"] | \\.)+)
+                        | (?<listclose>   \))
+                        | (?<vectorclose> \])
+                        | (?<mapclose>    \}))/xmg) {
+    my $opener = $+{listopen} // $+{vectoropen} // $+{mapopen};
+    if (defined $+{word}) {
+      push @{$context[-1]}, $+{word};
+    } elsif (defined $+{dstring}) {
+      push @{$context[-1]}, xh::v->new('"', $+{tag}, $+{dstring});
+    } elsif (defined $+{sstring}) {
+      push @{$context[-1]}, xh::v->new("'", $+{tag}, $+{sstring});
+    } elsif (defined $opener) {
+      my $new_container = xh::v->new($opener, $+{tag});
+      push @{$context[-1]}, $new_container;
+      push @context, $new_container;
+    } elsif (defined($+{listclose} // $+{vectorclose} // $+{mapclose})) {
+      my $popped = pop @context;
+      push @{$context[-1]}, $popped;
+    }
+  }
+  @return_values;
+}
+_
+
 
 xh::main::main;
 __DATA__
