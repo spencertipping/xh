@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  9d5fcfd18bfcfc5c737bbbd59d69916e
-# istate: 450c61465ea0c9a4cfb1b87bd91537ab
+# state:  d561c1ee9b9ffcc9cff6aec02d513d26
+# istate: 190e0f0abaff8bcda187f9325cadb570
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -716,12 +716,6 @@ file::write("doc/$_.md", "markdown::note::$_") for grep s/^note::/$1/, sort keys
 unless ($$options{-T}) {
   file::write('xh.tex', $tex);
   compile_tex('--pdf=xh.pdf');
-
-  # Use pandoc to get markdown; this involves removing listings.sty commands
-  file::write('xh-pandoc.tex', $tex =~ s/\\lstset.*\\begin\{[^}]*code}/\\begin{verbatim}/gr
-                                    =~ s/\\end\{[^}]*code}/\\end{verbatim}/gr);
-  system 'pandoc -i xh-pandoc.tex -o xh.md';
-  unlink 'xh-pandoc.tex';
 }
 __
 meta::function('metadata-from', <<'__');
