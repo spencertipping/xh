@@ -43,7 +43,7 @@
 \lstnewenvironment{xhcode}{}{}
 
 \newcommand{\initial}{{\em initial assumption}}
-\newcommand{\refboth}[1]{\ref{#1} \ref{#1-original}}
+\newcommand{\refboth}[1]{{\em \ref{#1}} \ref{#1-original}}
 
 \title{xh}
 \author{Spencer Tipping}
@@ -60,37 +60,37 @@
   shell, and distributed-systems constraints:
 
 \begin{enumerate}
-\item{}\Label{i:real-programming}{realprog}
+\item{}\Label{i:real-programming}{realprog}{\em\ref{i:real-programming}}
   xh will be used for real programming.
 (\initial)
-\item{}\Label{i:shell}{shell}
+\item{}\Label{i:shell}{shell}{\em\ref{i:shell}}
   xh will be used as a shell.
 (\initial)
-\item{}\Label{i:distributed-computation}{distributed}
+\item{}\Label{i:distributed-computation}{distributed}{\em\ref{i:distributed-computation}}
   xh will be used to manage any machine on which you have a login, which
   could be hundreds or thousands.
 (\initial)
-\item{}\Label{i:no-root-access}{noroot}
+\item{}\Label{i:no-root-access}{noroot}{\em\ref{i:no-root-access}}
   You will not always have root access to machines you want to use, and
   they may have different architectures.
 (\initial)
-\item{}\Label{i:ergonomic-limit}{ergonomic}
+\item{}\Label{i:ergonomic-limit}{ergonomic}{\em\ref{i:ergonomic-limit}}
   xh should approach the limit of ergonomic efficiency as it learns more
   about you.
 (\initial)
-\item{}\Label{i:security}{security}
+\item{}\Label{i:security}{security}{\em\ref{i:security}}
   xh should never compromise your security, provided you understand what
   it's doing.
 (\initial)
 
-\item{}\Label{i:quick-webserver}{webserver}
+\item{}\Label{i:quick-webserver}{webserver}{\em\ref{i:quick-webserver}}
   It should be possible to write a ``hello world'' HTTP server on one line.
 \begin{itemize}
 \item \initial
 \item \refboth{i:real-programming}
 \item \refboth{i:shell}
 \end{itemize}
-\item{}\Label{i:live-preview}{liveprev}
+\item{}\Label{i:live-preview}{liveprev}{\em\ref{i:live-preview}}
   It should be possible to preview the evaluation of any well-formed
   expression without causing side-effects.
 \begin{itemize}
@@ -99,14 +99,14 @@
 \item \refboth{i:ergonomic-limit}
 \item \refboth{i:trivial-debugging}
 \end{itemize}
-\item{}\Label{i:not-slow}{notslow}
+\item{}\Label{i:not-slow}{notslow}{\em\ref{i:not-slow}}
   xh should never cause a dealbreaking performance problem.
 \begin{itemize}
 \item \initial
 \item \refboth{i:real-programming}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
-\item{}\Label{i:unreliable-connections}{unreliable}
+\item{}\Label{i:unreliable-connections}{unreliable}{\em\ref{i:unreliable-connections}}
   Connections between machines may die at any time, and remain down for
   arbitrarily long. xh must never become unresponsive when this happens,
   and any data coming from those machines should block until it is
@@ -118,7 +118,7 @@
 \item \refboth{i:shell}
 \item \refboth{i:distributed-computation}
 \end{itemize}
-\item{}\Label{i:trivial-debugging}{nodebug}
+\item{}\Label{i:trivial-debugging}{nodebug}{\em\ref{i:trivial-debugging}}
   Debugging should require little or no effort; all error cases should be
   trivially obvious.
 \begin{itemize}
@@ -127,7 +127,7 @@
 \item \refboth{i:distributed-computation}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
-\item{}\Label{i:trivial-database}{database}
+\item{}\Label{i:trivial-database}{database}{\em\ref{i:trivial-database}}
   An xh instance should trivially function as a database; there should be
   no distinction between data in memory and data on disk.
 \begin{itemize}
@@ -139,11 +139,11 @@
 \item \refboth{i:not-slow}
 \end{itemize}
 
-\item{}\Label{i:universal-prediction}{prediction}
+\item{}\Label{i:universal-prediction}{prediction}{\em\ref{i:universal-prediction}}
   xh should use every keystroke to build/refine a model it uses to predict
   future keystrokes and commands.
 (\refboth{i:ergonomic-limit})
-\item{}\Label{i:forgetful-history}{history}
+\item{}\Label{i:forgetful-history}{history}{\em\ref{i:forgetful-history}}
   The likelihood that xh forgets anything from your command history should
   be inversely proportional to the amount of effort required to
   retype/recreate it.
@@ -151,11 +151,11 @@
 \item \refboth{i:ergonomic-limit}
 \item \refboth{i:universal-prediction}
 \end{itemize}
-\item{}\Label{i:locally-anonymous}{anonymous}
+\item{}\Label{i:locally-anonymous}{anonymous}{\em\ref{i:locally-anonymous}}
   xh must provide a way to accept input and execute commands without
   updating its prediction model.
 (\refboth{i:security})
-\item{}\Label{i:http-client}{pastebin}
+\item{}\Label{i:http-client}{pastebin}{\em\ref{i:http-client}}
   xh should be able to submit an encrypted version of its current state to
   HTTP services like Github gists or pastebin.
 \begin{itemize}
@@ -166,17 +166,17 @@
 \item \refboth{i:www-initialization}
 \end{itemize}
 
-\item{}\Label{i:feel-like-shell}{likeshell}
+\item{}\Label{i:feel-like-shell}{likeshell}{\em\ref{i:feel-like-shell}}
   xh-script needs to feel like a regular shell for most purposes.
 (\refboth{i:shell})
-\item{}\Label{i:imperative}{imperative}
+\item{}\Label{i:imperative}{imperative}{\em\ref{i:imperative}}
   xh-script should be fundamentally imperative.
 \begin{itemize}
 \item \refboth{i:real-programming}
 \item \refboth{i:shell}
 \item \refboth{i:feel-like-shell}
 \end{itemize}
-\item{}\Label{i:no-oome}{no-oome}
+\item{}\Label{i:no-oome}{no-oome}{\em\ref{i:no-oome}}
   xh must never run out of memory or swap pages to disk, regardless of what
   you tell it to do.
 \begin{itemize}
@@ -185,7 +185,7 @@
 \item \refboth{i:not-slow}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
-\item{}\Label{i:nonblocking}{nonblock}
+\item{}\Label{i:nonblocking}{nonblock}{\em\ref{i:nonblocking}}
   xh must respond to every keystroke within 20ms; therefore, SSH must be
   used only for nonblocking RPC requests (i.e.~the shell always runs
   locally).
@@ -194,7 +194,7 @@
 \item \refboth{i:not-slow}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
-\item{}\Label{i:remote-resources}{remotestuff}
+\item{}\Label{i:remote-resources}{remotestuff}{\em\ref{i:remote-resources}}
   All resources, local and remote, must be uniformly accessible;
   i.e.~autocomplete, filename substitution, etc, must all just work (up to
   random access, which is impossible without FUSE or similar).
@@ -204,23 +204,23 @@
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
 
-\item{}\Label{i:prefix-notation}{prefix}
+\item{}\Label{i:prefix-notation}{prefix}{\em\ref{i:prefix-notation}}
   xh-script uses prefix notation.
 (\refboth{i:shell})
-\item{}\Label{i:quasiquoting}{quasiquote}
+\item{}\Label{i:quasiquoting}{quasiquote}{\em\ref{i:quasiquoting}}
   xh-script quasiquotes values by default.
 (\refboth{i:shell})
-\item{}\Label{i:unquoting}{unquote}
+\item{}\Label{i:unquoting}{unquote}{\em\ref{i:unquoting}}
   xh-script defines an unquote operator.
 \begin{itemize}
 \item \refboth{i:shell}
 \item \refboth{i:quasiquoting}
 \end{itemize}
 
-\item{}\Label{i:real-data-structures}{datastruct}
+\item{}\Label{i:real-data-structures}{datastruct}{\em\ref{i:real-data-structures}}
   The xh runtime provides real, garbage-collected data structures.
 (\refboth{i:real-programming})
-\item{}\Label{i:data-structures-can-be-quoted}{quotestruct}
+\item{}\Label{i:data-structures-can-be-quoted}{quotestruct}{\em\ref{i:data-structures-can-be-quoted}}
   Every xh data structure has a quoted form.
 \begin{itemize}
 \item \refboth{i:real-data-structures}
@@ -228,7 +228,7 @@
 \item \refboth{i:trivial-debugging}
 \item \refboth{i:live-preview}
 \end{itemize}
-\item{}\Label{i:data-structures-can-be-serialized}{printstruct}
+\item{}\Label{i:data-structures-can-be-serialized}{printstruct}{\em\ref{i:data-structures-can-be-serialized}}
   Every xh data structure can be losslessly serialized.
 \begin{itemize}
 \item \refboth{i:shell}
@@ -238,21 +238,21 @@
 \item \refboth{i:settings-contain-variable-definitions}
 \item \refboth{i:image-merging}
 \end{itemize}
-\item{}\Label{i:data-structures-are-immutable}{immutable}
+\item{}\Label{i:data-structures-are-immutable}{immutable}{\em\ref{i:data-structures-are-immutable}}
   Data structures have no identity and therefore are immutable.
 \begin{itemize}
 \item \refboth{i:distributed-computation}
 \item \refboth{i:data-structures-can-be-serialized}
 \end{itemize}
 
-\item{}\Label{i:opaque-resources}{opaques}
+\item{}\Label{i:opaque-resources}{opaques}{\em\ref{i:opaque-resources}}
   xh-script must have access to machine-specific opaque resources like PIDs
   and file handles.
 \begin{itemize}
 \item \refboth{i:real-programming}
 \item \refboth{i:shell}
 \end{itemize}
-\item{}\Label{i:mutable-symbol-table}{mutablesyms}
+\item{}\Label{i:mutable-symbol-table}{mutablesyms}{\em\ref{i:mutable-symbol-table}}
   Each xh instance should implement a mutable symbol table with weak
   reference support, subject to semi-conservative distributed garbage
   collection.
@@ -262,7 +262,7 @@
 \item \refboth{i:no-oome}
 \item \refboth{i:xh-heap}
 \end{itemize}
-\item{}\Label{i:state-ownership}{stateown}
+\item{}\Label{i:state-ownership}{stateown}{\em\ref{i:state-ownership}}
   Every piece of mutable state, including symbol tables, must have at most
   one authoritative copy (mutable state within xh is managed by a CP
   system).
@@ -272,7 +272,7 @@
 \item \refboth{i:mutable-symbol-table}
 \item \refboth{i:thread-mobility}
 \end{itemize}
-\item{}\Label{i:checkpointing}{checkpoint}
+\item{}\Label{i:checkpointing}{checkpoint}{\em\ref{i:checkpointing}}
   An xh instance should be able to save checkpoints of itself in case of
   failure. If you do this, xh becomes an AP system.
 \begin{itemize}
@@ -280,7 +280,7 @@
 \item \refboth{i:state-ownership}
 \end{itemize}
 
-\item{}\Label{i:lazy-evaluation}{lazy}
+\item{}\Label{i:lazy-evaluation}{lazy}{\em\ref{i:lazy-evaluation}}
   xh's evaluator must support some kind of laziness.
 \begin{itemize}
 \item \refboth{i:real-programming}
@@ -288,7 +288,7 @@
 \item \refboth{i:remote-resources}
 \item \refboth{i:not-slow}
 \end{itemize}
-\item{}\Label{i:laziness-serializable}{printlazy}
+\item{}\Label{i:laziness-serializable}{printlazy}{\em\ref{i:laziness-serializable}}
   Lazy values must have well-defined quoted forms and be losslessly
   serializable.
 \begin{itemize}
@@ -298,7 +298,7 @@
 \item \refboth{i:thread-mobility}
 \item \refboth{i:xh-heap}
 \end{itemize}
-\item{}\Label{i:lazy-introspection}{introspectlazy}
+\item{}\Label{i:lazy-introspection}{introspectlazy}{\em\ref{i:lazy-introspection}}
   All lazy values must be subject to introspection to identify why they
   haven't been realized.
 \begin{itemize}
@@ -309,7 +309,7 @@
 \item \refboth{i:lazy-evaluation}
 \item \refboth{i:priority-scheduler}
 \end{itemize}
-\item{}\Label{i:abstract-evaluation}{abstract}
+\item{}\Label{i:abstract-evaluation}{abstract}{\em\ref{i:abstract-evaluation}}
   xh must be able to partially evaluate expressions that contain unknown
   quantities.
 \begin{itemize}
@@ -318,18 +318,18 @@
 \item \refboth{i:lazy-introspection}
 \item \refboth{i:laziness-serializable}
 \end{itemize}
-\item{}\Label{i:code-as-data}{code=data}
+\item{}\Label{i:code-as-data}{code=data}{\em\ref{i:code-as-data}}
   xh-script code should be a reasonable data storage format.
 \begin{itemize}
 \item \refboth{i:shell}
 \item \refboth{i:abstract-evaluation}
 \end{itemize}
-\item{}\Label{i:parse-self}{selfparse}
+\item{}\Label{i:parse-self}{selfparse}{\em\ref{i:parse-self}}
   xh-script must contain a library to parse itself.
 \begin{itemize}
 \item \refboth{i:code-as-data}
 \end{itemize}
-\item{}\Label{i:homoiconic}{homoiconic}
+\item{}\Label{i:homoiconic}{homoiconic}{\em\ref{i:homoiconic}}
   xh-script must be homoiconic.
 \begin{itemize}
 \item \refboth{i:code-as-data}
@@ -338,7 +338,7 @@
 \item \refboth{i:representational-abstraction}
 \end{itemize}
 
-\item{}\Label{i:compile-to-c}{xh2c}
+\item{}\Label{i:compile-to-c}{xh2c}{\em\ref{i:compile-to-c}}
   xh should be able to compile any function to C, compile it if the host
   has a C compiler, and transparently migrate execution into this process.
 \begin{itemize}
@@ -346,7 +346,7 @@
 \item \refboth{i:thread-mobility}
 \item \refboth{i:not-slow}
 \end{itemize}
-\item{}\Label{i:compile-to-perl}{xh2perl}
+\item{}\Label{i:compile-to-perl}{xh2perl}{\em\ref{i:compile-to-perl}}
   xh should be able to compile any function to Perl rather than
   interpreting its execution.
 \begin{itemize}
@@ -354,7 +354,7 @@
 \item \refboth{i:no-root-access}
 \item \refboth{i:not-slow}
 \end{itemize}
-\item{}\Label{i:compile-to-js}{xh2js}
+\item{}\Label{i:compile-to-js}{xh2js}{\em\ref{i:compile-to-js}}
   xh should be able to compile any function to Javascript so that browser
   sessions can transparently become computing nodes.
 \begin{itemize}
@@ -362,7 +362,7 @@
 \item \refboth{i:distributed-computation}
 \item \refboth{i:not-slow}
 \end{itemize}
-\item{}\Label{i:self-hosting-runtime}{selfhost}
+\item{}\Label{i:self-hosting-runtime}{selfhost}{\em\ref{i:self-hosting-runtime}}
   xh should follow a bootstrapped self-hosting runtime model.
 \begin{itemize}
 \item \refboth{i:compile-to-c}
@@ -370,12 +370,12 @@
 \item \refboth{i:compile-to-js}
 \item \refboth{i:representational-abstraction}
 \end{itemize}
-\item{}\Label{i:tracing-jit}{dynamiccompiler}
+\item{}\Label{i:tracing-jit}{dynamiccompiler}{\em\ref{i:tracing-jit}}
   xh-script should be executed by a profiling/tracing dynamic compiler that
   automatically compiles certain pieces of code to alternative forms like
   Perl or C.
 (\refboth{i:not-slow})
-\item{}\Label{i:representational-abstraction}{abstractstruct}
+\item{}\Label{i:representational-abstraction}{abstractstruct}{\em\ref{i:representational-abstraction}}
   The xh compiler should optimize data structure representations for the
   backend being targeted.
 \begin{itemize}
@@ -384,7 +384,7 @@
 \item \refboth{i:tracing-jit}
 \end{itemize}
 
-\item{}\Label{i:xh-heap}{heap}
+\item{}\Label{i:xh-heap}{heap}{\em\ref{i:xh-heap}}
   xh needs to implement its own heap and memory manager, and swap values to
   disk without blocking.
 \begin{itemize}
@@ -393,7 +393,7 @@
 \item \refboth{i:trivial-database}
 \item \refboth{i:written-in-perl}
 \end{itemize}
-\item{}\Label{i:xh-threading}{threading}
+\item{}\Label{i:xh-threading}{threading}{\em\ref{i:xh-threading}}
   xh should implement its own threading model to accommodate blocked IO
   requests.
 \begin{itemize}
@@ -403,7 +403,7 @@
 \item \refboth{i:lazy-evaluation}
 \item \refboth{i:xh-heap}
 \end{itemize}
-\item{}\Label{i:priority-scheduler}{threadscheduler}
+\item{}\Label{i:priority-scheduler}{threadscheduler}{\em\ref{i:priority-scheduler}}
   xh threads should be subject to scheduling that reflects the user's
   priorities.
 \begin{itemize}
@@ -412,7 +412,7 @@
 \item \refboth{i:lazy-evaluation}
 \item \refboth{i:xh-threading}
 \end{itemize}
-\item{}\Label{i:thread-mobility}{threadmobility}
+\item{}\Label{i:thread-mobility}{threadmobility}{\em\ref{i:thread-mobility}}
   Running threads must be transparently portable between machines and
   compiled backends.
 \begin{itemize}
@@ -422,14 +422,14 @@
 \item \refboth{i:representational-abstraction}
 \item \refboth{i:priority-scheduler}
 \end{itemize}
-\item{}\Label{i:reference-locality}{refaffinity}
+\item{}\Label{i:reference-locality}{refaffinity}{\em\ref{i:reference-locality}}
   All machine-specific references must encode the machine for which they
   are defined.
 \begin{itemize}
 \item \refboth{i:opaque-resources}
 \item \refboth{i:thread-mobility}
 \end{itemize}
-\item{}\Label{i:unique-ids}{uniqueid}
+\item{}\Label{i:unique-ids}{uniqueid}{\em\ref{i:unique-ids}}
   Every xh instance must have a unique ID, ideally one that can be typed
   easily.
 \begin{itemize}
@@ -437,21 +437,21 @@
 \item \refboth{i:reference-locality}
 \end{itemize}
 
-\item{}\Label{i:transparent-self-install}{selfinstall}
+\item{}\Label{i:transparent-self-install}{selfinstall}{\em\ref{i:transparent-self-install}}
   xh needs to be able to self-install on remote machines with no
   intervention (assuming you have a passwordless SSH connection).
 \begin{itemize}
 \item \refboth{i:distributed-computation}
 \item \refboth{i:no-root-access}
 \end{itemize}
-\item{}\Label{i:www-initialization}{wwwinit}
+\item{}\Label{i:www-initialization}{wwwinit}{\em\ref{i:www-initialization}}
   You should be able to upload your xh image to a website and then install
   it with a command like this:~\verb+curl me.com/xh | perl+.
 \begin{itemize}
 \item \refboth{i:distributed-computation}
 \item \refboth{i:no-root-access}
 \end{itemize}
-\item{}\Label{i:self-modifying-image}{selfmodifying}
+\item{}\Label{i:self-modifying-image}{selfmodifying}{\em\ref{i:self-modifying-image}}
   Your settings should be present as soon as you download your image, so
   the image must be self-modifying and contain your settings.
 \begin{itemize}
@@ -461,7 +461,7 @@
 \item \refboth{i:transparent-self-install}
 \item \refboth{i:www-initialization}
 \end{itemize}
-\item{}\Label{i:settings-contain-variable-definitions}{varsinrc}
+\item{}\Label{i:settings-contain-variable-definitions}{varsinrc}{\em\ref{i:settings-contain-variable-definitions}}
   Your settings should be able to contain any value you can create from the
   REPL (with the caveat that some are defined only with respect to a
   specific machine).
@@ -472,7 +472,7 @@
 \item \refboth{i:real-data-structures}
 \item \refboth{i:www-initialization}
 \end{itemize}
-\item{}\Label{i:written-in-perl}{inperl}
+\item{}\Label{i:written-in-perl}{inperl}{\em\ref{i:written-in-perl}}
   xh should probably be written in Perl 5.
 \begin{itemize}
 \item \refboth{i:distributed-computation}
@@ -481,7 +481,7 @@
 \item \refboth{i:www-initialization}
 \item \refboth{i:self-modifying-image}
 \end{itemize}
-\item{}\Label{i:no-perl-modules}{perlcoreonly}
+\item{}\Label{i:no-perl-modules}{perlcoreonly}{\em\ref{i:no-perl-modules}}
   xh can't have any dependencies on CPAN modules, or anything else that
   isn't in the core library.
 \begin{itemize}
@@ -489,7 +489,7 @@
 \item \refboth{i:no-root-access}
 \item \refboth{i:transparent-self-install}
 \end{itemize}
-\item{}\Label{i:image-merging}{imagemerging}
+\item{}\Label{i:image-merging}{imagemerging}{\em\ref{i:image-merging}}
   It should be possible to address variables defined within xh images (as
   files or network locations).
 \begin{itemize}
@@ -497,7 +497,7 @@
 \item \refboth{i:settings-contain-variable-definitions}
 \end{itemize}
 
-\item{}\Label{i:rpc-via-ssh}{sshrpc}
+\item{}\Label{i:rpc-via-ssh}{sshrpc}{\em\ref{i:rpc-via-ssh}}
   xh's RPC protocol must work via stdin/out communication over an SSH
   channel to a remote instance of itself.
 \begin{itemize}
@@ -507,7 +507,7 @@
 \item \refboth{i:nonblocking}
 \item \refboth{i:remote-resources}
 \end{itemize}
-\item{}\Label{i:rpc-multiplexing}{rpcmulti}
+\item{}\Label{i:rpc-multiplexing}{rpcmulti}{\em\ref{i:rpc-multiplexing}}
   xh's RPC protocol must support request multiplexing.
 \begin{itemize}
 \item \refboth{i:distributed-computation}
@@ -517,7 +517,7 @@
 \item \refboth{i:lazy-evaluation}
 \item \refboth{i:rpc-via-ssh}
 \end{itemize}
-\item{}\Label{i:xh-self-connection}{hostswitch}
+\item{}\Label{i:xh-self-connection}{hostswitch}{\em\ref{i:xh-self-connection}}
   Two xh servers on the same host should automatically connect to each
   other. This allows a server-only machine to act as a VPN.
 \begin{itemize}
@@ -526,21 +526,21 @@
 \item \refboth{i:rpc-via-ssh}
 \item \refboth{i:transitive-topology}
 \end{itemize}
-\item{}\Label{i:domain-sockets}{domainsockets}
+\item{}\Label{i:domain-sockets}{domainsockets}{\em\ref{i:domain-sockets}}
   xh should create a UNIX domain socket to listen for other same-machine
   instances.
 \begin{itemize}
 \item \refboth{i:security}
 \item \refboth{i:xh-self-connection}
 \end{itemize}
-\item{}\Label{i:transitive-topology}{transitive}
+\item{}\Label{i:transitive-topology}{transitive}{\em\ref{i:transitive-topology}}
   xh's network topology should forward requests transitively.
 \begin{itemize}
 \item \refboth{i:distributed-computation}
 \item \refboth{i:no-root-access}
 \item \refboth{i:rpc-via-ssh}
 \end{itemize}
-\item{}\Label{i:network-routing}{routing}
+\item{}\Label{i:network-routing}{routing}{\em\ref{i:network-routing}}
   xh should implement a network optimizer that responds to observations it
   makes about latency and throughput.
 \begin{itemize}
@@ -555,7 +555,7 @@
   \Ref{chapter}{chp:design-constraints}.
 
 \begin{enumerate}
-\item{}\Label{is:evaluation-identities}{xhs.eval-identities}
+\item{}\Label{is:evaluation-identities}{xhs.eval-identities}{\em\ref{is:evaluation-identities}}
   Evaluation of any expression may happen at any time; the only scheduling
   constraint is the realization of lazy expressions, whose status is
   visible by looking at their quoted forms. Therefore, the evaluator is, to
@@ -571,7 +571,7 @@
 \item \refboth{i:abstract-evaluation} above
 \end{itemize}
 
-\item{}\Label{is:relational-evaluation}{xhs.relational}
+\item{}\Label{is:relational-evaluation}{xhs.relational}{\em\ref{is:relational-evaluation}}
   Relational evaluation is possible by using {\tt amb}, which returns any
   of the given presumably-equivalent values. xh-script is relational and
   invertible, though inversion is not always lossless and may produce
@@ -587,7 +587,7 @@
 \item \refboth{i:priority-scheduler} above
 \item \refboth{is:evaluation-identities}
 \end{itemize}
-\item{}\Label{is:best-first-search}{xhs.bestfirst}
+\item{}\Label{is:best-first-search}{xhs.bestfirst}{\em\ref{is:best-first-search}}
   Due to functions like {\tt amb}, evaluation proceeds as a best-first
   search through the space of values. You can influence this search by
   defining the {\tt abstraction} relation for a particular class of
@@ -596,7 +596,7 @@
 \item \refboth{i:not-slow} above
 \item \refboth{is:relational-evaluation}
 \end{itemize}
-\item{}\Label{is:no-cut-operator}{xhs.nocut}
+\item{}\Label{is:no-cut-operator}{xhs.nocut}{\em\ref{is:no-cut-operator}}
   Unlike Prolog, xh defines no cut primitive. You should use {\tt
   abstraction} to locally grade the search space instead.
 \begin{itemize}
@@ -605,7 +605,7 @@
 \item \refboth{is:best-first-search}
 \end{itemize}
 
-\item{}\Label{is:unquote-structure-preserving}{xhs.unquote-structure}
+\item{}\Label{is:unquote-structure-preserving}{xhs.unquote-structure}{\em\ref{is:unquote-structure-preserving}}
   The unquoting operators \verb|$|, \verb|$@|, \verb|()|, and \verb|@()|
   each preserve some aspect of structure:
 \begin{itemize}
@@ -628,7 +628,7 @@
 \item \refboth{i:unquoting} above
 \item \refboth{i:not-slow} above)
 \end{itemize}
-\item{}\Label{is:stack-local-scoping}{xhs.stackscope}
+\item{}\Label{is:stack-local-scoping}{xhs.stackscope}{\em\ref{is:stack-local-scoping}}
   All scoping is done by passing a second argument to {\tt unquote}; this
   enables variable resolution during the unquoting operation.
 \begin{itemize}
@@ -637,13 +637,13 @@
 \item \refboth{i:mutable-symbol-table} above
 \item \refboth{is:evaluation-identities}
 \end{itemize}
-\item{}\Label{is:no-variable-shadowing}{xhs.noshadow}
+\item{}\Label{is:no-variable-shadowing}{xhs.noshadow}{\em\ref{is:no-variable-shadowing}}
   Variable shadowing is impossible.
 \begin{itemize}
 \item \refboth{is:evaluation-identities}
 \item \refboth{is:stack-local-scoping}
 \end{itemize}
-\item{}\Label{is:unquoting-vs-parsing}{xhs.unquote-parse}
+\item{}\Label{is:unquoting-vs-parsing}{xhs.unquote-parse}{\em\ref{is:unquoting-vs-parsing}}
   Unquoting and structural parsing are orthogonal operations provided by
   {\tt unquote} and {\tt read}, respectively.
 \begin{itemize}
@@ -653,7 +653,7 @@
 \item \refboth{is:unquote-structure-preserving}
 \end{itemize}
 
-\item{}\Label{is:runtime-as-receiver}{xhs.runtimereceiver}
+\item{}\Label{is:runtime-as-receiver}{xhs.runtimereceiver}{\em\ref{is:runtime-as-receiver}}
   Whether via RPC or locally, statements issued to an xh runtime can be
   interpreted as messages being sent to a receiver; the reply is sent along
   whatever continuation is specified. The runtime doesn't differentiate
@@ -664,7 +664,7 @@
 \item \refboth{i:thread-mobility} above
 \item \refboth{i:state-ownership} above
 \end{itemize}
-\item{}\Label{is:function-variable-namespaces}{xhs.namespaces}
+\item{}\Label{is:function-variable-namespaces}{xhs.namespaces}{\em\ref{is:function-variable-namespaces}}
   Functions and variables exist in separate namespaces.
 \begin{itemize}
 \item \refboth{i:feel-like-shell} above
@@ -672,10 +672,10 @@
 \item \refboth{is:stack-local-scoping}
 \item \refboth{is:runtime-as-receiver}
 \end{itemize}
-\item{}\Label{is:function-literals-as-messages}{xhs.fnliterals}
+\item{}\Label{is:function-literals-as-messages}{xhs.fnliterals}{\em\ref{is:function-literals-as-messages}}
   Function literals are self-invoking when used as messages.
 (\refboth{is:function-variable-namespaces})
-\item{}\Label{is:no-real-continuations}{nocallcc}
+\item{}\Label{is:no-real-continuations}{nocallcc}{\em\ref{is:no-real-continuations}}
   Continuations are simulated in terms of lazy evaluation, but are never
   first-class.
 \begin{itemize}
@@ -684,7 +684,7 @@
 \item \refboth{i:abstract-evaluation} above
 \item \refboth{is:runtime-as-receiver}
 \end{itemize}
-\item{}\Label{is:transient-definitions}{xhs.transientdefs}
+\item{}\Label{is:transient-definitions}{xhs.transientdefs}{\em\ref{is:transient-definitions}}
   Some definitions are ``transient,'' in which case they are used to
   resolve blocked lazy values but then may be discarded at any point.
 \begin{itemize}
@@ -693,7 +693,7 @@
 \item \refboth{i:lazy-evaluation} above
 \item \refboth{is:runtime-as-receiver}
 \end{itemize}
-\item{}\Label{is:global-definition-universality}{xhs.globaldefs}
+\item{}\Label{is:global-definition-universality}{xhs.globaldefs}{\em\ref{is:global-definition-universality}}
   Global definitions can apply to values at any time, and to values on
   different machines (i.e.~their existence is broadcast).
 \begin{itemize}
@@ -701,14 +701,14 @@
 \item \refboth{is:transient-definitions}
 \end{itemize}
 
-\item{}\Label{is:macros-cannot-exist}{xhs.nomacros}
+\item{}\Label{is:macros-cannot-exist}{xhs.nomacros}{\em\ref{is:macros-cannot-exist}}
   Syntactic macros cannot exist because invocation commutes with expansion,
   but functions may operate on terms whose values are undefined.
 \begin{itemize}
 \item \refboth{is:evaluation-identities}
 \item \refboth{is:unquote-structure-preserving}
 \end{itemize}
-\item{}\Label{is:errors-cannot-exist}{xhs.noerrors}
+\item{}\Label{is:errors-cannot-exist}{xhs.noerrors}{\em\ref{is:errors-cannot-exist}}
   Errors cannot exist, but are represented by lazy values that contain
   undefined quantities that will never be realized. These undefined
   quantities are the unevaluated backtraces to the error-causing
@@ -728,7 +728,7 @@
   manipulation.
 
 \begin{enumerate}
-\item{}\Label{ir:priority-queue}{xhr.priorityqueue}
+\item{}\Label{ir:priority-queue}{xhr.priorityqueue}{\em\ref{ir:priority-queue}}
   Evaluation always happens as a process of pulling expressions from a
   priority queue.
 \begin{itemize}
@@ -737,7 +737,7 @@
 \item \refboth{is:best-first-search}
 \end{itemize}
 
-\item{}\Label{ir:static-inlining}{xhr.staticinline}
+\item{}\Label{ir:static-inlining}{xhr.staticinline}{\em\ref{ir:static-inlining}}
   Function compositions should be added as dependent definitions to
   minimize the number of symbol-table lookups per unit rewriting distance.
 \begin{itemize}
@@ -746,7 +746,7 @@
 \item \refboth{is:relational-evaluation}
 \end{itemize}
 
-\item{}\Label{ir:expression-representation}{xhr.representation}
+\item{}\Label{ir:expression-representation}{xhr.representation}{\em\ref{ir:expression-representation}}
   Every quasiquoted form with variant pieces should be represented as a
   separate instantiable class.
 \begin{itemize}
@@ -755,7 +755,7 @@
 \item \refboth{i:not-slow}
 \item \refboth{is:evaluation-identities}
 \end{itemize}
-\item{}\Label{ir:flat-containers}{xhr.flatcontainers}
+\item{}\Label{ir:flat-containers}{xhr.flatcontainers}{\em\ref{ir:flat-containers}}
   Quasiquoted structures are profiled for the distributions of their
   children (upon expansion); for strongly nonuniform distributions,
   specialized flattened container types are generated.
@@ -768,7 +768,7 @@
 \item \refboth{ir:expression-representation}
 \end{itemize}
 
-\item{}\Label{ir:hinting}{xhr.hinting}
+\item{}\Label{ir:hinting}{xhr.hinting}{\em\ref{ir:hinting}}
   Expressions should be hinted with tags that track and influence their
   paths through the search space. The optimizer uses machine learning
   against these tags to predict successful search strategies.

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  7c642e770c7cb89242777d5f66ff274e
-# istate: 2efc63936cb2efeb7b125246370cc0e2
+# state:  b71f9097c8b9370773d5c195cb334f7c
+# istate: 15474ed9cf3b5765d4d5d90b8de8a928
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -1880,37 +1880,37 @@ meta::psection('implementation', <<'__');
   shell, and distributed-systems constraints:
 
   - enumerate << end
-    - item | i:real-programming | realprog
+    - nitem | i:real-programming | realprog
       xh will be used for real programming.
       - antecedents \initial
-    - item | i:shell | shell
+    - nitem | i:shell | shell
       xh will be used as a shell.
       - antecedents \initial
-    - item | i:distributed-computation | distributed
+    - nitem | i:distributed-computation | distributed
       xh will be used to manage any machine on which you have a login, which
       could be hundreds or thousands.
       - antecedents \initial
-    - item | i:no-root-access | noroot
+    - nitem | i:no-root-access | noroot
       You will not always have root access to machines you want to use, and
       they may have different architectures.
       - antecedents \initial
-    - item | i:ergonomic-limit | ergonomic
+    - nitem | i:ergonomic-limit | ergonomic
       xh should approach the limit of ergonomic efficiency as it learns more
       about you.
       - antecedents \initial
-    - item | i:security | security
+    - nitem | i:security | security
       xh should never compromise your security, provided you understand what
       it's doing.
       - antecedents \initial
 
-    - item | i:quick-webserver | webserver
+    - nitem | i:quick-webserver | webserver
       It should be possible to write a ``hello world'' HTTP server on one line.
       - antecedents << end
         \initial
         \refboth{i:real-programming}
         \refboth{i:shell}
       - end
-    - item | i:live-preview | liveprev
+    - nitem | i:live-preview | liveprev
       It should be possible to preview the evaluation of any well-formed
       expression without causing side-effects.
       - antecedents << end
@@ -1919,14 +1919,14 @@ meta::psection('implementation', <<'__');
         \refboth{i:ergonomic-limit}
         \refboth{i:trivial-debugging}
       - end
-    - item | i:not-slow | notslow
+    - nitem | i:not-slow | notslow
       xh should never cause a dealbreaking performance problem.
       - antecedents << end
         \initial
         \refboth{i:real-programming}
         \refboth{i:ergonomic-limit}
       - end
-    - item | i:unreliable-connections | unreliable
+    - nitem | i:unreliable-connections | unreliable
       Connections between machines may die at any time, and remain down for
       arbitrarily long. xh must never become unresponsive when this happens,
       and any data coming from those machines should block until it is
@@ -1938,7 +1938,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:shell}
         \refboth{i:distributed-computation}
       - end
-    - item | i:trivial-debugging | nodebug
+    - nitem | i:trivial-debugging | nodebug
       Debugging should require little or no effort; all error cases should be
       trivially obvious.
       - antecedents << end
@@ -1947,7 +1947,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:distributed-computation}
         \refboth{i:ergonomic-limit}
       - end
-    - item | i:trivial-database | database
+    - nitem | i:trivial-database | database
       An xh instance should trivially function as a database; there should be
       no distinction between data in memory and data on disk.
       - antecedents << end
@@ -1959,11 +1959,11 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
       - end
 
-    - item | i:universal-prediction | prediction
+    - nitem | i:universal-prediction | prediction
       xh should use every keystroke to build/refine a model it uses to predict
       future keystrokes and commands.
       - antecedents \refboth{i:ergonomic-limit}
-    - item | i:forgetful-history | history
+    - nitem | i:forgetful-history | history
       The likelihood that xh forgets anything from your command history should
       be inversely proportional to the amount of effort required to
       retype/recreate it.
@@ -1971,11 +1971,11 @@ meta::psection('implementation', <<'__');
         \refboth{i:ergonomic-limit}
         \refboth{i:universal-prediction}
       - end
-    - item | i:locally-anonymous | anonymous
+    - nitem | i:locally-anonymous | anonymous
       xh must provide a way to accept input and execute commands without
       updating its prediction model.
       - antecedents \refboth{i:security}
-    - item | i:http-client | pastebin
+    - nitem | i:http-client | pastebin
       xh should be able to submit an encrypted version of its current state to
       HTTP services like Github gists or pastebin.
       - antecedents << end
@@ -1986,17 +1986,17 @@ meta::psection('implementation', <<'__');
         \refboth{i:www-initialization}
       - end
 
-    - item | i:feel-like-shell | likeshell
+    - nitem | i:feel-like-shell | likeshell
       xh-script needs to feel like a regular shell for most purposes.
       - antecedents \refboth{i:shell}
-    - item | i:imperative | imperative
+    - nitem | i:imperative | imperative
       xh-script should be fundamentally imperative.
       - antecedents << end
         \refboth{i:real-programming}
         \refboth{i:shell}
         \refboth{i:feel-like-shell}
       - end
-    - item | i:no-oome | no-oome
+    - nitem | i:no-oome | no-oome
       xh must never run out of memory or swap pages to disk, regardless of what
       you tell it to do.
       - antecedents << end
@@ -2005,7 +2005,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
         \refboth{i:ergonomic-limit}
       - end
-    - item | i:nonblocking | nonblock
+    - nitem | i:nonblocking | nonblock
       xh must respond to every keystroke within 20ms; therefore, SSH must be
       used only for nonblocking RPC requests (i.e.~the shell always runs
       locally).
@@ -2014,7 +2014,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
         \refboth{i:ergonomic-limit}
       - end
-    - item | i:remote-resources | remotestuff
+    - nitem | i:remote-resources | remotestuff
       All resources, local and remote, must be uniformly accessible;
       i.e.~autocomplete, filename substitution, etc, must all just work (up to
       random access, which is impossible without FUSE or similar).
@@ -2024,23 +2024,23 @@ meta::psection('implementation', <<'__');
         \refboth{i:ergonomic-limit}
       - end
 
-    - item | i:prefix-notation | prefix
+    - nitem | i:prefix-notation | prefix
       xh-script uses prefix notation.
       - antecedents \refboth{i:shell}
-    - item | i:quasiquoting | quasiquote
+    - nitem | i:quasiquoting | quasiquote
       xh-script quasiquotes values by default.
       - antecedents \refboth{i:shell}
-    - item | i:unquoting | unquote
+    - nitem | i:unquoting | unquote
       xh-script defines an unquote operator.
       - antecedents << end
         \refboth{i:shell}
         \refboth{i:quasiquoting}
       - end
 
-    - item | i:real-data-structures | datastruct
+    - nitem | i:real-data-structures | datastruct
       The xh runtime provides real, garbage-collected data structures.
       - antecedents \refboth{i:real-programming}
-    - item | i:data-structures-can-be-quoted | quotestruct
+    - nitem | i:data-structures-can-be-quoted | quotestruct
       Every xh data structure has a quoted form.
       - antecedents << end
         \refboth{i:real-data-structures}
@@ -2048,7 +2048,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:trivial-debugging}
         \refboth{i:live-preview}
       - end
-    - item | i:data-structures-can-be-serialized | printstruct
+    - nitem | i:data-structures-can-be-serialized | printstruct
       Every xh data structure can be losslessly serialized.
       - antecedents << end
         \refboth{i:shell}
@@ -2058,21 +2058,21 @@ meta::psection('implementation', <<'__');
         \refboth{i:settings-contain-variable-definitions}
         \refboth{i:image-merging}
       - end
-    - item | i:data-structures-are-immutable | immutable
+    - nitem | i:data-structures-are-immutable | immutable
       Data structures have no identity and therefore are immutable.
       - antecedents << end
         \refboth{i:distributed-computation}
         \refboth{i:data-structures-can-be-serialized}
       - end
 
-    - item | i:opaque-resources | opaques
+    - nitem | i:opaque-resources | opaques
       xh-script must have access to machine-specific opaque resources like PIDs
       and file handles.
       - antecedents << end
         \refboth{i:real-programming}
         \refboth{i:shell}
       - end
-    - item | i:mutable-symbol-table | mutablesyms
+    - nitem | i:mutable-symbol-table | mutablesyms
       Each xh instance should implement a mutable symbol table with weak
       reference support, subject to semi-conservative distributed garbage
       collection.
@@ -2082,7 +2082,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:no-oome}
         \refboth{i:xh-heap}
       - end
-    - item | i:state-ownership | stateown
+    - nitem | i:state-ownership | stateown
       Every piece of mutable state, including symbol tables, must have at most
       one authoritative copy (mutable state within xh is managed by a CP
       system).
@@ -2092,7 +2092,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:mutable-symbol-table}
         \refboth{i:thread-mobility}
       - end
-    - item | i:checkpointing | checkpoint
+    - nitem | i:checkpointing | checkpoint
       An xh instance should be able to save checkpoints of itself in case of
       failure. If you do this, xh becomes an AP system.
       - antecedents << end
@@ -2100,7 +2100,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:state-ownership}
       - end
 
-    - item | i:lazy-evaluation | lazy
+    - nitem | i:lazy-evaluation | lazy
       xh's evaluator must support some kind of laziness.
       - antecedents << end
         \refboth{i:real-programming}
@@ -2108,7 +2108,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:remote-resources}
         \refboth{i:not-slow}
       - end
-    - item | i:laziness-serializable | printlazy
+    - nitem | i:laziness-serializable | printlazy
       Lazy values must have well-defined quoted forms and be losslessly
       serializable.
       - antecedents << end
@@ -2118,7 +2118,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:thread-mobility}
         \refboth{i:xh-heap}
       - end
-    - item | i:lazy-introspection | introspectlazy
+    - nitem | i:lazy-introspection | introspectlazy
       All lazy values must be subject to introspection to identify why they
       haven't been realized.
       - antecedents << end
@@ -2129,7 +2129,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-evaluation}
         \refboth{i:priority-scheduler}
       - end
-    - item | i:abstract-evaluation | abstract
+    - nitem | i:abstract-evaluation | abstract
       xh must be able to partially evaluate expressions that contain unknown
       quantities.
       - antecedents << end
@@ -2138,18 +2138,18 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-introspection}
         \refboth{i:laziness-serializable}
       - end
-    - item | i:code-as-data | code=data
+    - nitem | i:code-as-data | code=data
       xh-script code should be a reasonable data storage format.
       - antecedents << end
         \refboth{i:shell}
         \refboth{i:abstract-evaluation}
       - end
-    - item | i:parse-self | selfparse
+    - nitem | i:parse-self | selfparse
       xh-script must contain a library to parse itself.
       - antecedents << end
         \refboth{i:code-as-data}
       - end
-    - item | i:homoiconic | homoiconic
+    - nitem | i:homoiconic | homoiconic
       xh-script must be homoiconic.
       - antecedents << end
         \refboth{i:code-as-data}
@@ -2158,7 +2158,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:representational-abstraction}
       - end
 
-    - item | i:compile-to-c | xh2c
+    - nitem | i:compile-to-c | xh2c
       xh should be able to compile any function to C, compile it if the host
       has a C compiler, and transparently migrate execution into this process.
       - antecedents << end
@@ -2166,7 +2166,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:thread-mobility}
         \refboth{i:not-slow}
       - end
-    - item | i:compile-to-perl | xh2perl
+    - nitem | i:compile-to-perl | xh2perl
       xh should be able to compile any function to Perl rather than
       interpreting its execution.
       - antecedents << end
@@ -2174,7 +2174,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:no-root-access}
         \refboth{i:not-slow}
       - end
-    - item | i:compile-to-js | xh2js
+    - nitem | i:compile-to-js | xh2js
       xh should be able to compile any function to Javascript so that browser
       sessions can transparently become computing nodes.
       - antecedents << end
@@ -2182,7 +2182,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:distributed-computation}
         \refboth{i:not-slow}
       - end
-    - item | i:self-hosting-runtime | selfhost
+    - nitem | i:self-hosting-runtime | selfhost
       xh should follow a bootstrapped self-hosting runtime model.
       - antecedents << end
         \refboth{i:compile-to-c}
@@ -2190,12 +2190,12 @@ meta::psection('implementation', <<'__');
         \refboth{i:compile-to-js}
         \refboth{i:representational-abstraction}
       - end
-    - item | i:tracing-jit | dynamiccompiler
+    - nitem | i:tracing-jit | dynamiccompiler
       xh-script should be executed by a profiling/tracing dynamic compiler that
       automatically compiles certain pieces of code to alternative forms like
       Perl or C.
       - antecedents \refboth{i:not-slow}
-    - item | i:representational-abstraction | abstractstruct
+    - nitem | i:representational-abstraction | abstractstruct
       The xh compiler should optimize data structure representations for the
       backend being targeted.
       - antecedents << end
@@ -2204,7 +2204,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:tracing-jit}
       - end
 
-    - item | i:xh-heap | heap
+    - nitem | i:xh-heap | heap
       xh needs to implement its own heap and memory manager, and swap values to
       disk without blocking.
       - antecedents << end
@@ -2213,7 +2213,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:trivial-database}
         \refboth{i:written-in-perl}
       - end
-    - item | i:xh-threading | threading
+    - nitem | i:xh-threading | threading
       xh should implement its own threading model to accommodate blocked IO
       requests.
       - antecedents << end
@@ -2223,7 +2223,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-evaluation}
         \refboth{i:xh-heap}
       - end
-    - item | i:priority-scheduler | threadscheduler
+    - nitem | i:priority-scheduler | threadscheduler
       xh threads should be subject to scheduling that reflects the user's
       priorities.
       - antecedents << end
@@ -2232,7 +2232,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-evaluation}
         \refboth{i:xh-threading}
       - end
-    - item | i:thread-mobility | threadmobility
+    - nitem | i:thread-mobility | threadmobility
       Running threads must be transparently portable between machines and
       compiled backends.
       - antecedents << end
@@ -2242,14 +2242,14 @@ meta::psection('implementation', <<'__');
         \refboth{i:representational-abstraction}
         \refboth{i:priority-scheduler}
       - end
-    - item | i:reference-locality | refaffinity
+    - nitem | i:reference-locality | refaffinity
       All machine-specific references must encode the machine for which they
       are defined.
       - antecedents << end
         \refboth{i:opaque-resources}
         \refboth{i:thread-mobility}
       - end
-    - item | i:unique-ids | uniqueid
+    - nitem | i:unique-ids | uniqueid
       Every xh instance must have a unique ID, ideally one that can be typed
       easily.
       - antecedents << end
@@ -2257,21 +2257,21 @@ meta::psection('implementation', <<'__');
         \refboth{i:reference-locality}
       - end
 
-    - item | i:transparent-self-install | selfinstall
+    - nitem | i:transparent-self-install | selfinstall
       xh needs to be able to self-install on remote machines with no
       intervention (assuming you have a passwordless SSH connection).
       - antecedents << end
         \refboth{i:distributed-computation}
         \refboth{i:no-root-access}
       - end
-    - item | i:www-initialization | wwwinit
+    - nitem | i:www-initialization | wwwinit
       You should be able to upload your xh image to a website and then install
       it with a command like this:~\verb+curl me.com/xh | perl+.
       - antecedents << end
         \refboth{i:distributed-computation}
         \refboth{i:no-root-access}
       - end
-    - item | i:self-modifying-image | selfmodifying
+    - nitem | i:self-modifying-image | selfmodifying
       Your settings should be present as soon as you download your image, so
       the image must be self-modifying and contain your settings.
       - antecedents << end
@@ -2281,7 +2281,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:transparent-self-install}
         \refboth{i:www-initialization}
       - end
-    - item | i:settings-contain-variable-definitions | varsinrc
+    - nitem | i:settings-contain-variable-definitions | varsinrc
       Your settings should be able to contain any value you can create from the
       REPL (with the caveat that some are defined only with respect to a
       specific machine).
@@ -2292,7 +2292,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:real-data-structures}
         \refboth{i:www-initialization}
       - end
-    - item | i:written-in-perl | inperl
+    - nitem | i:written-in-perl | inperl
       xh should probably be written in Perl 5.
       - antecedents << end
         \refboth{i:distributed-computation}
@@ -2301,7 +2301,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:www-initialization}
         \refboth{i:self-modifying-image}
       - end
-    - item | i:no-perl-modules | perlcoreonly
+    - nitem | i:no-perl-modules | perlcoreonly
       xh can't have any dependencies on CPAN modules, or anything else that
       isn't in the core library.
       - antecedents << end
@@ -2309,7 +2309,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:no-root-access}
         \refboth{i:transparent-self-install}
       - end
-    - item | i:image-merging | imagemerging
+    - nitem | i:image-merging | imagemerging
       It should be possible to address variables defined within xh images (as
       files or network locations).
       - antecedents << end
@@ -2317,7 +2317,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:settings-contain-variable-definitions}
       - end
 
-    - item | i:rpc-via-ssh | sshrpc
+    - nitem | i:rpc-via-ssh | sshrpc
       xh's RPC protocol must work via stdin/out communication over an SSH
       channel to a remote instance of itself.
       - antecedents << end
@@ -2327,7 +2327,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:nonblocking}
         \refboth{i:remote-resources}
       - end
-    - item | i:rpc-multiplexing | rpcmulti
+    - nitem | i:rpc-multiplexing | rpcmulti
       xh's RPC protocol must support request multiplexing.
       - antecedents << end
         \refboth{i:distributed-computation}
@@ -2337,7 +2337,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-evaluation}
         \refboth{i:rpc-via-ssh}
       - end
-    - item | i:xh-self-connection | hostswitch
+    - nitem | i:xh-self-connection | hostswitch
       Two xh servers on the same host should automatically connect to each
       other. This allows a server-only machine to act as a VPN.
       - antecedents << end
@@ -2346,21 +2346,21 @@ meta::psection('implementation', <<'__');
         \refboth{i:rpc-via-ssh}
         \refboth{i:transitive-topology}
       - end
-    - item | i:domain-sockets | domainsockets
+    - nitem | i:domain-sockets | domainsockets
       xh should create a UNIX domain socket to listen for other same-machine
       instances.
       - antecedents << end
         \refboth{i:security}
         \refboth{i:xh-self-connection}
       - end
-    - item | i:transitive-topology | transitive
+    - nitem | i:transitive-topology | transitive
       xh's network topology should forward requests transitively.
       - antecedents << end
         \refboth{i:distributed-computation}
         \refboth{i:no-root-access}
         \refboth{i:rpc-via-ssh}
       - end
-    - item | i:network-routing | routing
+    - nitem | i:network-routing | routing
       xh should implement a network optimizer that responds to observations it
       makes about latency and throughput.
       - antecedents << end
@@ -2375,7 +2375,7 @@ meta::psection('implementation', <<'__');
   \Ref{chapter}{chp:design-constraints}.
 
   - enumerate << end
-    - item | is:evaluation-identities | xhs.eval-identities
+    - nitem | is:evaluation-identities | xhs.eval-identities
       Evaluation of any expression may happen at any time; the only scheduling
       constraint is the realization of lazy expressions, whose status is
       visible by looking at their quoted forms. Therefore, the evaluator is, to
@@ -2391,7 +2391,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:abstract-evaluation} above
       - end
 
-    - item | is:relational-evaluation | xhs.relational
+    - nitem | is:relational-evaluation | xhs.relational
       Relational evaluation is possible by using {\tt amb}, which returns any
       of the given presumably-equivalent values. xh-script is relational and
       invertible, though inversion is not always lossless and may produce
@@ -2407,7 +2407,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:priority-scheduler} above
         \refboth{is:evaluation-identities}
       - end
-    - item | is:best-first-search | xhs.bestfirst
+    - nitem | is:best-first-search | xhs.bestfirst
       Due to functions like {\tt amb}, evaluation proceeds as a best-first
       search through the space of values. You can influence this search by
       defining the {\tt abstraction} relation for a particular class of
@@ -2416,7 +2416,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow} above
         \refboth{is:relational-evaluation}
       - end
-    - item | is:no-cut-operator | xhs.nocut
+    - nitem | is:no-cut-operator | xhs.nocut
       Unlike Prolog, xh defines no cut primitive. You should use {\tt
       abstraction} to locally grade the search space instead.
       - antecedents << end
@@ -2425,7 +2425,7 @@ meta::psection('implementation', <<'__');
         \refboth{is:best-first-search}
       - end
 
-    - item | is:unquote-structure-preserving | xhs.unquote-structure
+    - nitem | is:unquote-structure-preserving | xhs.unquote-structure
       The unquoting operators \verb|$|, \verb|$@|, \verb|()|, and \verb|@()|
       each preserve some aspect of structure:
       - itemize << end
@@ -2448,7 +2448,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:unquoting} above
         \refboth{i:not-slow} above)
       - end
-    - item | is:stack-local-scoping | xhs.stackscope
+    - nitem | is:stack-local-scoping | xhs.stackscope
       All scoping is done by passing a second argument to {\tt unquote}; this
       enables variable resolution during the unquoting operation.
       - antecedents << end
@@ -2457,13 +2457,13 @@ meta::psection('implementation', <<'__');
         \refboth{i:mutable-symbol-table} above
         \refboth{is:evaluation-identities}
       - end
-    - item | is:no-variable-shadowing | xhs.noshadow
+    - nitem | is:no-variable-shadowing | xhs.noshadow
       Variable shadowing is impossible.
       - antecedents << end
         \refboth{is:evaluation-identities}
         \refboth{is:stack-local-scoping}
       - end
-    - item | is:unquoting-vs-parsing | xhs.unquote-parse
+    - nitem | is:unquoting-vs-parsing | xhs.unquote-parse
       Unquoting and structural parsing are orthogonal operations provided by
       {\tt unquote} and {\tt read}, respectively.
       - antecedents << end
@@ -2473,7 +2473,7 @@ meta::psection('implementation', <<'__');
         \refboth{is:unquote-structure-preserving}
       - end
 
-    - item | is:runtime-as-receiver | xhs.runtimereceiver
+    - nitem | is:runtime-as-receiver | xhs.runtimereceiver
       Whether via RPC or locally, statements issued to an xh runtime can be
       interpreted as messages being sent to a receiver; the reply is sent along
       whatever continuation is specified. The runtime doesn't differentiate
@@ -2484,7 +2484,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:thread-mobility} above
         \refboth{i:state-ownership} above
       - end
-    - item | is:function-variable-namespaces | xhs.namespaces
+    - nitem | is:function-variable-namespaces | xhs.namespaces
       Functions and variables exist in separate namespaces.
       - antecedents << end
         \refboth{i:feel-like-shell} above
@@ -2492,10 +2492,10 @@ meta::psection('implementation', <<'__');
         \refboth{is:stack-local-scoping}
         \refboth{is:runtime-as-receiver}
       - end
-    - item | is:function-literals-as-messages | xhs.fnliterals
+    - nitem | is:function-literals-as-messages | xhs.fnliterals
       Function literals are self-invoking when used as messages.
       - antecedents \refboth{is:function-variable-namespaces}
-    - item | is:no-real-continuations | nocallcc
+    - nitem | is:no-real-continuations | nocallcc
       Continuations are simulated in terms of lazy evaluation, but are never
       first-class.
       - antecedents << end
@@ -2504,7 +2504,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:abstract-evaluation} above
         \refboth{is:runtime-as-receiver}
       - end
-    - item | is:transient-definitions | xhs.transientdefs
+    - nitem | is:transient-definitions | xhs.transientdefs
       Some definitions are ``transient,'' in which case they are used to
       resolve blocked lazy values but then may be discarded at any point.
       - antecedents << end
@@ -2513,7 +2513,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:lazy-evaluation} above
         \refboth{is:runtime-as-receiver}
       - end
-    - item | is:global-definition-universality | xhs.globaldefs
+    - nitem | is:global-definition-universality | xhs.globaldefs
       Global definitions can apply to values at any time, and to values on
       different machines (i.e.~their existence is broadcast).
       - antecedents << end
@@ -2521,14 +2521,14 @@ meta::psection('implementation', <<'__');
         \refboth{is:transient-definitions}
       - end
 
-    - item | is:macros-cannot-exist | xhs.nomacros
+    - nitem | is:macros-cannot-exist | xhs.nomacros
       Syntactic macros cannot exist because invocation commutes with expansion,
       but functions may operate on terms whose values are undefined.
       - antecedents << end
         \refboth{is:evaluation-identities}
         \refboth{is:unquote-structure-preserving}
       - end
-    - item | is:errors-cannot-exist | xhs.noerrors
+    - nitem | is:errors-cannot-exist | xhs.noerrors
       Errors cannot exist, but are represented by lazy values that contain
       undefined quantities that will never be realized. These undefined
       quantities are the unevaluated backtraces to the error-causing
@@ -2548,7 +2548,7 @@ meta::psection('implementation', <<'__');
   manipulation.
 
   - enumerate << end
-    - item | ir:priority-queue | xhr.priorityqueue
+    - nitem | ir:priority-queue | xhr.priorityqueue
       Evaluation always happens as a process of pulling expressions from a
       priority queue.
       - antecedents << end
@@ -2557,7 +2557,7 @@ meta::psection('implementation', <<'__');
         \refboth{is:best-first-search}
       - end
 
-    - item | ir:static-inlining | xhr.staticinline
+    - nitem | ir:static-inlining | xhr.staticinline
       Function compositions should be added as dependent definitions to
       minimize the number of symbol-table lookups per unit rewriting distance.
       - antecedents << end
@@ -2566,7 +2566,7 @@ meta::psection('implementation', <<'__');
         \refboth{is:relational-evaluation}
       - end
 
-    - item | ir:expression-representation | xhr.representation
+    - nitem | ir:expression-representation | xhr.representation
       Every quasiquoted form with variant pieces should be represented as a
       separate instantiable class.
       - antecedents << end
@@ -2575,7 +2575,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
         \refboth{is:evaluation-identities}
       - end
-    - item | ir:flat-containers | xhr.flatcontainers
+    - nitem | ir:flat-containers | xhr.flatcontainers
       Quasiquoted structures are profiled for the distributions of their
       children (upon expansion); for strongly nonuniform distributions,
       specialized flattened container types are generated.
@@ -2588,7 +2588,7 @@ meta::psection('implementation', <<'__');
         \refboth{ir:expression-representation}
       - end
 
-    - item | ir:hinting | xhr.hinting
+    - nitem | ir:hinting | xhr.hinting
       Expressions should be hinted with tags that track and influence their
       paths through the search space. The optimizer uses machine learning
       against these tags to predict successful search strategies.
@@ -2855,7 +2855,7 @@ meta::section('main', <<'__');
 \lstnewenvironment{xhcode}{}{}
 
 \newcommand{\initial}{{\em initial assumption}}
-\newcommand{\refboth}[1]{\ref{#1} \ref{#1-original}}
+\newcommand{\refboth}[1]{{\em \ref{#1}} \ref{#1-original}}
 
 - title  xh
 - author Spencer Tipping
@@ -2998,6 +2998,14 @@ meta::template('logical', <<'__');
 my ($name, $body) = @_;
 $body =~ s/^\s*(.*\S)\s*$/\1/;
 "% ${name}\n$body";
+
+__
+meta::template('nitem', <<'__');
+# Named item
+my ($line) = @_;
+my (undef, $label, $name) = split /\h*\|\h*/, $line;
+
+template::item($line) . (length $name ? "{\\em\\ref{$label}}" : '');
 
 __
 meta::template('perlmodule', <<'__');
