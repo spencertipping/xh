@@ -48,9 +48,8 @@ sub image {
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
-             map(("BEGIN {xh::defmodule('$_', <<'_')}",
-                  $modules{$_},
-                  '_'), @module_ordering),
+             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                 @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })}

@@ -738,8 +738,8 @@
 \end{itemize}
 
 \item{}\Label{ir:static-inlining}{xhr.staticinline}{\em\ref{ir:static-inlining}}
-  Function compositions should be added as dependent definitions to
-  minimize the number of symbol-table lookups per unit rewriting distance.
+  Function compositions should be added as derived definitions to minimize
+  the number of symbol-table lookups per unit rewriting distance.
 \begin{itemize}
 \item \initial
 \item \refboth{i:not-slow}
@@ -766,6 +766,18 @@
 \item \refboth{is:evaluation-identities}
 \item \refboth{ir:static-inlining}
 \item \refboth{ir:expression-representation}
+\end{itemize}
+\item{}\Label{ir:deduplication}{xhr.deduplication}{\em\ref{ir:deduplication}}
+  Every independent value within a quasiquoted form should be referred to
+  by a structural signature, in our case SHA-256. This trivially causes
+  strings, and by extension execution paths, to be deduplicated. Because we
+  assume no hash collisions, xh string values have no defined instance
+  affinity (apropos of \refboth{i:reference-locality}).
+\begin{itemize}
+\item \refboth{i:xh-heap}
+\item \refboth{ir:static-inlining}
+\item \refboth{ir:expression-representation}
+\item \refboth{ir:hinting}
 \end{itemize}
 
 \item{}\Label{ir:hinting}{xhr.hinting}{\em\ref{ir:hinting}}
@@ -839,9 +851,8 @@ sub image {
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
-             map(("BEGIN {xh::defmodule('$_', <<'_')}",
-                  $modules{$_},
-                  '_'), @module_ordering),
+             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                 @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}

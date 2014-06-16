@@ -1,0 +1,100 @@
+#!/usr/bin/env perl
+BEGIN {eval(our $xh_bootstrap = <<'_')}
+
+# xh | https://github.com/spencertipping/xh
+# Copyright (C) 2014, Spencer Tipping
+# Licensed under the terms of the MIT source code license
+
+# For the benefit of HTML viewers (long story):
+# <body style='display:none'>
+# <script src='http://spencertipping.com/xh/page.js'></script>
+use 5.014;
+package xh;
+our %modules;
+our @module_ordering;
+our %eval_numbers = (1 => '$xh_bootstrap');
+
+sub with_eval_rewriting(&) {
+  my @result = eval {$_[0]->(@_[1..$#_])};
+  die $@ =~ s/\(eval (\d+)\)/$eval_numbers{$1}/egr if $@;
+  @result;
+}
+
+sub named_eval {
+  my ($name, $code) = @_;
+  $eval_numbers{$1 + 1} = $name if eval('__FILE__') =~ /\(eval (\d+)\)/;
+  with_eval_rewriting {eval $code; die $@ if $@};
+}
+
+our %compilers = (pl => sub {
+  my $package = $_[0] =~ s/\./::/gr;
+  eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
+  die "error compiling module $_[0]: $@" if $@;
+});
+
+sub defmodule {
+  my ($name, $code, @args) = @_;
+  chomp($modules{$name} = $code);
+  push @module_ordering, $name;
+  my ($base, $extension) = split /\.(\w+$)/, $name;
+  die "undefined module extension '$extension' for $name"
+    unless exists $compilers{$extension};
+  $compilers{$extension}->($base, $code, @args);
+}
+
+chomp($modules{bootstrap} = $::xh_bootstrap);
+undef $::xh_bootstrap;
+sub image {
+  join "\n", "#!/usr/bin/env perl",
+             "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
+             $modules{bootstrap},
+             '_',
+             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                 @module_ordering),
+             "xh::main::main;\n__DATA__";
+}
+_
+BEGIN {xh::defmodule('xh::v.pl', <<'_')}
+use parent qw/Exporter/;
+our @EXPORT_OK = qw/parse/;
+
+sub new {
+  my ($class, $type, $tag, @values) = @_;
+  bless [$type, $tag, @values], $class;
+}
+sub parse {
+  my @return_values;
+  my @context = (\@return_values);
+
+  while ($_[0] =~ /\G (?: \s* | \#.*)*
+                      (?: (?<tag> (?: [^\s()\[\]{}"'\\] | \\.)+)?
+                          (?: (?<listopen>   \()
+                            | (?<vectoropen> \[)
+                            | (?<mapopen>    \{)
+                            | "(?<dstring>   (?:[^"\\]*|\\[\s\S]))"
+                            | '(?<sstring>   (?:[^'\\]*|\\[\s\S]))')
+                        | (?<word>        (?: [^\s()\[\]{}'"\\] | \\.)+)
+                        | (?<listclose>   \))
+                        | (?<vectorclose> \])
+                        | (?<mapclose>    \}))/xmg) {
+    my $opener = $+{listopen} // $+{vectoropen} // $+{mapopen};
+    if (defined $+{word}) {
+      push @{$context[-1]}, $+{word};
+    } elsif (defined $+{dstring}) {
+      push @{$context[-1]}, xh::v->new('"', $+{tag}, $+{dstring});
+    } elsif (defined $+{sstring}) {
+      push @{$context[-1]}, xh::v->new("'", $+{tag}, $+{sstring});
+    } elsif (defined $opener) {
+      my $new_container = xh::v->new($opener, $+{tag});
+      push @{$context[-1]}, $new_container;
+      push @context, $new_container;
+    } elsif (defined($+{listclose} // $+{vectorclose} // $+{mapclose})) {
+      my $popped = pop @context;
+      push @{$context[-1]}, $popped;
+    }
+  }
+  @return_values;
+}
+_
+xh::main::main;
+__DATA__
