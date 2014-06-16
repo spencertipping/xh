@@ -599,12 +599,12 @@ sub with_eval_rewriting(&) {
 sub named_eval {
   my ($name, $code) = @_;
   $eval_numbers{$1 + 1} = $name if eval('__FILE__') =~ /\(eval (\d+)\)/;
-  with_eval_rewriting {eval $code};
+  with_eval_rewriting {eval $code; die $@ if $@};
 }
 
 our %compilers = (pl => sub {
   my $package = $_[0] =~ s/\./::/gr;
-  named_eval $_[0], "{package ::$package;\n$_[1]\n}";
+  eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
   die "error compiling module $_[0]: $@" if $@;
 });
 
@@ -648,51 +648,13 @@ sub image {
 
 \lstset{caption={src/v.pl},name={src/v.pl}}\begin{perlcode}
 BEGIN {xh::defmodule('xh::v.pl', <<'_')}
-use parent qw/Exporter/;
-our @EXPORT = qw/read/;
-
-sub new {
-  my ($class, $type, $tag, @values) = @_;
-  bless [$type, $tag, @values], $class;
-}
-sub parse {
-  my @return_values;
-  my @context = (\@return_values);
-
-  while ($_[0] =~ /\G (?: \s* | #.*)*
-                      (?: (?<tag> [^\s()\[\]{}"']+)?
-                          (?: (?<listopen>   \()
-                            | (?<vectoropen> \[)
-                            | (?<mapopen>    \{)
-                            | "(?<dstring>   (?:[^"]*|\\[\s\S]))"
-                            | '(?<sstring>   (?:[^']*|\\[\s\S]))')
-                        | (?<word>        (?: [^\s()\[\]{}'"] | \\.)+)
-                        | (?<listclose>   \))
-                        | (?<vectorclose> \])
-                        | (?<mapclose>    \}))/xmg) {
-    my $opener = $+{listopen} // $+{vectoropen} // $+{mapopen};
-    if (defined $+{word}) {
-      push @{$context[-1]}, $+{word};
-    } elsif (defined $+{dstring}) {
-      push @{$context[-1]}, xh::v->new('"', $+{tag}, $+{dstring});
-    } elsif (defined $+{sstring}) {
-      push @{$context[-1]}, xh::v->new("'", $+{tag}, $+{sstring});
-    } elsif (defined $opener) {
-      my $new_container = xh::v->new($opener, $+{tag});
-      push @{$context[-1]}, $new_container;
-      push @context, $new_container;
-    } elsif (defined($+{listclose} // $+{vectorclose} // $+{mapclose})) {
-      my $popped = pop @context;
-      push @{$context[-1]}, $popped;
-    }
-  }
-  @return_values;
-}
+-- include src/v/type-definition.pl
+-- include src/v/reader.pl
 _ \end{perlcode}
 
 \lstset{caption={src/v/type-definition.pl},name={src/v/type-definition.pl}}\begin{perlcode}
 use parent qw/Exporter/;
-our @EXPORT = qw/read/;
+our @EXPORT_OK = qw/parse/;
 
 sub new {
   my ($class, $type, $tag, @values) = @_;
@@ -704,14 +666,14 @@ sub parse {
   my @return_values;
   my @context = (\@return_values);
 
-  while ($_[0] =~ /\G (?: \s* | #.*)*
-                      (?: (?<tag> [^\s()\[\]{}"']+)?
+  while ($_[0] =~ /\G (?: \s* | \#.*)*
+                      (?: (?<tag> (?: [^\s()\[\]{}"'\\] | \\.)+)?
                           (?: (?<listopen>   \()
                             | (?<vectoropen> \[)
                             | (?<mapopen>    \{)
-                            | "(?<dstring>   (?:[^"]*|\\[\s\S]))"
-                            | '(?<sstring>   (?:[^']*|\\[\s\S]))')
-                        | (?<word>        (?: [^\s()\[\]{}'"] | \\.)+)
+                            | "(?<dstring>   (?:[^"\\]*|\\[\s\S]))"
+                            | '(?<sstring>   (?:[^'\\]*|\\[\s\S]))')
+                        | (?<word>        (?: [^\s()\[\]{}'"\\] | \\.)+)
                         | (?<listclose>   \))
                         | (?<vectorclose> \])
                         | (?<mapclose>    \}))/xmg) {

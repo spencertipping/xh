@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  890800180ffb9d2347a591de2cb8415f
-# istate: 190e0f0abaff8bcda187f9325cadb570
+# state:  dd1f3195a9b8cf60de51922176e80ebc
+# istate: 1cf54802892e1d20d1fa423deb7ee515
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2436,12 +2436,12 @@ meta::psection('implementation', <<'__');
     sub named_eval {
       my ($name, $code) = @_;
       $eval_numbers{$1 + 1} = $name if eval('__FILE__') =~ /\(eval (\d+)\)/;
-      with_eval_rewriting {eval $code};
+      with_eval_rewriting {eval $code; die $@ if $@};
     }
 
     our %compilers = (pl => sub {
       my $package = $_[0] =~ s/\./::/gr;
-      named_eval $_[0], "{package ::$package;\n$_[1]\n}";
+      eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
       die "error compiling module $_[0]: $@" if $@;
     });
 
@@ -2486,13 +2486,13 @@ meta::psection('implementation', <<'__');
   format.
 
   - perlmodule xh::v src/v.pl << end
-    - include src/v/type-definition.pl
-    - include src/v/reader.pl
+    -- include src/v/type-definition.pl
+    -- include src/v/reader.pl
   - end
 
   - perl src/v/type-definition.pl << end
     use parent qw/Exporter/;
-    our @EXPORT = qw/read/;
+    our @EXPORT_OK = qw/parse/;
 
     sub new {
       my ($class, $type, $tag, @values) = @_;
@@ -2505,14 +2505,14 @@ meta::psection('implementation', <<'__');
       my @return_values;
       my @context = (\@return_values);
 
-      while ($_[0] =~ /\G (?: \s* | #.*)*
-                          (?: (?<tag> [^\s()\[\]{}"']+)?
+      while ($_[0] =~ /\G (?: \s* | \#.*)*
+                          (?: (?<tag> (?: [^\s()\[\]{}"'\\] | \\.)+)?
                               (?: (?<listopen>   \()
                                 | (?<vectoropen> \[)
                                 | (?<mapopen>    \{)
-                                | "(?<dstring>   (?:[^"]*|\\[\s\S]))"
-                                | '(?<sstring>   (?:[^']*|\\[\s\S]))')
-                            | (?<word>        (?: [^\s()\[\]{}'"] | \\.)+)
+                                | "(?<dstring>   (?:[^"\\]*|\\[\s\S]))"
+                                | '(?<sstring>   (?:[^'\\]*|\\[\s\S]))')
+                            | (?<word>        (?: [^\s()\[\]{}'"\\] | \\.)+)
                             | (?<listclose>   \))
                             | (?<vectorclose> \])
                             | (?<mapclose>    \}))/xmg) {
@@ -2632,14 +2632,13 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__9');
+meta::sdoc('xh', <<'__8');
 - include boot/xh-header
 - include src/v.pl
-
 xh::main::main;
 __DATA__
 
-__9
+__8
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

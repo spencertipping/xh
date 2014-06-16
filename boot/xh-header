@@ -23,12 +23,12 @@ sub with_eval_rewriting(&) {
 sub named_eval {
   my ($name, $code) = @_;
   $eval_numbers{$1 + 1} = $name if eval('__FILE__') =~ /\(eval (\d+)\)/;
-  with_eval_rewriting {eval $code};
+  with_eval_rewriting {eval $code; die $@ if $@};
 }
 
 our %compilers = (pl => sub {
   my $package = $_[0] =~ s/\./::/gr;
-  named_eval $_[0], "{package ::$package;\n$_[1]\n}";
+  eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
   die "error compiling module $_[0]: $@" if $@;
 });
 
