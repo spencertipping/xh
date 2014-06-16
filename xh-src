@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  dd1f3195a9b8cf60de51922176e80ebc
+# state:  1486036e322dcff0fffa988af61d7458
 # istate: 1cf54802892e1d20d1fa423deb7ee515
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2428,8 +2428,7 @@ meta::psection('implementation', <<'__');
 
     sub with_eval_rewriting(&) {
       my @result = eval {$_[0]->(@_[1..$#_])};
-      $@ =~ s/\(eval (\d+)\)/$eval_numbers{$1}/eg if $@;
-      die $@ if $@;
+      die $@ =~ s/\(eval (\d+)\)/$eval_numbers{$1}/egr if $@;
       @result;
     }
 
@@ -2465,15 +2464,14 @@ meta::psection('implementation', <<'__');
 
   - perl >> boot/xh-header << end
     sub image {
-      my @pieces = "#!/usr/bin/env perl";
-      push @pieces, "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
-                    $modules{bootstrap},
-                    '_';
-      push @pieces, "BEGIN {xh::defmodule('$_', <<'_')}",
-                    $modules{$_},
-                    '_' for @module_ordering;
-      push @pieces, "xh::main::main;\n__DATA__";
-      join "\n", @pieces;
+      join "\n", "#!/usr/bin/env perl",
+                 "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
+                 $modules{bootstrap},
+                 '_',
+                 map(("BEGIN {xh::defmodule('$_', <<'_')}",
+                      $modules{$_},
+                      '_'), @module_ordering),
+                 "xh::main::main;\n__DATA__";
     }
     })}
   - end

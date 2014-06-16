@@ -591,8 +591,7 @@ our %eval_numbers = (1 => '$xh_bootstrap');
 
 sub with_eval_rewriting(&) {
   my @result = eval {$_[0]->(@_[1..$#_])};
-  $@ =~ s/\(eval (\d+)\)/$eval_numbers{$1}/eg if $@;
-  die $@ if $@;
+  die $@ =~ s/\(eval (\d+)\)/$eval_numbers{$1}/egr if $@;
   @result;
 }
 
@@ -627,15 +626,14 @@ undef $::xh_bootstrap; \end{perlcode}
 
 \lstset{caption={boot/xh-header (continued)},name={boot/xh-header}}\begin{perlcode}
 sub image {
-  my @pieces = "#!/usr/bin/env perl";
-  push @pieces, "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
-                $modules{bootstrap},
-                '_';
-  push @pieces, "BEGIN {xh::defmodule('$_', <<'_')}",
-                $modules{$_},
-                '_' for @module_ordering;
-  push @pieces, "xh::main::main;\n__DATA__";
-  join "\n", @pieces;
+  join "\n", "#!/usr/bin/env perl",
+             "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
+             $modules{bootstrap},
+             '_',
+             map(("BEGIN {xh::defmodule('$_', <<'_')}",
+                  $modules{$_},
+                  '_'), @module_ordering),
+             "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}
 
