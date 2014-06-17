@@ -719,6 +719,48 @@
 \item \refboth{i:abstract-evaluation} above
 \item \refboth{is:evaluation-identities}
 \end{itemize}
+
+\item{}\Label{is:arbitrary-destructuring}{xhs.destructuring}{\em\ref{is:arbitrary-destructuring}}
+  Any value can be used as a destructuring bind pattern.
+\begin{itemize}
+\item \initial
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+\item{}\Label{is:amb-desctructuring}{xhs.ambdestructure}{\em\ref{is:amb-desctructuring}}
+  \verb|(amb)| can be used to destructure values, and it behaves as a
+  disjunction.
+\begin{itemize}
+\item \initial
+\item \refboth{is:relational-evaluation}
+\item \refboth{is:arbitrary-destructuring}
+\end{itemize}
+\item{}\Label{is:abstract-dof}{xhs.dof}{\em\ref{is:abstract-dof}}
+  Degrees of freedom within an inversion are represented by abstract values
+  that will prevent the result from being realized. They are visible as
+  unknowns within the quoted form.
+\begin{itemize}
+\item \initial
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+
+\item{}\Label{is:side-effects-as-axioms}{xhs.se-axioms}{\em\ref{is:side-effects-as-axioms}}
+  Side effects and axioms are the same thing in xh. Once it commits to a
+  side-effect, it must always assume that it happened (since it did). In
+  particular, this means that imperative forms like {\tt (def)} are
+  actually ways to assume new ground truths.
+\begin{itemize}
+\item \initial
+\item \refboth{i:imperative}
+\item \refboth{is:relational-evaluation}
+\item \refboth{is:global-definition-universality}
+\end{itemize}
+\item{}\Label{is:hypotheses-are-virtualization}{xhs.virtualization}{\em\ref{is:hypotheses-are-virtualization}}
+  Every side effect can be replaced by a temporary assumption that models
+  the effect. If you do this, you're replacing an axiom with a hypothesis.
+\begin{itemize}
+\item \initial
+\item \refboth{is:side-effects-as-axioms}
+\end{itemize}
 \end{enumerate}
 
 \chapter{runtime}\label{chp:runtime}
@@ -779,6 +821,12 @@
 \item \refboth{ir:expression-representation}
 \item \refboth{ir:hinting}
 \end{itemize}
+\item{}\Label{ir:pointer-entropy}{xhr.pointerentropy}{\em\ref{ir:pointer-entropy}}
+  256 bits is sufficient to encode any pointer.
+\begin{itemize}
+\item \initial
+\item \refboth{ir:deduplication}
+\end{itemize}
 
 \item{}\Label{ir:hinting}{xhr.hinting}{\em\ref{ir:hinting}}
   Expressions should be hinted with tags that track and influence their
@@ -789,6 +837,14 @@
 \item \refboth{i:not-slow}
 \item \refboth{is:best-first-search}
 \item \refboth{is:no-cut-operator}
+\end{itemize}
+\item{}\Label{ir:hashing}{xhr.hashing}{\em\ref{ir:hashing}}
+  The runtime should use some type of masked hashing strategy (or other
+  decision tree) to minimize the expected resolution time for each
+  expression.
+\begin{itemize}
+\item \initial
+\item \refboth{ir:hinting}
 \end{itemize}
 \end{enumerate}
 

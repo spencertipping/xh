@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  d6f6f36cd5a600a7acd08a30c7a9a484
+# state:  5dc23bc84313c722917aba26e5ce193e
 # istate: 15474ed9cf3b5765d4d5d90b8de8a928
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2539,6 +2539,48 @@ meta::psection('implementation', <<'__');
         \refboth{i:abstract-evaluation} above
         \refboth{is:evaluation-identities}
       - end
+
+    - nitem | is:arbitrary-destructuring | xhs.destructuring
+      Any value can be used as a destructuring bind pattern.
+      - antecedents << end
+        \initial
+        \refboth{is:relational-evaluation}
+      - end
+    - nitem | is:amb-desctructuring | xhs.ambdestructure
+      \verb|(amb)| can be used to destructure values, and it behaves as a
+      disjunction.
+      - antecedents << end
+        \initial
+        \refboth{is:relational-evaluation}
+        \refboth{is:arbitrary-destructuring}
+      - end
+    - nitem | is:abstract-dof | xhs.dof
+      Degrees of freedom within an inversion are represented by abstract values
+      that will prevent the result from being realized. They are visible as
+      unknowns within the quoted form.
+      - antecedents << end
+        \initial
+        \refboth{is:relational-evaluation}
+      - end
+
+    - nitem | is:side-effects-as-axioms | xhs.se-axioms
+      Side effects and axioms are the same thing in xh. Once it commits to a
+      side-effect, it must always assume that it happened (since it did). In
+      particular, this means that imperative forms like {\tt (def)} are
+      actually ways to assume new ground truths.
+      - antecedents << end
+        \initial
+        \refboth{i:imperative}
+        \refboth{is:relational-evaluation}
+        \refboth{is:global-definition-universality}
+      - end
+    - nitem | is:hypotheses-are-virtualization | xhs.virtualization
+      Every side effect can be replaced by a temporary assumption that models
+      the effect. If you do this, you're replacing an axiom with a hypothesis.
+      - antecedents << end
+        \initial
+        \refboth{is:side-effects-as-axioms}
+      - end
   - end
 
 - sc runtime | chp:runtime
@@ -2599,6 +2641,12 @@ meta::psection('implementation', <<'__');
         \refboth{ir:expression-representation}
         \refboth{ir:hinting}
       - end
+    - nitem | ir:pointer-entropy | xhr.pointerentropy
+      256 bits is sufficient to encode any pointer.
+      - antecedents << end
+        \initial
+        \refboth{ir:deduplication}
+      - end
 
     - nitem | ir:hinting | xhr.hinting
       Expressions should be hinted with tags that track and influence their
@@ -2609,6 +2657,14 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
         \refboth{is:best-first-search}
         \refboth{is:no-cut-operator}
+      - end
+    - nitem | ir:hashing | xhr.hashing
+      The runtime should use some type of masked hashing strategy (or other
+      decision tree) to minimize the expected resolution time for each
+      expression.
+      - antecedents << end
+        \initial
+        \refboth{ir:hinting}
       - end
   - end
 
