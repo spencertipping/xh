@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  f15cdfcdcd38899a0c3742d8f2cfbc00
+# state:  b2a0fb5a70645b081fa130760a91caa3
 # istate: 15474ed9cf3b5765d4d5d90b8de8a928
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2709,6 +2709,30 @@ meta::psection('implementation', <<'__');
         \refboth{i:abstract-evaluation}
         \refboth{i:code-as-data}
         \refboth{ir:override}
+      - end
+    - nitem | ir:evaluator-api | xhr.evaluatorapi
+      Evaluator functions are straightforward to write, and the standard
+      library includes several designed for different use cases (e.g.~local,
+      distributed, profiling). Any significantly nontrivial aspect of it is
+      factored off into an API.
+      - antecedents << end
+        \initial
+        \refboth{ir:override}
+        \refboth{ir:external-strategy}
+      - end
+    - nitem | ir:evaluator-base | xhr.evaluatorbase
+      The runtime is itself subject to evaluation (since it's self-hosting),
+      and the base evaluator is implemented in Perl, C, or Javascript. This
+      base evaluator runs locally; the distributed evaluator runs on top of it.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-js}
+        \refboth{i:written-in-perl}
+        \refboth{i:self-hosting-runtime}
+        \refboth{ir:override}
+        \refboth{ir:evaluator-api}
       - end
   - end
 

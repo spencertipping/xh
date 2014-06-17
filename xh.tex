@@ -890,6 +890,30 @@
 \item \refboth{i:code-as-data}
 \item \refboth{ir:override}
 \end{itemize}
+\item{}\Label{ir:evaluator-api}{xhr.evaluatorapi}{\em\ref{ir:evaluator-api}}
+  Evaluator functions are straightforward to write, and the standard
+  library includes several designed for different use cases (e.g.~local,
+  distributed, profiling). Any significantly nontrivial aspect of it is
+  factored off into an API.
+\begin{itemize}
+\item \initial
+\item \refboth{ir:override}
+\item \refboth{ir:external-strategy}
+\end{itemize}
+\item{}\Label{ir:evaluator-base}{xhr.evaluatorbase}{\em\ref{ir:evaluator-base}}
+  The runtime is itself subject to evaluation (since it's self-hosting),
+  and the base evaluator is implemented in Perl, C, or Javascript. This
+  base evaluator runs locally; the distributed evaluator runs on top of it.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-js}
+\item \refboth{i:written-in-perl}
+\item \refboth{i:self-hosting-runtime}
+\item \refboth{ir:override}
+\item \refboth{ir:evaluator-api}
+\end{itemize}
 \end{enumerate}
 
 \part{base implementation}\label{part:base-implementation}
