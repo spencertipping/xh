@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  5dc23bc84313c722917aba26e5ce193e
+# state:  f15cdfcdcd38899a0c3742d8f2cfbc00
 # istate: 15474ed9cf3b5765d4d5d90b8de8a928
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2587,7 +2587,8 @@ meta::psection('implementation', <<'__');
   xh-script operates within a hosting environment that manages things like
   memory allocation and thread/evaluation scheduling. Beyond this, we also need
   a quoted-value format that's more efficient than doing a bunch of string
-  manipulation.
+  manipulation (\refboth{ir:expression-representation},
+  \refboth{ir:flat-containers}, \refboth{ir:deduplication}).
 
   - enumerate << end
     - nitem | ir:priority-queue | xhr.priorityqueue
@@ -2597,6 +2598,13 @@ meta::psection('implementation', <<'__');
         \initial
         \refboth{is:relational-evaluation}
         \refboth{is:best-first-search}
+      - end
+    - nitem | ir:priority-tracing | xhr.prioritytracing
+      Every expression in the queue knows its ``origin'' for scheduling
+      purposes.
+      - antecedents << end
+        \refboth{is:best-first-search}
+        \refboth{ir:priority-queue}
       - end
 
     - nitem | ir:static-inlining | xhr.staticinline
@@ -2645,6 +2653,8 @@ meta::psection('implementation', <<'__');
       256 bits is sufficient to encode any pointer.
       - antecedents << end
         \initial
+        \refboth{i:unique-ids}
+        \refboth{i:reference-locality}
         \refboth{ir:deduplication}
       - end
 
@@ -2665,6 +2675,40 @@ meta::psection('implementation', <<'__');
       - antecedents << end
         \initial
         \refboth{ir:hinting}
+      - end
+    - nitem | ir:transient-prediction | xhr.transientprediction
+      Many functions will end up returning lazy values, and most of the time
+      those lazy values will eventually be realized. The runtime should have
+      some expectation of which lazy sub-values will be realized, and with what
+      probability; this influences its search strategy in the future.
+      - antecedents << end
+        \initial
+        \refboth{i:not-slow}
+        \refboth{is:transient-definitions}
+        \refboth{is:best-first-search}
+        \refboth{ir:hinting}
+      - end
+
+    - nitem | ir:override | xhr.override
+      The user must be able to completely override any strategy preferences the
+      runtime has. The runtime can be arbitrarily wrong and the user can be
+      arbitrarily right.
+      - antecedents << end
+        \initial
+        \refboth{is:best-first-search}
+        \refboth{ir:hinting}
+        \refboth{ir:transient-prediction}
+      - end
+    - nitem | ir:external-strategy | xhr.externalstrategy
+      The xh runtime does not itself define the evaluation strategy, nor does
+      it internally observe things; this is done as part of the evaluation
+      functions in the standard library. The only thing the xh runtime provides
+      is a scheduled/prioritized event loop.
+      - antecedents << end
+        \initial
+        \refboth{i:abstract-evaluation}
+        \refboth{i:code-as-data}
+        \refboth{ir:override}
       - end
   - end
 

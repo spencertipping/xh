@@ -767,7 +767,8 @@
   xh-script operates within a hosting environment that manages things like
   memory allocation and thread/evaluation scheduling. Beyond this, we also need
   a quoted-value format that's more efficient than doing a bunch of string
-  manipulation.
+  manipulation (\refboth{ir:expression-representation},
+  \refboth{ir:flat-containers}, \refboth{ir:deduplication}).
 
 \begin{enumerate}
 \item{}\Label{ir:priority-queue}{xhr.priorityqueue}{\em\ref{ir:priority-queue}}
@@ -777,6 +778,13 @@
 \item \initial
 \item \refboth{is:relational-evaluation}
 \item \refboth{is:best-first-search}
+\end{itemize}
+\item{}\Label{ir:priority-tracing}{xhr.prioritytracing}{\em\ref{ir:priority-tracing}}
+  Every expression in the queue knows its ``origin'' for scheduling
+  purposes.
+\begin{itemize}
+\item \refboth{is:best-first-search}
+\item \refboth{ir:priority-queue}
 \end{itemize}
 
 \item{}\Label{ir:static-inlining}{xhr.staticinline}{\em\ref{ir:static-inlining}}
@@ -825,6 +833,8 @@
   256 bits is sufficient to encode any pointer.
 \begin{itemize}
 \item \initial
+\item \refboth{i:unique-ids}
+\item \refboth{i:reference-locality}
 \item \refboth{ir:deduplication}
 \end{itemize}
 
@@ -845,6 +855,40 @@
 \begin{itemize}
 \item \initial
 \item \refboth{ir:hinting}
+\end{itemize}
+\item{}\Label{ir:transient-prediction}{xhr.transientprediction}{\em\ref{ir:transient-prediction}}
+  Many functions will end up returning lazy values, and most of the time
+  those lazy values will eventually be realized. The runtime should have
+  some expectation of which lazy sub-values will be realized, and with what
+  probability; this influences its search strategy in the future.
+\begin{itemize}
+\item \initial
+\item \refboth{i:not-slow}
+\item \refboth{is:transient-definitions}
+\item \refboth{is:best-first-search}
+\item \refboth{ir:hinting}
+\end{itemize}
+
+\item{}\Label{ir:override}{xhr.override}{\em\ref{ir:override}}
+  The user must be able to completely override any strategy preferences the
+  runtime has. The runtime can be arbitrarily wrong and the user can be
+  arbitrarily right.
+\begin{itemize}
+\item \initial
+\item \refboth{is:best-first-search}
+\item \refboth{ir:hinting}
+\item \refboth{ir:transient-prediction}
+\end{itemize}
+\item{}\Label{ir:external-strategy}{xhr.externalstrategy}{\em\ref{ir:external-strategy}}
+  The xh runtime does not itself define the evaluation strategy, nor does
+  it internally observe things; this is done as part of the evaluation
+  functions in the standard library. The only thing the xh runtime provides
+  is a scheduled/prioritized event loop.
+\begin{itemize}
+\item \initial
+\item \refboth{i:abstract-evaluation}
+\item \refboth{i:code-as-data}
+\item \refboth{ir:override}
 \end{itemize}
 \end{enumerate}
 
