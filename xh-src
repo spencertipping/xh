@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  b2a0fb5a70645b081fa130760a91caa3
-# istate: 15474ed9cf3b5765d4d5d90b8de8a928
+# state:  9fab66949c86f4601fc36dfb1dde8c8e
+# istate: 1c8e6296c8ea44cc3c753f60d5f09c68
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2615,6 +2615,23 @@ meta::psection('implementation', <<'__');
         \refboth{i:not-slow}
         \refboth{is:relational-evaluation}
       - end
+    - nitem | ir:latency | xhr.latency
+      The runtime should provide low enough latency that it can be used as the
+      graph-solving backend for RPC routing.
+      - antecedents << end
+        \initial
+        \refboth{i:not-slow}
+        \refboth{i:network-routing}
+      - end
+    - nitem | ir:value-caching | xhr.valuecache
+      To guarantee low latency, the runtime should emit transient values for
+      solutions it finds. These become cached bindings that can be kicked out
+      under memory pressure, but reduce the load on the optimizer.
+      - antecedents << end
+        \initial
+        \refboth{i:not-slow}
+        \refboth{ir:latency}
+      - end
 
     - nitem | ir:expression-representation | xhr.representation
       Every quasiquoted form with variant pieces should be represented as a
@@ -2803,64 +2820,6 @@ meta::psection('implementation', <<'__');
     })}
   - end
 
-- sc reader | chp:reader
-  xh-script has a reader just like Lisp does. This makes it easier to factor
-  the runtime:~the reader is invariant with the semantics of the language under
-  any given interpreter/compiler. For simplicity, this reader does not stream
-  its output. Instead, it emits a full quoted data structure hierarchy in OO
-  format.
-
-  - perlmodule xh::v src/v.pl << end
-    -- include src/v/type-definition.pl
-    -- include src/v/reader.pl
-  - end
-
-  - perl src/v/type-definition.pl << end
-    use parent qw/Exporter/;
-    our @EXPORT_OK = qw/parse/;
-
-    sub new {
-      my ($class, $type, $tag, @values) = @_;
-      bless [$type, $tag, @values], $class;
-    }
-  - end
-
-  - perl src/v/reader.pl << end
-    sub parse {
-      my @return_values;
-      my @context = (\@return_values);
-
-      while ($_[0] =~ /\G (?: \s* | \#.*)*
-                          (?: (?<tag> (?: [^\s()\[\]{}"'\\] | \\.)+)?
-                              (?: (?<listopen>   \()
-                                | (?<vectoropen> \[)
-                                | (?<mapopen>    \{)
-                                | "(?<dstring>   (?:[^"\\]*|\\[\s\S]))"
-                                | '(?<sstring>   (?:[^'\\]*|\\[\s\S]))')
-                            | (?<word>        (?: [^\s()\[\]{}'"\\] | \\.)+)
-                            | (?<listclose>   \))
-                            | (?<vectorclose> \])
-                            | (?<mapclose>    \}))/xmg) {
-        my $opener = $+{listopen} // $+{vectoropen} // $+{mapopen};
-        if (defined $+{word}) {
-          push @{$context[-1]}, $+{word};
-        } elsif (defined $+{dstring}) {
-          push @{$context[-1]}, xh::v->new('"', $+{tag}, $+{dstring});
-        } elsif (defined $+{sstring}) {
-          push @{$context[-1]}, xh::v->new("'", $+{tag}, $+{sstring});
-        } elsif (defined $opener) {
-          my $new_container = xh::v->new($opener, $+{tag});
-          push @{$context[-1]}, $new_container;
-          push @context, $new_container;
-        } elsif (defined($+{listclose} // $+{vectorclose} // $+{mapclose})) {
-          my $popped = pop @context;
-          push @{$context[-1]}, $popped;
-        }
-      }
-      @return_values;
-    }
-  - end
-
 __
 meta::resource('header', <<'__');
 - include resource::header-packages
@@ -2976,7 +2935,6 @@ exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
 meta::sdoc('xh', <<'__8');
 - include boot/xh-header
-- include src/v.pl
 xh::main::main;
 __DATA__
 

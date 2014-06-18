@@ -795,6 +795,23 @@
 \item \refboth{i:not-slow}
 \item \refboth{is:relational-evaluation}
 \end{itemize}
+\item{}\Label{ir:latency}{xhr.latency}{\em\ref{ir:latency}}
+  The runtime should provide low enough latency that it can be used as the
+  graph-solving backend for RPC routing.
+\begin{itemize}
+\item \initial
+\item \refboth{i:not-slow}
+\item \refboth{i:network-routing}
+\end{itemize}
+\item{}\Label{ir:value-caching}{xhr.valuecache}{\em\ref{ir:value-caching}}
+  To guarantee low latency, the runtime should emit transient values for
+  solutions it finds. These become cached bindings that can be kicked out
+  under memory pressure, but reduce the load on the optimizer.
+\begin{itemize}
+\item \initial
+\item \refboth{i:not-slow}
+\item \refboth{ir:latency}
+\end{itemize}
 
 \item{}\Label{ir:expression-representation}{xhr.representation}{\em\ref{ir:expression-representation}}
   Every quasiquoted form with variant pieces should be represented as a
@@ -980,62 +997,5 @@ sub image {
              "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}
-
-\chapter{reader}\label{chp:reader}
-  xh-script has a reader just like Lisp does. This makes it easier to factor
-  the runtime:~the reader is invariant with the semantics of the language under
-  any given interpreter/compiler. For simplicity, this reader does not stream
-  its output. Instead, it emits a full quoted data structure hierarchy in OO
-  format.
-
-\lstset{caption={src/v.pl},name={src/v.pl}}\begin{perlcode}
-BEGIN {xh::defmodule('xh::v.pl', <<'_')}
--- include src/v/type-definition.pl
--- include src/v/reader.pl
-_ \end{perlcode}
-
-\lstset{caption={src/v/type-definition.pl},name={src/v/type-definition.pl}}\begin{perlcode}
-use parent qw/Exporter/;
-our @EXPORT_OK = qw/parse/;
-
-sub new {
-  my ($class, $type, $tag, @values) = @_;
-  bless [$type, $tag, @values], $class;
-} \end{perlcode}
-
-\lstset{caption={src/v/reader.pl},name={src/v/reader.pl}}\begin{perlcode}
-sub parse {
-  my @return_values;
-  my @context = (\@return_values);
-
-  while ($_[0] =~ /\G (?: \s* | \#.*)*
-                      (?: (?<tag> (?: [^\s()\[\]{}"'\\] | \\.)+)?
-                          (?: (?<listopen>   \()
-                            | (?<vectoropen> \[)
-                            | (?<mapopen>    \{)
-                            | "(?<dstring>   (?:[^"\\]*|\\[\s\S]))"
-                            | '(?<sstring>   (?:[^'\\]*|\\[\s\S]))')
-                        | (?<word>        (?: [^\s()\[\]{}'"\\] | \\.)+)
-                        | (?<listclose>   \))
-                        | (?<vectorclose> \])
-                        | (?<mapclose>    \}))/xmg) {
-    my $opener = $+{listopen} // $+{vectoropen} // $+{mapopen};
-    if (defined $+{word}) {
-      push @{$context[-1]}, $+{word};
-    } elsif (defined $+{dstring}) {
-      push @{$context[-1]}, xh::v->new('"', $+{tag}, $+{dstring});
-    } elsif (defined $+{sstring}) {
-      push @{$context[-1]}, xh::v->new("'", $+{tag}, $+{sstring});
-    } elsif (defined $opener) {
-      my $new_container = xh::v->new($opener, $+{tag});
-      push @{$context[-1]}, $new_container;
-      push @context, $new_container;
-    } elsif (defined($+{listclose} // $+{vectorclose} // $+{mapclose})) {
-      my $popped = pop @context;
-      push @{$context[-1]}, $popped;
-    }
-  }
-  @return_values;
-} \end{perlcode}
 
 \end{document}
