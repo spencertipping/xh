@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  21dd8a680ae13fc2e06f7cccf5b89705
+# state:  08b7cadd4663bbc50e62ee291e3dda2b
 # istate: 1c8e6296c8ea44cc3c753f60d5f09c68
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2427,32 +2427,14 @@ meta::psection('implementation', <<'__');
       - end
 
     - nitem | is:unquote-structure-preserving | xhs.unquote-structure
-      The unquoting operators \verb|$|, \verb|@$|, \verb|()|, and \verb|@()|
-      each preserve some aspect of structure:
-      - itemize << end
-        - item
-          \verb|$| and \verb|()| preserve list structure and atom count, and
-          strictly decrease quotation level.
-        - item
-          \verb|@$| and \verb|@()| preserve list levels while varying atom
-          count, and strictly decrease quotation level.
-        - item
-          \verb|!$| and \verb|!()| locally preserve list structure, atom count,
-          and quotation level. These won't block when expanding unrealized lazy
-          values.
-        - item
-          \verb|!| distributes across \verb|@|:~\verb|!@$| and \verb|!@()|
-          locally preserve list structure and quotation level, varying atom
-          count. These forms also won't block when expanding unrealized lazy
-          values.
-      - end
-      Operators that decrease quotation level will block if the result requires
-      quoting to represent fully.
+      Unquoting is structure-preserving with respect to parsing; that is, it
+      will never force a reparse if its argument has already been parsed.
       - antecedents << end
         \initial
         \refboth{i:real-programming} above
         \refboth{i:unquoting} above
-        \refboth{i:not-slow} above)
+        \refboth{i:not-slow} above
+        \refboth{i:abstract-evaluation} above
       - end
     - nitem | is:stack-local-scoping | xhs.stackscope
       All scoping is done by passing a second argument to {\tt unquote}; this
@@ -2825,25 +2807,21 @@ meta::psection('implementation', <<'__');
       # later on: -> 112303
     - end
 
-  - s1 quoted form representation | sec:quoted-representation
-    Like in Lisp, you can quote quoted forms to see how they are represented:
+  - s1 unquoting | sec:unquoting
+    \verb|$| is a right-associative prefix operator, as are \verb|!|~and
+    \verb|@|. Technically they are reader macros with the following expansions:
 
     - verbatim << end
-      def form $x
-      echo $form                # will block until you def x
-      echo !$form               # -> (unquote x)
-      echo !!$form              # -> (unquote (list unquote x))
-      echo !@$form              # -> (unquote-splice x)
-      echo !!@$form             # -> (unquote (list unquote-splice x))
-      echo $!@$form             # will block until you def x
+      $x        (unquote x)
+      @$x       @(unquote x)
+      !$x       (quote-unquoted x)
+      @!$x      @(quote-unquoted x))
     - end
 
-    xh's prefix operators are generally composable, but it's worth keeping in
-    mind that things like \verb|@| aren't well-defined by themselves; \verb|@$|
-    means {\tt unquote-splice}.\footnote{{\bf TODO:} think this through
-    carefully. It's starting to seem like {\tt unquote-splice} is some horrible
-    hack that needs to be redesigned, though I do hate to push this
-    functionality into some kind of {\tt apply} function.}
+    {\bf TODO:}~how does \verb|@| work? If it's a prefix operator that
+    \verb|@|-tags its operand, then how are we doing string concatenation of
+    paren values? (i.e.~how do we know when a word prefix is a tag or a string
+    prefix?)
 
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
