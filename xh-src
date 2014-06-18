@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  9fab66949c86f4601fc36dfb1dde8c8e
+# state:  dac9a9f088c49e7b48b3dfea206fb698
 # istate: 1c8e6296c8ea44cc3c753f60d5f09c68
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2426,19 +2426,24 @@ meta::psection('implementation', <<'__');
       - end
 
     - nitem | is:unquote-structure-preserving | xhs.unquote-structure
-      The unquoting operators \verb|$|, \verb|$@|, \verb|()|, and \verb|@()|
+      The unquoting operators \verb|$|, \verb|@$|, \verb|()|, and \verb|@()|
       each preserve some aspect of structure:
       - itemize << end
         - item
           \verb|$| and \verb|()| preserve list structure and atom count, and
           strictly decrease quotation level.
         - item
-          \verb|$@| and \verb|@()| preserve list levels while varying atom
+          \verb|@$| and \verb|@()| preserve list levels while varying atom
           count, and strictly decrease quotation level.
         - item
-          \verb|$!| and \verb|!()| locally preserve list structure, atom count,
-          and quotation level. These are the only forms that won't block when
-          expanding unrealized lazy values.
+          \verb|!$| and \verb|!()| locally preserve list structure, atom count,
+          and quotation level. These won't block when expanding unrealized lazy
+          values.
+        - item
+          \verb|!| distributes across \verb|@|:~\verb|!@$| and \verb|!@()|
+          locally preserve list structure and quotation level, varying atom
+          count. These forms also won't block when expanding unrealized lazy
+          values.
       - end
       Operators that decrease quotation level will block if the result requires
       quoting to represent fully.

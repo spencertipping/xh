@@ -606,19 +606,24 @@
 \end{itemize}
 
 \item{}\Label{is:unquote-structure-preserving}{xhs.unquote-structure}{\em\ref{is:unquote-structure-preserving}}
-  The unquoting operators \verb|$|, \verb|$@|, \verb|()|, and \verb|@()|
+  The unquoting operators \verb|$|, \verb|@$|, \verb|()|, and \verb|@()|
   each preserve some aspect of structure:
 \begin{itemize}
 \item{}
   \verb|$| and \verb|()| preserve list structure and atom count, and
   strictly decrease quotation level.
 \item{}
-  \verb|$@| and \verb|@()| preserve list levels while varying atom
+  \verb|@$| and \verb|@()| preserve list levels while varying atom
   count, and strictly decrease quotation level.
 \item{}
-  \verb|$!| and \verb|!()| locally preserve list structure, atom count,
-  and quotation level. These are the only forms that won't block when
-  expanding unrealized lazy values.
+  \verb|!$| and \verb|!()| locally preserve list structure, atom count,
+  and quotation level. These won't block when expanding unrealized lazy
+  values.
+\item{}
+  \verb|!| distributes across \verb|@|:~\verb|!@$| and \verb|!@()|
+  locally preserve list structure and quotation level, varying atom
+  count. These forms also won't block when expanding unrealized lazy
+  values.
 \end{itemize}
   Operators that decrease quotation level will block if the result requires
   quoting to represent fully.
