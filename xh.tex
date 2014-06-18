@@ -100,7 +100,8 @@
 \item \refboth{i:trivial-debugging}
 \end{itemize}
 \item{}\Label{i:not-slow}{notslow}{\em\ref{i:not-slow}}
-  xh should never cause a dealbreaking performance problem.
+  xh should never cause an unresolvable performance problem that could be
+  worked around by using a different language.
 \begin{itemize}
 \item \initial
 \item \refboth{i:real-programming}
@@ -937,6 +938,92 @@
 \item \refboth{ir:evaluator-api}
 \end{itemize}
 \end{enumerate}
+
+\chapter{xh-script semantics}\label{chp:xhs-semantics}
+  xh-script source is written as a series of quoted expressions, each of which
+  will be unquoted to evaluate it. xh does a bit of preprocessing at the
+  toplevel so you don't have to wrap each expression in parentheses, but
+  semantically it works like Lisp. For example:
+
+\begin{verbatim}
+#!/usr/bin/env xh
+def foo bar
+echo $foo
+\end{verbatim}
+
+  xh reads the whole file\footnote{Or incrementally; it doesn't matter.} and
+  preprocesses it into these forms:
+
+\begin{verbatim}
+(def foo bar)
+(echo $foo)
+\end{verbatim}
+
+  Now each form is unquoted, which causes it to be evaluated. Unquoting a
+  \verb|()| form involves calling a function:
+
+\begin{verbatim}
+(def foo bar)       # invoke 'def' on the arguments 'foo' and 'bar'
+(echo $foo)         # can't evaluate this yet because $foo blocks
+\end{verbatim}
+
+  Once \verb|(def foo bar)| runs successfully, xh can unblock the evaluation of
+  \verb|$foo|, and the evaluator continues:
+
+\begin{verbatim}
+(echo bar)
+\end{verbatim}
+
+\section{lazy values and quotation}\label{sec:lazy-values}
+    Some operations won't complete immediately, for example reads from a file.
+    Any normal expansions (i.e.~\verb|$| and \verb|()|) will block until the
+    results become available, but you can view in-progress lazy values by
+    asking for a quoted form of the value:
+
+\begin{verbatim}
+def file-contents (read /etc/passwd)      # read the whole file
+echo $file-contents                       # blocks until ready
+echo !$file-contents                      # writes quoted lazy value
+\end{verbatim}
+
+    The rationale for this behavior is that any operation can be described
+    rather than executed; if you refer to an operation this way, you have
+    quoted it (much as Lisp supports quoted s-expressions). xh takes this idea
+    one step further and represents any unknown or unrealized value as an
+    opaque quantity, but one with a well-defined quoted form; this quoted form
+    is first-class, so you can work with it without blocking.
+
+    Another way to think of it is that \verb|!| tells you how much xh knows
+    about a value. For example, suppose you concatenate two files:
+
+\begin{verbatim}
+def both "$(read /etc/passwd) $(read /bin/ls)"
+echo (size $both)                         # this will block
+echo !(size $both)
+# -> (+ (file-size /etc/passwd) 1 (file-size /bin/ls))
+# later on: -> (+ 2223 (file-size /bin/ls))
+# later on: -> 112303
+\end{verbatim}
+
+\section{quoted form representation}\label{sec:quoted-representation}
+    Like in Lisp, you can quote quoted forms to see how they are represented:
+
+\begin{verbatim}
+def form $x
+echo $form                # will block until you def x
+echo !$form               # -> (unquote x)
+echo !!$form              # -> (unquote (list unquote x))
+echo !@$form              # -> (unquote-splice x)
+echo !!@$form             # -> (unquote (list unquote-splice x))
+echo $!@$form             # will block until you def x
+\end{verbatim}
+
+    xh's prefix operators are generally composable, but it's worth keeping in
+    mind that things like \verb|@| aren't well-defined by themselves; \verb|@$|
+    means {\tt unquote-splice}.\footnote{{\bf TODO:} think this through
+    carefully. It's starting to seem like {\tt unquote-splice} is some horrible
+    hack that needs to be redesigned, though I do hate to push this
+    functionality into some kind of {\tt apply} function.}
 
 \part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
