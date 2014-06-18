@@ -1029,14 +1029,11 @@ echo $!@$form             # will block until you def x
 \chapter{self-replication}\label{chp:self-replication}
 \lstset{caption={boot/xh-header},name={boot/xh-header}}\begin{perlcode}
 #!/usr/bin/env perl
+#<body style='display:none'><script id='self' type='xh'>
 BEGIN {eval(our $xh_bootstrap = q{
 # xh | https://github.com/spencertipping/xh
 # Copyright (C) 2014, Spencer Tipping
 # Licensed under the terms of the MIT source code license
-
-# For the benefit of HTML viewers (long story):
-# <body style='display:none'>
-# <script src='http://spencertipping.com/xh/page.js'></script>
 use 5.014;
 package xh;
 our %modules;
@@ -1081,6 +1078,7 @@ undef $::xh_bootstrap; \end{perlcode}
 \lstset{caption={boot/xh-header (continued)},name={boot/xh-header}}\begin{perlcode}
 sub image {
   join "\n", "#!/usr/bin/env perl",
+             "#<body style='display:none'><script id='self' type='xh'>",
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
