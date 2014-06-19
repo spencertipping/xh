@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  71952a4366a494f659ece986ea4afcc7
-# istate: 472c80b9d01d288c42e0719737b3da86
+# state:  d726e252867ccab6a4d812f578bb4cb8
+# istate: 75c8fc94d954cc74e35eaad39f10fe59
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2868,93 +2868,49 @@ meta::psection('implementation', <<'__');
     })}
   - end
 
+  Here's a quick test implementation of \verb|xh::main::main|; its purpose is
+  to make sure replication works:
+
+  - perlmodule xh::main src/test/main.pl << end
+    sub main {
+      print ::xh::image;
+    }
+  - end
+
 - sc parser | chp:base-parser
-  We define the real parser in \Ref{chapter}{chp:self-hosted-parser}, but
-  because it's written in xh we need this one to parse that module. This one
-  can be arbitrarily slow, since it's just used to bootstrap the image. It
-  won't appear in distributable images of xh.
-
   - perlmodule xh::baseparser src/baseparser.pl << end
-    # TODO: nail down the syntax and write a perl parser for it
+    # TODO
   - end
 
-- sp standard library | part:standard-library
-- sc core functions | chp:core-functions
-  We have two functions to work with right now:~\verb|def| and \verb|amb|.
-  Everything else is built on these and by equivalence with quoted constructs.
-
-  - xhmodule core src/core.xh << end
-    -- include src/core/conditionals.xh
-    -- include src/core/iteration.xh
+- sc evaluator | chp:base-evaluator
+  - perlmodule xh::baseevaluator src/baseevaluator.pl << end
+    # TODO
   - end
 
-  - s1 conditionals | sec:conditionals
-    xh doesn't have booleans, so we need to define how those work:
+- sp self-hosting implementation | part:self-hosting-implementation
+- sc computational abstraction | chp:computational-abstraction
+  - enumerate << end
+    - nitem | ica:structured-programming | ca.structured
+      All compilation is run through a structured programming layer that has
+      abstractions for numeric operations and basic control flow. Shortcuts for
+      higher-level operations are provided to leverage platform-specific
+      optimized libraries.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+      - end
 
-    - xh src/core/conditionals.xh << end
-      def (true  $x $y) $x
-      def (false $x $y) $y
-      def (->bool $x)  true
-      def (->bool '')  false
-      def (->bool 0)   false
-      def (->bool nil) false
-
-      def (if $cond $x $y)      ((->bool $cond) $x $y)
-      def (when $cond @$body)   (if $cond (do @$body) nil)
-      def (unless $cond @$body) (if $cond nil (do @$body))
-
-      def (cond $c $e) (if $c $e $undefined)
-      def (cond $c $e $default) (if $c $e $default)
-      def (cond $c1 $e1 $c2 $e2 @$rest) \
-          (if $c1 $e1 (cond $c2 $e2 @$rest))
-    - end
-
-  - s1 iteration | sec:iteration
-    - xh src/core/iteration.xh << end
-      # TODO: more of these, but figure out functions vs abstract expressions
-      def (while $cond @$body) \
-          (when $cond
-            (do @$body)
-            (while $cond @$body))
-      def (until $cond @$body) \
-          (unless $cond
-            (do @$body)
-            (until $cond @$body))
-    - end
-
-- sc self-hosted parser | chp:self-hosted-parser
-  Right now the Perl version of xh knows how to parse xh-script, but xh itself
-  does not. We need to define the \verb|quote| function so that xh can generate
-  parsers in other languages.
-
-  - xhmodule parser src/parser.xh << end
-    -- include src/parser/syntax.xh
-    -- include src/parser/literals.xh
-    -- include src/parser/containers.xh
+    - nitem | ica:variable-width-integers | ca.varwidthint
+      Integer operations have signed and unsigned variants, and exist at any
+      bit width. xh doesn't restrict to 32/64 bits (or other common values)
+      because not all backends, e.g.~Perl, support all bit widths.
+      - antecedents << end
+        \initial
+        \refboth{i:written-in-perl}
+      - end
   - end
-
-  - s1 base syntax | sec:base-syntax
-    - xh src/parser/syntax.xh << end
-      defn (repeat $form) (amb $form "$form$(repeat $form)")
-      defn (xh-comment $content) "#$(re-encode '[^\n]' $content)"
-      defn (xh-whitespace $ws)   (re-encode '\s' $ws)
-      defn (xh-ignored)          (repeat (amb (xh-comment $_)
-                                              (xh-whitespace $_)))
-    - end
-
-  - s1 literals | sec:literals
-    This is where we encode all of xh's backslash-escaping logic and
-    interpolation constructs.
-
-    - xh src/parser/literals.xh << end
-      # TODO: interpolation; this is seriously nontrivial and I'm probably
-      # doing it wrong.
-      defn (xh-sstring $contents)  "'$(re-replace $contents
-                                        "\\" "\\\\" "'"  "\\'")'"
-      defn (xh-dstring $contents) "\"$(re-replace $contents
-                                        "\\" "\\\\" "\"" "\\\""
-                                        "\n" '\n'   "\t" '\t')\""
-    - end
 
 __
 meta::resource('header', <<'__');
@@ -3069,12 +3025,15 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__8');
+meta::sdoc('xh', <<'__b');
 - include boot/xh-header
+- include src/baseparser.pl
+- include src/baseevaluator.pl
+- include src/test/main.pl
 xh::main::main;
 __DATA__
 
-__8
+__b
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

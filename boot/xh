@@ -51,5 +51,19 @@ sub image {
              "xh::main::main;\n__DATA__";
 }
 })}
+BEGIN {xh::defmodule('xh::baseparser.pl', <<'_')}
+# TODO
+_
+
+BEGIN {xh::defmodule('xh::baseevaluator.pl', <<'_')}
+# TODO
+_
+
+BEGIN {xh::defmodule('xh::main.pl', <<'_')}
+sub main {
+  print ::xh::image;
+}
+_
+
 xh::main::main;
 __DATA__
