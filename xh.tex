@@ -983,87 +983,6 @@
 \end{itemize}
 \end{enumerate}
 
-\chapter{xh-script semantics}\label{chp:xhs-semantics}
-  xh-script source is written as a series of quoted expressions, each of which
-  will be unquoted to evaluate it. xh does a bit of preprocessing at the
-  toplevel so you don't have to wrap each expression in parentheses, but
-  semantically it works like Lisp. For example:
-
-\begin{verbatim}
-#!/usr/bin/env xh
-def foo bar
-echo $foo
-\end{verbatim}
-
-  xh reads the whole file\footnote{Or incrementally; it doesn't matter.} and
-  preprocesses it into these forms:
-
-\begin{verbatim}
-(def foo bar)
-(echo $foo)
-\end{verbatim}
-
-  Now each form is unquoted, which causes it to be evaluated. Unquoting a
-  \verb|()| form involves calling a function:
-
-\begin{verbatim}
-(def foo bar)       # invoke 'def' on the arguments 'foo' and 'bar'
-(echo $foo)         # can't evaluate this yet because $foo blocks
-\end{verbatim}
-
-  Once \verb|(def foo bar)| runs successfully, xh can unblock the evaluation of
-  \verb|$foo|, and the evaluator continues:
-
-\begin{verbatim}
-(echo bar)
-\end{verbatim}
-
-\section{lazy values and quotation}\label{sec:lazy-values}
-    Some operations won't complete immediately, for example reads from a file.
-    Any normal expansions (i.e.~\verb|$| and \verb|()|) will block until the
-    results become available, but you can view in-progress lazy values by
-    asking for a quoted form of the value:
-
-\begin{verbatim}
-def file-contents (read /etc/passwd)      # read the whole file
-echo $file-contents                       # blocks until ready
-echo !$file-contents                      # writes quoted lazy value
-\end{verbatim}
-
-    The rationale for this behavior is that any operation can be described
-    rather than executed; if you refer to an operation this way, you have
-    quoted it (much as Lisp supports quoted s-expressions). xh takes this idea
-    one step further and represents any unknown or unrealized value as an
-    opaque quantity, but one with a well-defined quoted form; this quoted form
-    is first-class, so you can work with it without blocking.
-
-    Another way to think of it is that \verb|!| tells you how much xh knows
-    about a value. For example, suppose you concatenate two files:
-
-\begin{verbatim}
-def both "$(read /etc/passwd) $(read /bin/ls)"
-echo (size $both)                         # this will block
-echo !(size $both)
-# -> (+ (file-size /etc/passwd) 1 (file-size /bin/ls))
-# later on: -> (+ 2223 (file-size /bin/ls))
-# later on: -> 112303
-\end{verbatim}
-
-\section{unquoting}\label{sec:unquoting}
-    \verb|$| is a right-associative prefix operator, as are \verb|!|~and
-    \verb|@|. Technically they are reader macros with the following expansions:
-
-\begin{verbatim}
-$x        (unquote x)
-@$x       @(unquote x)
-!$x       (quote-unquoted x)
-@!$x      @(quote-unquoted x)
-\end{verbatim}
-
-    \verb|@| is slightly magical. Just as \verb|$| is a somewhat arbitrary way
-    to dereference things, \verb|@$| and \verb|@()| are arbitrary syntactic
-    forms that indicate list splicing.
-
 \part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
 \lstset{caption={boot/xh-header},name={boot/xh-header}}\begin{perlcode}
@@ -1127,7 +1046,58 @@ sub image {
 }
 })} \end{perlcode}
 
+\chapter{parser}\label{chp:base-parser}
+  We define the real parser in \Ref{chapter}{chp:self-hosted-parser}, but
+  because it's written in xh we need this one to parse that module. This one
+  can be arbitrarily slow, since it's just used to bootstrap the image. It
+  won't appear in distributable images of xh.
+
+\lstset{caption={src/baseparser.pl},name={src/baseparser.pl}}\begin{perlcode}
+BEGIN {xh::defmodule('xh::baseparser.pl', <<'_')}
+# TODO: nail down the syntax and write a perl parser for it
+_ \end{perlcode}
+
 \part{standard library}\label{part:standard-library}
+\chapter{core functions}\label{chp:core-functions}
+  We have two functions to work with right now:~\verb|def| and \verb|amb|.
+  Everything else is built on these and by equivalence with quoted constructs.
+
+\lstset{caption={src/core.xh},name={src/core.xh}}\begin{xhcode}
+-- include src/core/conditionals.xh
+-- include src/core/iteration.xh \end{xhcode}
+
+\section{conditionals}\label{sec:conditionals}
+    xh doesn't have booleans, so we need to define how those work:
+
+\lstset{caption={src/core/conditionals.xh},name={src/core/conditionals.xh}}\begin{xhcode}
+def (true  $x $y) $x
+def (false $x $y) $y
+def (->bool $x)  true
+def (->bool '')  false
+def (->bool 0)   false
+def (->bool nil) false
+
+def (if $cond $x $y)      ((->bool $cond) $x $y)
+def (when $cond @$body)   (if $cond (do @$body) nil)
+def (unless $cond @$body) (if $cond nil (do @$body))
+
+def (cond $c $e) (if $c $e $undefined)
+def (cond $c $e $default) (if $c $e $default)
+def (cond $c1 $e1 $c2 $e2 @$rest) \
+    (if $c1 $e1 (cond $c2 $e2 @$rest)) \end{xhcode}
+
+\section{iteration}\label{sec:iteration}
+\lstset{caption={src/core/iteration.xh},name={src/core/iteration.xh}}\begin{xhcode}
+# TODO: more of these, but figure out functions vs abstract expressions
+def (while $cond @$body) \
+    (when $cond
+      (do @$body)
+      (while $cond @$body))
+def (until $cond @$body) \
+    (unless $cond
+      (do @$body)
+      (until $cond @$body)) \end{xhcode}
+
 \chapter{self-hosted parser}\label{chp:self-hosted-parser}
   Right now the Perl version of xh knows how to parse xh-script, but xh itself
   does not. We need to define the \verb|quote| function so that xh can generate
@@ -1147,19 +1117,16 @@ defn (xh-ignored)          (repeat (amb (xh-comment $_)
                                         (xh-whitespace $_))) \end{xhcode}
 
 \section{literals}\label{sec:literals}
-    This is where we encode all of xh's backslash-escaping logic.
+    This is where we encode all of xh's backslash-escaping logic and
+    interpolation constructs.
 
 \lstset{caption={src/parser/literals.xh},name={src/parser/literals.xh}}\begin{xhcode}
- \end{xhcode}
-
-\chapter{xh semantics}\label{chp:xh-semantics}
-  All of xh's semantics are defined in terms of equations over quoted values.
-  This chapter defines core observables of quoted data structures.
-
-\lstset{caption={src/structures.xh},name={src/structures.xh}}\begin{xhcode}
--- include src/structures/vector.xh \end{xhcode}
-
-\lstset{caption={src/structures/vector.xh},name={src/structures/vector.xh}}\begin{xhcode}
- \end{xhcode}
+# TODO: interpolation; this is seriously nontrivial and I'm probably
+# doing it wrong.
+defn (xh-sstring $contents)  "'$(re-replace $contents
+                                  "\\" "\\\\" "'"  "\\'")'"
+defn (xh-dstring $contents) "\"$(re-replace $contents
+                                  "\\" "\\\\" "\"" "\\\""
+                                  "\n" '\n'   "\t" '\t')\"" \end{xhcode}
 
 \end{document}

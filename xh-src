@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  65d631023eb71c84d718f995a690ac6d
+# state:  71952a4366a494f659ece986ea4afcc7
 # istate: 472c80b9d01d288c42e0719737b3da86
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2803,87 +2803,6 @@ meta::psection('implementation', <<'__');
       - end
   - end
 
-- sc xh-script semantics | chp:xhs-semantics
-  xh-script source is written as a series of quoted expressions, each of which
-  will be unquoted to evaluate it. xh does a bit of preprocessing at the
-  toplevel so you don't have to wrap each expression in parentheses, but
-  semantically it works like Lisp. For example:
-
-  - verbatim << end
-    #!/usr/bin/env xh
-    def foo bar
-    echo $foo
-  - end
-
-  xh reads the whole file\footnote{Or incrementally; it doesn't matter.} and
-  preprocesses it into these forms:
-
-  - verbatim << end
-    (def foo bar)
-    (echo $foo)
-  - end
-
-  Now each form is unquoted, which causes it to be evaluated. Unquoting a
-  \verb|()| form involves calling a function:
-
-  - verbatim << end
-    (def foo bar)       # invoke 'def' on the arguments 'foo' and 'bar'
-    (echo $foo)         # can't evaluate this yet because $foo blocks
-  - end
-
-  Once \verb|(def foo bar)| runs successfully, xh can unblock the evaluation of
-  \verb|$foo|, and the evaluator continues:
-
-  - verbatim << end
-    (echo bar)
-  - end
-
-  - s1 lazy values and quotation | sec:lazy-values
-    Some operations won't complete immediately, for example reads from a file.
-    Any normal expansions (i.e.~\verb|$| and \verb|()|) will block until the
-    results become available, but you can view in-progress lazy values by
-    asking for a quoted form of the value:
-
-    - verbatim << end
-      def file-contents (read /etc/passwd)      # read the whole file
-      echo $file-contents                       # blocks until ready
-      echo !$file-contents                      # writes quoted lazy value
-    - end
-
-    The rationale for this behavior is that any operation can be described
-    rather than executed; if you refer to an operation this way, you have
-    quoted it (much as Lisp supports quoted s-expressions). xh takes this idea
-    one step further and represents any unknown or unrealized value as an
-    opaque quantity, but one with a well-defined quoted form; this quoted form
-    is first-class, so you can work with it without blocking.
-
-    Another way to think of it is that \verb|!| tells you how much xh knows
-    about a value. For example, suppose you concatenate two files:
-
-    - verbatim << end
-      def both "$(read /etc/passwd) $(read /bin/ls)"
-      echo (size $both)                         # this will block
-      echo !(size $both)
-      # -> (+ (file-size /etc/passwd) 1 (file-size /bin/ls))
-      # later on: -> (+ 2223 (file-size /bin/ls))
-      # later on: -> 112303
-    - end
-
-  - s1 unquoting | sec:unquoting
-    \verb|$| is a right-associative prefix operator, as are \verb|!|~and
-    \verb|@|. Technically they are reader macros with the following expansions:
-
-    - verbatim << end
-      $x        (unquote x)
-      @$x       @(unquote x)
-      !$x       (quote-unquoted x)
-      @!$x      @(quote-unquoted x)
-    - end
-
-    \verb|@| is slightly magical. Just as \verb|$| is a somewhat arbitrary way
-    to dereference things, \verb|@$| and \verb|@()| are arbitrary syntactic
-    forms that indicate list splicing.
-
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
   - perl boot/xh-header << end
@@ -2949,7 +2868,60 @@ meta::psection('implementation', <<'__');
     })}
   - end
 
+- sc parser | chp:base-parser
+  We define the real parser in \Ref{chapter}{chp:self-hosted-parser}, but
+  because it's written in xh we need this one to parse that module. This one
+  can be arbitrarily slow, since it's just used to bootstrap the image. It
+  won't appear in distributable images of xh.
+
+  - perlmodule xh::baseparser src/baseparser.pl << end
+    # TODO: nail down the syntax and write a perl parser for it
+  - end
+
 - sp standard library | part:standard-library
+- sc core functions | chp:core-functions
+  We have two functions to work with right now:~\verb|def| and \verb|amb|.
+  Everything else is built on these and by equivalence with quoted constructs.
+
+  - xhmodule core src/core.xh << end
+    -- include src/core/conditionals.xh
+    -- include src/core/iteration.xh
+  - end
+
+  - s1 conditionals | sec:conditionals
+    xh doesn't have booleans, so we need to define how those work:
+
+    - xh src/core/conditionals.xh << end
+      def (true  $x $y) $x
+      def (false $x $y) $y
+      def (->bool $x)  true
+      def (->bool '')  false
+      def (->bool 0)   false
+      def (->bool nil) false
+
+      def (if $cond $x $y)      ((->bool $cond) $x $y)
+      def (when $cond @$body)   (if $cond (do @$body) nil)
+      def (unless $cond @$body) (if $cond nil (do @$body))
+
+      def (cond $c $e) (if $c $e $undefined)
+      def (cond $c $e $default) (if $c $e $default)
+      def (cond $c1 $e1 $c2 $e2 @$rest) \
+          (if $c1 $e1 (cond $c2 $e2 @$rest))
+    - end
+
+  - s1 iteration | sec:iteration
+    - xh src/core/iteration.xh << end
+      # TODO: more of these, but figure out functions vs abstract expressions
+      def (while $cond @$body) \
+          (when $cond
+            (do @$body)
+            (while $cond @$body))
+      def (until $cond @$body) \
+          (unless $cond
+            (do @$body)
+            (until $cond @$body))
+    - end
+
 - sc self-hosted parser | chp:self-hosted-parser
   Right now the Perl version of xh knows how to parse xh-script, but xh itself
   does not. We need to define the \verb|quote| function so that xh can generate
@@ -2971,23 +2943,18 @@ meta::psection('implementation', <<'__');
     - end
 
   - s1 literals | sec:literals
-    This is where we encode all of xh's backslash-escaping logic.
+    This is where we encode all of xh's backslash-escaping logic and
+    interpolation constructs.
 
     - xh src/parser/literals.xh << end
-      
+      # TODO: interpolation; this is seriously nontrivial and I'm probably
+      # doing it wrong.
+      defn (xh-sstring $contents)  "'$(re-replace $contents
+                                        "\\" "\\\\" "'"  "\\'")'"
+      defn (xh-dstring $contents) "\"$(re-replace $contents
+                                        "\\" "\\\\" "\"" "\\\""
+                                        "\n" '\n'   "\t" '\t')\""
     - end
-
-- sc xh semantics | chp:xh-semantics
-  All of xh's semantics are defined in terms of equations over quoted values.
-  This chapter defines core observables of quoted data structures.
-
-  - xhmodule structures src/structures.xh << end
-    -- include src/structures/vector.xh
-  - end
-
-  - xh src/structures/vector.xh << end
-    
-  - end
 
 __
 meta::resource('header', <<'__');
