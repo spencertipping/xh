@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  d726e252867ccab6a4d812f578bb4cb8
-# istate: 75c8fc94d954cc74e35eaad39f10fe59
+# state:  e073d7df9b29cf00d371014145c24555
+# istate: 7d6052772df79366e68a44084413fab9
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -697,6 +697,9 @@ join "\n", map strip($_), split /\n/, table_display($external ? [grep length, @e
 __
 meta::function('make', <<'__');
 my ($options, @stuff) = separate_options(@_);
+
+# vim highlighting
+file::write('xh.vim', retrieve('vim_highlighter::xh'));
 
 tex();                  # preliminary run to generate files
 my $tex = tex();
