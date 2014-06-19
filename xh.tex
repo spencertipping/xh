@@ -327,9 +327,7 @@
 \end{itemize}
 \item{}\Label{i:parse-self}{selfparse}{\em\ref{i:parse-self}}
   xh-script must contain a library to parse itself.
-\begin{itemize}
-\item \refboth{i:code-as-data}
-\end{itemize}
+(\refboth{i:code-as-data})
 \item{}\Label{i:homoiconic}{homoiconic}{\em\ref{i:homoiconic}}
   xh-script must be homoiconic.
 \begin{itemize}
@@ -751,6 +749,70 @@
 \end{itemize}
 \end{enumerate}
 
+\chapter{xh-script syntax}\label{chp:xhs-syntax}
+  Design constraints for the syntax in particular.
+
+\begin{enumerate}
+\item{}\Label{isyn:reversible-parsing}{syn.reversibleparsing}{\em\ref{isyn:reversible-parsing}}
+  The parser for xh is losslessly reversible:~comment data, whitespace, and
+  any other aspect of valid xh code is encoded in the parsed
+  representation.
+(\initial)
+\item{}\Label{isyn:tags}{syn.tags}{\em\ref{isyn:tags}}
+  Lists, vectors, and maps can each be tagged by immediately prefixing the
+  opening brace with a word.
+(\initial)
+\item{}\Label{isyn:splicing}{syn.splice}{\em\ref{isyn:splicing}}
+  A quoted form prefixed with \verb|@| causes list splicing to occur, just
+  like Common Lisp's \verb|,@| and Clojure's \verb|~@|. Technically
+  \verb|@| is a distributive, right-associative prefix expansion operator
+  (sort of like \verb|$| in some ways), so you can layer it to expand
+  multiple layers of lists. Any non-lists are treated as lists of a single
+  item; \verb|@| will never block evaluation.
+\begin{itemize}
+\item \initial
+\item \refboth{i:real-programming}
+\item \refboth{i:ergonomic-limit}
+\end{itemize}
+\item{}\Label{isyn:escaping}{syn.escaping}{\em\ref{isyn:escaping}}
+  Any character can be prefixed with {\tt \textbackslash} to cause it to be
+  interpreted as a string. The only exception is that some escape sequences
+  are interpreted, including \verb|\n|, \verb|\t|, and similar.
+\begin{itemize}
+\item \initial
+\item \refboth{i:feel-like-shell}
+\end{itemize}
+
+\item{}\Label{isyn:hash-comments}{syn.hashcomments}{\em\ref{isyn:hash-comments}}
+  Comments begin with \verb|#| preceded either by whitespace or the
+  beginning of a line. Unlike in many languages, comment data is available
+  in the parsed representation of xh source code.
+\begin{itemize}
+\item \refboth{i:feel-like-shell}
+\item \refboth{isyn:reversible-parsing}
+\end{itemize}
+\item{}\Label{isyn:string-quoting}{syn.stringquoting}{\em\ref{isyn:string-quoting}}
+  Single-quoted and double-quoted strings have exactly the semantics they
+  do in Perl or bash; that is, single-quoted strings are oblivious to most
+  unquoting features, whereas double-quoted strings are interpolated.
+(\refboth{i:feel-like-shell})
+\item{}\Label{isyn:expression-interpolation}{syn.stringexpressions}{\em\ref{isyn:expression-interpolation}}
+  Within a double-quoted string, you need to prefix any interpolating
+  \verb|()| group with a \verb|$| to make it active.
+\begin{itemize}
+\item \refboth{i:trivial-debugging}
+\item \refboth{i:feel-like-shell}
+\end{itemize}
+\item{}\Label{isyn:toplevel-expressions}{syn.toplevelexpressions}{\em\ref{isyn:toplevel-expressions}}
+  Outside words and quoted strings, \verb|()| does not require a \verb|$|
+  prefix to interpolate. Put differently, the \verb|$| is required if and
+  only if you are interpolating by same-word string concatenation.
+\begin{itemize}
+\item \refboth{i:real-programming}
+\item \refboth{i:ergonomic-limit}
+\end{itemize}
+\end{enumerate}
+
 \chapter{runtime}\label{chp:runtime}
   xh-script operates within a hosting environment that manages things like
   memory allocation and thread/evaluation scheduling. Beyond this, we also need
@@ -995,13 +1057,12 @@ echo !(size $both)
 $x        (unquote x)
 @$x       @(unquote x)
 !$x       (quote-unquoted x)
-@!$x      @(quote-unquoted x))
+@!$x      @(quote-unquoted x)
 \end{verbatim}
 
-    {\bf TODO:}~how does \verb|@| work? If it's a prefix operator that
-    \verb|@|-tags its operand, then how are we doing string concatenation of
-    paren values? (i.e.~how do we know when a word prefix is a tag or a string
-    prefix?)
+    \verb|@| is slightly magical. Just as \verb|$| is a somewhat arbitrary way
+    to dereference things, \verb|@$| and \verb|@()| are arbitrary syntactic
+    forms that indicate list splicing.
 
 \part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
@@ -1065,5 +1126,40 @@ sub image {
              "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}
+
+\part{standard library}\label{part:standard-library}
+\chapter{self-hosted parser}\label{chp:self-hosted-parser}
+  Right now the Perl version of xh knows how to parse xh-script, but xh itself
+  does not. We need to define the \verb|quote| function so that xh can generate
+  parsers in other languages.
+
+\lstset{caption={src/parser.xh},name={src/parser.xh}}\begin{xhcode}
+-- include src/parser/syntax.xh
+-- include src/parser/literals.xh
+-- include src/parser/containers.xh \end{xhcode}
+
+\section{base syntax}\label{sec:base-syntax}
+\lstset{caption={src/parser/syntax.xh},name={src/parser/syntax.xh}}\begin{xhcode}
+defn (repeat $form) (amb $form "$form$(repeat $form)")
+defn (xh-comment $content) "#$(re-encode '[^\n]' $content)"
+defn (xh-whitespace $ws)   (re-encode '\s' $ws)
+defn (xh-ignored)          (repeat (amb (xh-comment $_)
+                                        (xh-whitespace $_))) \end{xhcode}
+
+\section{literals}\label{sec:literals}
+    This is where we encode all of xh's backslash-escaping logic.
+
+\lstset{caption={src/parser/literals.xh},name={src/parser/literals.xh}}\begin{xhcode}
+ \end{xhcode}
+
+\chapter{xh semantics}\label{chp:xh-semantics}
+  All of xh's semantics are defined in terms of equations over quoted values.
+  This chapter defines core observables of quoted data structures.
+
+\lstset{caption={src/structures.xh},name={src/structures.xh}}\begin{xhcode}
+-- include src/structures/vector.xh \end{xhcode}
+
+\lstset{caption={src/structures/vector.xh},name={src/structures/vector.xh}}\begin{xhcode}
+ \end{xhcode}
 
 \end{document}

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  08b7cadd4663bbc50e62ee291e3dda2b
-# istate: 1c8e6296c8ea44cc3c753f60d5f09c68
+# state:  65d631023eb71c84d718f995a690ac6d
+# istate: 472c80b9d01d288c42e0719737b3da86
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2147,9 +2147,7 @@ meta::psection('implementation', <<'__');
       - end
     - nitem | i:parse-self | selfparse
       xh-script must contain a library to parse itself.
-      - antecedents << end
-        \refboth{i:code-as-data}
-      - end
+      - antecedents \refboth{i:code-as-data}
     - nitem | i:homoiconic | homoiconic
       xh-script must be homoiconic.
       - antecedents << end
@@ -2571,6 +2569,70 @@ meta::psection('implementation', <<'__');
       - end
   - end
 
+- sc xh-script syntax | chp:xhs-syntax
+  Design constraints for the syntax in particular.
+
+  - enumerate << end
+    - nitem | isyn:reversible-parsing | syn.reversibleparsing
+      The parser for xh is losslessly reversible:~comment data, whitespace, and
+      any other aspect of valid xh code is encoded in the parsed
+      representation.
+      - antecedents \initial
+    - nitem | isyn:tags | syn.tags
+      Lists, vectors, and maps can each be tagged by immediately prefixing the
+      opening brace with a word.
+      - antecedents \initial
+    - nitem | isyn:splicing | syn.splice
+      A quoted form prefixed with \verb|@| causes list splicing to occur, just
+      like Common Lisp's \verb|,@| and Clojure's \verb|~@|. Technically
+      \verb|@| is a distributive, right-associative prefix expansion operator
+      (sort of like \verb|$| in some ways), so you can layer it to expand
+      multiple layers of lists. Any non-lists are treated as lists of a single
+      item; \verb|@| will never block evaluation.
+      - antecedents << end
+        \initial
+        \refboth{i:real-programming}
+        \refboth{i:ergonomic-limit}
+      - end
+    - nitem | isyn:escaping | syn.escaping
+      Any character can be prefixed with {\tt \textbackslash} to cause it to be
+      interpreted as a string. The only exception is that some escape sequences
+      are interpreted, including \verb|\n|, \verb|\t|, and similar.
+      - antecedents << end
+        \initial
+        \refboth{i:feel-like-shell}
+      - end
+
+    - nitem | isyn:hash-comments | syn.hashcomments
+      Comments begin with \verb|#| preceded either by whitespace or the
+      beginning of a line. Unlike in many languages, comment data is available
+      in the parsed representation of xh source code.
+      - antecedents << end
+        \refboth{i:feel-like-shell}
+        \refboth{isyn:reversible-parsing}
+      - end
+    - nitem | isyn:string-quoting | syn.stringquoting
+      Single-quoted and double-quoted strings have exactly the semantics they
+      do in Perl or bash; that is, single-quoted strings are oblivious to most
+      unquoting features, whereas double-quoted strings are interpolated.
+      - antecedents \refboth{i:feel-like-shell}
+    - nitem | isyn:expression-interpolation | syn.stringexpressions
+      Within a double-quoted string, you need to prefix any interpolating
+      \verb|()| group with a \verb|$| to make it active.
+      - antecedents << end
+        \refboth{i:trivial-debugging}
+        \refboth{i:feel-like-shell}
+      - end
+    - nitem | isyn:toplevel-expressions | syn.toplevelexpressions
+      Outside words and quoted strings, \verb|()| does not require a \verb|$|
+      prefix to interpolate. Put differently, the \verb|$| is required if and
+      only if you are interpolating by same-word string concatenation.
+      - antecedents << end
+        \refboth{i:real-programming}
+        \refboth{i:ergonomic-limit}
+      - end
+  - end
+
 - sc runtime | chp:runtime
   xh-script operates within a hosting environment that manages things like
   memory allocation and thread/evaluation scheduling. Beyond this, we also need
@@ -2815,13 +2877,12 @@ meta::psection('implementation', <<'__');
       $x        (unquote x)
       @$x       @(unquote x)
       !$x       (quote-unquoted x)
-      @!$x      @(quote-unquoted x))
+      @!$x      @(quote-unquoted x)
     - end
 
-    {\bf TODO:}~how does \verb|@| work? If it's a prefix operator that
-    \verb|@|-tags its operand, then how are we doing string concatenation of
-    paren values? (i.e.~how do we know when a word prefix is a tag or a string
-    prefix?)
+    \verb|@| is slightly magical. Just as \verb|$| is a somewhat arbitrary way
+    to dereference things, \verb|@$| and \verb|@()| are arbitrary syntactic
+    forms that indicate list splicing.
 
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
@@ -2886,6 +2947,46 @@ meta::psection('implementation', <<'__');
                  "xh::main::main;\n__DATA__";
     }
     })}
+  - end
+
+- sp standard library | part:standard-library
+- sc self-hosted parser | chp:self-hosted-parser
+  Right now the Perl version of xh knows how to parse xh-script, but xh itself
+  does not. We need to define the \verb|quote| function so that xh can generate
+  parsers in other languages.
+
+  - xhmodule parser src/parser.xh << end
+    -- include src/parser/syntax.xh
+    -- include src/parser/literals.xh
+    -- include src/parser/containers.xh
+  - end
+
+  - s1 base syntax | sec:base-syntax
+    - xh src/parser/syntax.xh << end
+      defn (repeat $form) (amb $form "$form$(repeat $form)")
+      defn (xh-comment $content) "#$(re-encode '[^\n]' $content)"
+      defn (xh-whitespace $ws)   (re-encode '\s' $ws)
+      defn (xh-ignored)          (repeat (amb (xh-comment $_)
+                                              (xh-whitespace $_)))
+    - end
+
+  - s1 literals | sec:literals
+    This is where we encode all of xh's backslash-escaping logic.
+
+    - xh src/parser/literals.xh << end
+      
+    - end
+
+- sc xh semantics | chp:xh-semantics
+  All of xh's semantics are defined in terms of equations over quoted values.
+  This chapter defines core observables of quoted data structures.
+
+  - xhmodule structures src/structures.xh << end
+    -- include src/structures/vector.xh
+  - end
+
+  - xh src/structures/vector.xh << end
+    
   - end
 
 __
@@ -3197,6 +3298,15 @@ my ($commands) = @_;
 return '' if template::failing_conditional($commands);
 my $text = join "\n\n", map retrieve($_), split /\s+/, $commands;
 "\n\n$text\n\n";
+__
+meta::template('xh', <<'__');
+my ($line, $block) = @_;
+my $append         = $line =~ s/^\h*>>\h*//;
+
+$line =~ s/\s+.*$//o;
+file::write($line, ($append && "\n") . $block, mkpath => 1, append => $append);
+"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{xhcode}\n$block \\end{xhcode}";
+
 __
 meta::template('xhmodule', <<'__');
 my ($line, $block) = @_;
