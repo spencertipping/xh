@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  e0aa406c5ff044f13196a64eaaae4630
-# istate: 7d6052772df79366e68a44084413fab9
+# state:  d5d22670d986bbcea3b98f89dbc666d5
+# istate: 4d4c0cdb0ca7bbb3f44fe2bc286cc054
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -436,7 +436,7 @@ meta::cache('parent-state', <<'__');
 99aeabc9ec7fe80b1b39f5e53dc7e49e e8a9b9ff0c9d275767814d9cc9ee2bf5
 a1e8480e579614c01dabeecf0f963bcc 28d4c8a6dd79cd7fd34449a08f1b6f01
 a9e5975593ed5d90d943ad98405c71e5 ab9da1fb51db73a98ebc54d2e92dd8ae
-d6b8b54aecc42ae92c7a8c570c5559fc 9322515dd6f9fc690fdc42c248755d1a
+d6b8b54aecc42ae92c7a8c570c5559fc 47e01812f99468c660f6a6a0d016733e
 __
 meta::data('author', 'Spencer Tipping');
 meta::data('default-action', 'shell');
@@ -1701,7 +1701,7 @@ template::item[]               b19441917db63dd3cf0763ca3a8dbbc6
 template::label                c2a74025aef7222bdf52b2a627dc1138
 template::logical              58b30808bb307bee2ff021cade4c0f40
 vim_highlighter::cltex         f5509cad8ff3e24b329496bec95424c3
-vim_highlighter::perltex       201dd0473161461c30c376071a06804e
+vim_highlighter::perltex       c673e9acafc04aa17b17b415fbab0a60
 __
 meta::parent('notes', <<'__');
 function::note    823227b01d6f7b953a06d41761136710
@@ -2634,6 +2634,18 @@ meta::psection('implementation', <<'__');
         \refboth{i:real-programming}
         \refboth{i:ergonomic-limit}
       - end
+
+    - nitem | isyn:flat-toplevel-lists | syn.flattoplevel
+      xh's toplevel grammar is based on Tcl, not Lisp; this means that you
+      don't need to wrap each statement in parentheses. Line breaks are
+      significant unless preceded with {\tt \textbackslash} or inside a list.
+      Unlike bash and tcl, all sub-lists are parsed as in Lisp; that is, this
+      toplevel syntax applies only at the outermost level.
+      - antecedents << end
+        \initial
+        \refboth{i:feel-like-shell}
+        \refboth{i:ergonomic-limit}
+      - end
   - end
 
 - sc runtime | chp:runtime
@@ -2706,6 +2718,16 @@ meta::psection('implementation', <<'__');
         \refboth{is:evaluation-identities}
         \refboth{ir:static-inlining}
         \refboth{ir:expression-representation}
+      - end
+    - nitem | ir:flat-container-limit | xhr.flatlimit
+      Containers should be flattened until the type-encoding overhead is
+      minimized for the given (possibly-contextful) distribution of values. In
+      practice, this probably means using PPM and Huffman coding with an
+      initial noise floor to prevent short-run overfitting.
+      - antecedents << end
+        \initial
+        \refboth{i:not-slow}
+        \refboth{ir:flat-containers}
       - end
     - nitem | ir:deduplication | xhr.deduplication
       Every independent value within a quasiquoted form should be referred to
@@ -2853,11 +2875,13 @@ meta::psection('implementation', <<'__');
       with_eval_rewriting {eval $code; die $@ if $@};
     }
 
-    our %compilers = (pl => sub {
-      my $package = $_[0] =~ s/\./::/gr;
-      eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
-      die "error compiling module $_[0]: $@" if $@;
-    });
+    our %compilers = (
+      pl => sub {
+        my $package = $_[0] =~ s/\./::/gr;
+        eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
+        die "error compiling module $_[0]: $@" if $@;
+      },
+      html => sub {});
 
     sub defmodule {
       my ($name, $code, @args) = @_;
@@ -2880,24 +2904,108 @@ meta::psection('implementation', <<'__');
   - perl >> boot/xh-header << end
     sub image {
       join "\n", "#!/usr/bin/env perl",
-                 "#<body style='display:none'><script id='self' type='xh'>",
+                 "#<body style='display:none'><script type='xh'>",
                  "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
                  $modules{bootstrap},
                  '_',
                  map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                     @module_ordering),
+                     grep !/\.html$/, @module_ordering),
+                 "#</" . "script>",
+                 map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                     grep /\.html$/, @module_ordering),
                  "xh::main::main;\n__DATA__";
     }
     })}
   - end
 
   Here's a quick test implementation of \verb|xh::main::main|; its purpose is
-  to make sure replication works:
+  to make sure replication works. This won't be present in real images:
 
   - perlmodule xh::main src/test/main.pl << end
     sub main {
       print ::xh::image;
     }
+  - end
+
+- sc html introspection | chp:base-html-introspection
+  xh images can be opened as self-inspecting HTML files.
+
+  - htmlmodule js-dependencies src/introspect/dependencies.html << end
+    <script src='http://code.jquery.com/jquery.min.js'></script>
+    <script src='http://caterwauljs.org/build/caterwaul.min.js'></script>
+    <script src='http://caterwauljs.org/build/caterwaul.std.min.js'></script>
+    <script src='http://caterwauljs.org/build/caterwaul.ui.min.js'></script>
+  - end
+
+  - htmlmodule css src/introspect/css.html << end
+    <style>
+    @import url(http://fonts.googleapis.com/css?family=Abel|Fira+Mono);
+    body {background:   #080808;
+          color:        #eae8e4;
+          margin:       auto;
+          max-width:    700px;
+          overflow-y:   scroll;
+          padding-left: 14px;
+          border-left:  solid 1px #383736}
+
+    h1 {font-family: 'Abel', monospace;
+        font-weight: normal;
+        font-size:   20px}
+
+    h1:hover {color: #878177}
+    h1 .suffix {color: #878177}
+    h1 .suffix:before {content: '.'; color: #878177}
+
+    pre {font-family: 'Fira Mono', monospace;
+          font-size:  10px}
+
+    #dom   {margin: 20px 0}
+    .title {color:       #f85421;
+            font-family: 'Abel', sans-serif}
+    </style>
+  - end
+
+  - htmlmodule dom src/introspect/dom.html << end
+    <div id='dom'>
+    <span class='title'>xh</span>
+    </div>
+  - end
+
+  - jsmodule introspection src/introspect/js.html << end
+    $(caterwaul(':all')(function () {
+      $('body').empty() /~prepend/ jquery[head /append(css)]
+                        /~append/  dom
+                        /~append/  ui_for(parsed_modules)
+                        /~css/     {display: 'block'},
+      where [
+      css               = $('style'),
+      dom               = $('#dom'),
+      self              = +$('script') *[$(x).html()] /seq /~join/ '\n',
+      parse_modules(ls) = xs -se [ls *!process_line -seq]
+-where [xs              = {__ordering: []},
+        name            = null,
+        text            = '',
+        process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)',.*\)/.exec(s)
+                -re [it ? name /eq[it[1]] -then- text /eq['']
+                        : /^(?:\/\*)?_$/.test(s)
+                          ? name -ocq- 'bootstrap.pl'
+                            -then- xs[name] /eq [text /~substr/ 1]
+                            -then- xs.__ordering /~push/ name
+                        : text += '\n#{s}']],
+
+      parsed_modules    = self.split(/\n/) /!parse_modules,
+      ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq]
+-where [ui             = jquery in div,
+        toggle()       = $(this).next().toggle(),
+        module_name(x) = jquery [span.prefix /text(pieces[0])
+                               + span.suffix /text(pieces[1])]
+                         -where [pieces = x.split(/\./, 2)],
+        sections       = modules.__ordering
+                         *[jquery in h1 /append(x /!module_name)
+                                        /css({cursor: 'pointer'})
+                                        /click(toggle)
+                                   + pre /text(modules[x])
+                                         /hide()] -seq]]}));
   - end
 
 - sc parser | chp:base-parser
@@ -3048,15 +3156,19 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__b');
+meta::sdoc('xh', <<'__c');
 - include boot/xh-header
 - include src/baseparser.pl
 - include src/baseevaluator.pl
 - include src/test/main.pl
+- include src/introspect/dom.html
+- include src/introspect/dependencies.html
+- include src/introspect/css.html
+- include src/introspect/js.html
 xh::main::main;
 __DATA__
 
-__b
+__c
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
@@ -3177,6 +3289,21 @@ my $should_return = $commands =~ / if (.*)$/ && ! eval $1;
 terminal::warning("eval of template condition failed: $@") if $@;
 $should_return;
 __
+meta::template('htmlmodule', <<'__');
+my ($line, $block) = @_;
+my ($name, $line)  = split /\s+/, $line, 2;
+my $append         = $line =~ s/^\h*>>\h*//;
+
+my $wrapped = qq{BEGIN {xh::defmodule('$name.html', <<'_')}
+$block
+_
+};
+
+$line =~ s/\s+.*$//o;
+file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
+"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{javascriptcode}\n$wrapped \\end{javascriptcode}";
+
+__
 meta::template('include', <<'__');
 my ($commands) = @_;
 return '' if template::failing_conditional($commands);
@@ -3194,6 +3321,26 @@ my ($line, $block) = @_;
 my ($name, $label) = split /\h*\|\h*/, $line, 2;
 "\\item[$name]" . template::label($label)
                 . (length $block ? "\n$block" : '');
+
+__
+meta::template('jsmodule', <<'__');
+my ($line, $block) = @_;
+my ($name, $line)  = split /\s+/, $line, 2;
+my $append         = $line =~ s/^\h*>>\h*//;
+
+# The extra module-wrapping is just to help the JS-based introspection library.
+my $wrapped = qq{BEGIN {xh::defmodule('$name.html', <<'_')}
+<script>
+//BEGIN {xh::defmodule('$name.js', <<'_')}
+$block
+//_
+</script>
+_
+};
+
+$line =~ s/\s+.*$//o;
+file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
+"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{javascriptcode}\n$wrapped \\end{javascriptcode}";
 
 __
 meta::template('label', <<'__');
@@ -3343,12 +3490,24 @@ if exists("b:current_syntax")
   unlet b:current_syntax
 endif
 
+syn include @js syntax/caterwaul.vim
+if exists("b:current_syntax")
+  unlet b:current_syntax
+endif
+
+syn include @html syntax/html.vim
+if exists("b:current_syntax")
+  unlet b:current_syntax
+endif
+
 runtime syntax/perl.vim
 
 syn case match
 syn match  pltPreprocessor /^\s*- .*$/ containedin=pltImpliedComment
 syn region pltImpliedComment matchgroup=pltPreprocessor start=/\%^\|^\s*- end$/ end=/^\s*- perl.*$\|\%$/ keepend containedin=ALL
 syn region pltXhRegion       matchgroup=pltPreprocessor start=/^\s*- xh.*$/ end=/^\s*- end$/ contained containedin=pltImpliedComment contains=@xh keepend
+syn region pltJsRegion       matchgroup=pltPreprocessor start=/^\s*- js.*$/ end=/^\s*- end$/ contained containedin=pltImpliedComment contains=@js keepend
+syn region pltHtmlRegion     matchgroup=pltPreprocessor start=/^\s*- html.*$/ end=/^\s*- end$/ contained containedin=pltImpliedComment contains=@html keepend
 
 hi link pltImpliedComment Comment
 hi link pltPreprocessor   PreProc

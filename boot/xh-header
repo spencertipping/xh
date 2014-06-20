@@ -22,11 +22,13 @@ sub named_eval {
   with_eval_rewriting {eval $code; die $@ if $@};
 }
 
-our %compilers = (pl => sub {
-  my $package = $_[0] =~ s/\./::/gr;
-  eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
-  die "error compiling module $_[0]: $@" if $@;
-});
+our %compilers = (
+  pl => sub {
+    my $package = $_[0] =~ s/\./::/gr;
+    eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
+    die "error compiling module $_[0]: $@" if $@;
+  },
+  html => sub {});
 
 sub defmodule {
   my ($name, $code, @args) = @_;
@@ -42,12 +44,15 @@ chomp($modules{bootstrap} = $::xh_bootstrap);
 undef $::xh_bootstrap;
 sub image {
   join "\n", "#!/usr/bin/env perl",
-             "#<body style='display:none'><script id='self' type='xh'>",
+             "#<body style='display:none'><script type='xh'>",
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
              map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 @module_ordering),
+                 grep !/\.html$/, @module_ordering),
+             "#</" . "script>",
+             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                 grep /\.html$/, @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })}

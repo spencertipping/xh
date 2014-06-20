@@ -811,6 +811,18 @@
 \item \refboth{i:real-programming}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
+
+\item{}\Label{isyn:flat-toplevel-lists}{syn.flattoplevel}{\em\ref{isyn:flat-toplevel-lists}}
+  xh's toplevel grammar is based on Tcl, not Lisp; this means that you
+  don't need to wrap each statement in parentheses. Line breaks are
+  significant unless preceded with {\tt \textbackslash} or inside a list.
+  Unlike bash and tcl, all sub-lists are parsed as in Lisp; that is, this
+  toplevel syntax applies only at the outermost level.
+\begin{itemize}
+\item \initial
+\item \refboth{i:feel-like-shell}
+\item \refboth{i:ergonomic-limit}
+\end{itemize}
 \end{enumerate}
 
 \chapter{runtime}\label{chp:runtime}
@@ -883,6 +895,16 @@
 \item \refboth{is:evaluation-identities}
 \item \refboth{ir:static-inlining}
 \item \refboth{ir:expression-representation}
+\end{itemize}
+\item{}\Label{ir:flat-container-limit}{xhr.flatlimit}{\em\ref{ir:flat-container-limit}}
+  Containers should be flattened until the type-encoding overhead is
+  minimized for the given (possibly-contextful) distribution of values. In
+  practice, this probably means using PPM and Huffman coding with an
+  initial noise floor to prevent short-run overfitting.
+\begin{itemize}
+\item \initial
+\item \refboth{i:not-slow}
+\item \refboth{ir:flat-containers}
 \end{itemize}
 \item{}\Label{ir:deduplication}{xhr.deduplication}{\em\ref{ir:deduplication}}
   Every independent value within a quasiquoted form should be referred to
@@ -1030,11 +1052,13 @@ sub named_eval {
   with_eval_rewriting {eval $code; die $@ if $@};
 }
 
-our %compilers = (pl => sub {
-  my $package = $_[0] =~ s/\./::/gr;
-  eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
-  die "error compiling module $_[0]: $@" if $@;
-});
+our %compilers = (
+  pl => sub {
+    my $package = $_[0] =~ s/\./::/gr;
+    eval {named_eval $_[0], "{package ::$package;\n$_[1]\n}"};
+    die "error compiling module $_[0]: $@" if $@;
+  },
+  html => sub {});
 
 sub defmodule {
   my ($name, $code, @args) = @_;
@@ -1056,18 +1080,21 @@ undef $::xh_bootstrap; \end{perlcode}
 \lstset{caption={boot/xh-header (continued)},name={boot/xh-header}}\begin{perlcode}
 sub image {
   join "\n", "#!/usr/bin/env perl",
-             "#<body style='display:none'><script id='self' type='xh'>",
+             "#<body style='display:none'><script type='xh'>",
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
              map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 @module_ordering),
+                 grep !/\.html$/, @module_ordering),
+             "#</" . "script>",
+             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
+                 grep /\.html$/, @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}
 
   Here's a quick test implementation of \verb|xh::main::main|; its purpose is
-  to make sure replication works:
+  to make sure replication works. This won't be present in real images:
 
 \lstset{caption={src/test/main.pl},name={src/test/main.pl}}\begin{perlcode}
 BEGIN {xh::defmodule('xh::main.pl', <<'_')}
@@ -1075,6 +1102,99 @@ sub main {
   print ::xh::image;
 }
 _ \end{perlcode}
+
+\chapter{html introspection}\label{chp:base-html-introspection}
+  xh images can be opened as self-inspecting HTML files.
+
+\lstset{caption={src/introspect/dependencies.html},name={src/introspect/dependencies.html}}\begin{javascriptcode}
+BEGIN {xh::defmodule('js-dependencies.html', <<'_')}
+<script src='http://code.jquery.com/jquery.min.js'></script>
+<script src='http://caterwauljs.org/build/caterwaul.min.js'></script>
+<script src='http://caterwauljs.org/build/caterwaul.std.min.js'></script>
+<script src='http://caterwauljs.org/build/caterwaul.ui.min.js'></script>
+_
+ \end{javascriptcode}
+
+\lstset{caption={src/introspect/css.html},name={src/introspect/css.html}}\begin{javascriptcode}
+BEGIN {xh::defmodule('css.html', <<'_')}
+<style>
+@import url(http://fonts.googleapis.com/css?family=Abel|Fira+Mono);
+body {background:   #080808;
+      color:        #eae8e4;
+      margin:       auto;
+      max-width:    700px;
+      overflow-y:   scroll;
+      padding-left: 14px;
+      border-left:  solid 1px #383736}
+
+h1 {font-family: 'Abel', monospace;
+    font-weight: normal;
+    font-size:   20px}
+
+h1:hover {color: #878177}
+h1 .suffix {color: #878177}
+h1 .suffix:before {content: '.'; color: #878177}
+
+pre {font-family: 'Fira Mono', monospace;
+      font-size:  10px}
+
+#dom   {margin: 20px 0}
+.title {color:       #f85421;
+        font-family: 'Abel', sans-serif}
+</style>
+_
+ \end{javascriptcode}
+
+\lstset{caption={src/introspect/dom.html},name={src/introspect/dom.html}}\begin{javascriptcode}
+BEGIN {xh::defmodule('dom.html', <<'_')}
+<div id='dom'>
+<span class='title'>xh</span>
+</div>
+_
+ \end{javascriptcode}
+
+\lstset{caption={src/introspect/js.html},name={src/introspect/js.html}}\begin{javascriptcode}
+BEGIN {xh::defmodule('introspection.html', <<'_')}
+<script>
+//BEGIN {xh::defmodule('introspection.js', <<'_')}
+$(caterwaul(':all')(function () {
+  $('body').empty() /~prepend/ jquery[head /append(css)]
+                    /~append/  dom
+                    /~append/  ui_for(parsed_modules)
+                    /~css/     {display: 'block'},
+  where [
+  css               = $('style'),
+  dom               = $('#dom'),
+  self              = +$('script') *[$(x).html()] /seq /~join/ '\n',
+  parse_modules(ls) = xs -se [ls *!process_line -seq]
+-where [xs              = {__ordering: []},
+    name            = null,
+    text            = '',
+    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)',.*\)/.exec(s)
+            -re [it ? name /eq[it[1]] -then- text /eq['']
+                    : /^(?:\/\*)?_$/.test(s)
+                      ? name -ocq- 'bootstrap.pl'
+                        -then- xs[name] /eq [text /~substr/ 1]
+                        -then- xs.__ordering /~push/ name
+                    : text += '\n#{s}']],
+
+  parsed_modules    = self.split(/\n/) /!parse_modules,
+  ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq]
+-where [ui             = jquery in div,
+    toggle()       = $(this).next().toggle(),
+    module_name(x) = jquery [span.prefix /text(pieces[0])
+                           + span.suffix /text(pieces[1])]
+                     -where [pieces = x.split(/\./, 2)],
+    sections       = modules.__ordering
+                     *[jquery in h1 /append(x /!module_name)
+                                    /css({cursor: 'pointer'})
+                                    /click(toggle)
+                               + pre /text(modules[x])
+                                     /hide()] -seq]]}));
+//_
+</script>
+_
+ \end{javascriptcode}
 
 \chapter{parser}\label{chp:base-parser}
 \lstset{caption={src/baseparser.pl},name={src/baseparser.pl}}\begin{perlcode}
