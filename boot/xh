@@ -85,6 +85,7 @@ _
 
 BEGIN {xh::defmodule('css.html', <<'_')}
 <style>
+/*BEGIN {xh::defmodule('introspection.css', <<'_')}*/
 @import url(http://fonts.googleapis.com/css?family=Abel|Fira+Mono);
 body {background:   #080808;
       color:        #eae8e4;
@@ -108,12 +109,13 @@ pre {font-family: 'Fira Mono', monospace;
 #dom   {margin: 20px 0}
 .title {color:       #f85421;
         font-family: 'Abel', sans-serif}
+/*_*/
 </style>
 _
 
 BEGIN {xh::defmodule('introspection.html', <<'_')}
 <script>
-//BEGIN {xh::defmodule('introspection.js', <<'_')}
+/*BEGIN {xh::defmodule('introspection.js', <<'_')}*/
 $(caterwaul(':all')(function () {
   $('body').empty() /~prepend/ jquery[head /append(css)]
                     /~append/  dom
@@ -122,14 +124,14 @@ $(caterwaul(':all')(function () {
   where [
   css               = $('style'),
   dom               = $('#dom'),
-  self              = +$('script') *[$(x).html()] /seq /~join/ '\n',
+  self              = +$('script, style') *[$(x).html()] /seq /~join/ '\n',
   parse_modules(ls) = xs -se [ls *!process_line -seq]
 -where [xs              = {__ordering: []},
     name            = null,
     text            = '',
-    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)',.*\)/.exec(s)
+    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'.*\)/.exec(s)
             -re [it ? name /eq[it[1]] -then- text /eq['']
-                    : /^(?:\/\*)?_$/.test(s)
+                    : /^(?:\/\*)?_(?:\*\/)?$/.test(s)
                       ? name -ocq- 'bootstrap.pl'
                         -then- xs[name] /eq [text /~substr/ 1]
                         -then- xs.__ordering /~push/ name
@@ -148,7 +150,7 @@ $(caterwaul(':all')(function () {
                                     /click(toggle)
                                + pre /text(modules[x])
                                      /hide()] -seq]]}));
-//_
+/*_*/
 </script>
 _
 

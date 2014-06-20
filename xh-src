@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  d5d22670d986bbcea3b98f89dbc666d5
-# istate: 4d4c0cdb0ca7bbb3f44fe2bc286cc054
+# state:  284a2c94d1751bad445c27149ad7a242
+# istate: fb21d650a443a03fb5dd96c522be5d45
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -2939,6 +2939,7 @@ meta::psection('implementation', <<'__');
 
   - htmlmodule css src/introspect/css.html << end
     <style>
+    /*BEGIN {xh::defmodule('introspection.css', <<'_')}*/
     @import url(http://fonts.googleapis.com/css?family=Abel|Fira+Mono);
     body {background:   #080808;
           color:        #eae8e4;
@@ -2962,6 +2963,7 @@ meta::psection('implementation', <<'__');
     #dom   {margin: 20px 0}
     .title {color:       #f85421;
             font-family: 'Abel', sans-serif}
+    /*_*/
     </style>
   - end
 
@@ -2980,14 +2982,14 @@ meta::psection('implementation', <<'__');
       where [
       css               = $('style'),
       dom               = $('#dom'),
-      self              = +$('script') *[$(x).html()] /seq /~join/ '\n',
+      self              = +$('script, style') *[$(x).html()] /seq /~join/ '\n',
       parse_modules(ls) = xs -se [ls *!process_line -seq]
 -where [xs              = {__ordering: []},
         name            = null,
         text            = '',
-        process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)',.*\)/.exec(s)
+        process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'.*\)/.exec(s)
                 -re [it ? name /eq[it[1]] -then- text /eq['']
-                        : /^(?:\/\*)?_$/.test(s)
+                        : /^(?:\/\*)?_(?:\*\/)?$/.test(s)
                           ? name -ocq- 'bootstrap.pl'
                             -then- xs[name] /eq [text /~substr/ 1]
                             -then- xs.__ordering /~push/ name
@@ -3331,9 +3333,9 @@ my $append         = $line =~ s/^\h*>>\h*//;
 # The extra module-wrapping is just to help the JS-based introspection library.
 my $wrapped = qq{BEGIN {xh::defmodule('$name.html', <<'_')}
 <script>
-//BEGIN {xh::defmodule('$name.js', <<'_')}
+/*BEGIN {xh::defmodule('$name.js', <<'_')}*/
 $block
-//_
+/*_*/
 </script>
 _
 };
