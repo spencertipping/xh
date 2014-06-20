@@ -121,11 +121,11 @@ $(caterwaul(':all')(function () {
   css               = $('style'),
   dom               = $('#dom'),
   self              = +$('script, style') *[$(x).html()] /seq /~join/ '\n',
-  parse_modules(ls) = xs -se [ls *!process_line -seq]
--where [xs              = {__ordering: []},
+  parse_modules(ls) = xs -se [ls *!process_line -seq] -where [
+    xs              = {__ordering: []},
     name            = null,
     text            = '',
-    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'.*\)/.exec(s)
+    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'/.exec(s)
             -re [it ? name /eq[it[1]] -then- text /eq['']
                     : /^(?:\/\*)?_(?:\*\/)?$/.test(s)
                       ? name -ocq- 'bootstrap.pl'
@@ -134,8 +134,8 @@ $(caterwaul(':all')(function () {
                     : text += '\n#{s}']],
 
   parsed_modules    = self.split(/\n/) /!parse_modules,
-  ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq]
--where [ui             = jquery in div,
+  ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq] -where [
+    ui             = jquery in div,
     toggle()       = $(this).next().toggle(),
     module_name(x) = jquery [span.prefix /text(pieces[0])
                            + span.suffix /text(pieces[1])]
