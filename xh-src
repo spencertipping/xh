@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  e073d7df9b29cf00d371014145c24555
+# state:  e0aa406c5ff044f13196a64eaaae4630
 # istate: 7d6052772df79366e68a44084413fab9
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2804,6 +2804,26 @@ meta::psection('implementation', <<'__');
         \refboth{ir:override}
         \refboth{ir:evaluator-api}
       - end
+
+    - nitem | ir:cryptographic-limit | xhr.cryptographic
+      Any function can be modeled as a cipher and subject to forms of
+      cryptanalysis to discover structure. The worst case is a truly random
+      mapping that requires each permutation to be evaluated independently.
+      (This is relevant for code synthesis, which is an inversion of the
+      evaluator.)
+      - antecedents << end
+        \initial
+        \refboth{is:relational-evaluation}
+      - end
+    - nitem | ir:uniformity-reduction | xhr.uniformityreduction
+      Entropy can be reduced by biasing otherwise uniform distributions of
+      \verb|(amb)| alternatives, possibly by looking at context. This can be
+      done using real-world data, if any exists.
+      - antecedents \refboth{ir:cryptographic-limit}
+    - nitem | ir:separability | xhr.separability
+      Entropy can be reduced by identifying input separability or other such
+      structure. This is done through cryptanalysis.
+      - antecedents \refboth{ir:cryptographic-limit}
   - end
 
 - sp base implementation | part:base-implementation

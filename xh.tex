@@ -981,6 +981,26 @@
 \item \refboth{ir:override}
 \item \refboth{ir:evaluator-api}
 \end{itemize}
+
+\item{}\Label{ir:cryptographic-limit}{xhr.cryptographic}{\em\ref{ir:cryptographic-limit}}
+  Any function can be modeled as a cipher and subject to forms of
+  cryptanalysis to discover structure. The worst case is a truly random
+  mapping that requires each permutation to be evaluated independently.
+  (This is relevant for code synthesis, which is an inversion of the
+  evaluator.)
+\begin{itemize}
+\item \initial
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+\item{}\Label{ir:uniformity-reduction}{xhr.uniformityreduction}{\em\ref{ir:uniformity-reduction}}
+  Entropy can be reduced by biasing otherwise uniform distributions of
+  \verb|(amb)| alternatives, possibly by looking at context. This can be
+  done using real-world data, if any exists.
+(\refboth{ir:cryptographic-limit})
+\item{}\Label{ir:separability}{xhr.separability}{\em\ref{ir:separability}}
+  Entropy can be reduced by identifying input separability or other such
+  structure. This is done through cryptanalysis.
+(\refboth{ir:cryptographic-limit})
 \end{enumerate}
 
 \part{base implementation}\label{part:base-implementation}
