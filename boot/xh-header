@@ -42,17 +42,25 @@ sub defmodule {
 
 chomp($modules{bootstrap} = $::xh_bootstrap);
 undef $::xh_bootstrap;
+sub serialize_module {
+  my ($module)   = @_;
+  my $contents   = $modules{$module};
+  my $terminator = '_';
+  $terminator .= '_' while $contents =~ /^$terminator$/m;
+  join "\n", "BEGIN {xh::defmodule('$module', <<'$terminator')}",
+             $contents,
+             $terminator;
+}
+
 sub image {
   join "\n", "#!/usr/bin/env perl",
              "#<body style='display:none'><script type='xh'>",
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
-             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 grep !/\.html$/, @module_ordering),
+             map(serialize_module($_), grep !/\.html$/, @module_ordering),
              "#</" . "script>",
-             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 grep /\.html$/, @module_ordering),
+             map(serialize_module($_), grep  /\.html$/, @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })}

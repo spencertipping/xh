@@ -1078,17 +1078,25 @@ undef $::xh_bootstrap; \end{perlcode}
   appropriate \verb|BEGIN| block.
 
 \lstset{caption={boot/xh-header (continued)},name={boot/xh-header}}\begin{perlcode}
+sub serialize_module {
+  my ($module)   = @_;
+  my $contents   = $modules{$module};
+  my $terminator = '_';
+  $terminator .= '_' while $contents =~ /^$terminator$/m;
+  join "\n", "BEGIN {xh::defmodule('$module', <<'$terminator')}",
+             $contents,
+             $terminator;
+}
+
 sub image {
   join "\n", "#!/usr/bin/env perl",
              "#<body style='display:none'><script type='xh'>",
              "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
-             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 grep !/\.html$/, @module_ordering),
+             map(serialize_module($_), grep !/\.html$/, @module_ordering),
              "#</" . "script>",
-             map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                 grep /\.html$/, @module_ordering),
+             map(serialize_module($_), grep  /\.html$/, @module_ordering),
              "xh::main::main;\n__DATA__";
 }
 })} \end{perlcode}
@@ -1104,16 +1112,22 @@ sub main {
 _ \end{perlcode}
 
 \chapter{html introspection}\label{chp:base-html-introspection}
-  xh images can be opened as self-inspecting HTML files.
+  xh images can be opened as self-inspecting HTML files. This strategy of
+  embedding xh module definitions in comments isn't very elegant, but it makes
+  the Javascript parser easier to write. (A better system would be to have the
+  Javascript parse everything in a single \verb|<script>| tag, then build all
+  of the HTML that way; but due to browser security restrictions, this would
+  break local viewing.)
 
 \lstset{caption={src/introspect/dependencies.html},name={src/introspect/dependencies.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('js-dependencies.html', <<'_')}
-<script src='http://code.jquery.com/jquery.min.js'></script>
-<script src='http://caterwauljs.org/build/caterwaul.min.js'></script>
-<script src='http://caterwauljs.org/build/caterwaul.std.min.js'></script>
-<script src='http://caterwauljs.org/build/caterwaul.ui.min.js'></script>
-_
- \end{javascriptcode}
+<script>
+-- include deps/jquery.min.js
+-- include deps/caterwaul.min.js
+-- include deps/caterwaul.std.min.js
+-- include deps/caterwaul.ui.min.js
+</script>
+_ \end{javascriptcode}
 
 \lstset{caption={src/introspect/css.html},name={src/introspect/css.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('css.html', <<'_')}
@@ -1130,36 +1144,50 @@ body {background:   #080808;
 
 h1 {font-family: 'Abel', monospace;
     font-weight: normal;
-    font-size:   20px}
+    font-size:   20px;
+    color:       #878177;
+    margin:      0}
 
-h1:hover {color: #878177}
+h1:hover, h1.active {color: #eae8e4}
 h1 .suffix {color: #878177}
 h1 .suffix:before {content: '.'; color: #878177}
 
 pre {font-family: 'Fira Mono', monospace;
-      font-size:  10px}
+     font-size:  10px}
+
+.module {border-top: solid 1px #383736}
+.module pre {margin: 0}
 
 #dom   {margin: 20px 0}
-.title {color:       #f85421;
-        font-family: 'Abel', sans-serif}
+#dom a {font-family:     'Abel', sans-serif;
+        text-decoration: none;
+        color:           #878177}
+#dom a:hover {color: #eae8e4}
+.title {color: #f89421}
 /*_*/
 </style>
-_
- \end{javascriptcode}
+_ \end{javascriptcode}
 
 \lstset{caption={src/introspect/dom.html},name={src/introspect/dom.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
-<span class='title'>xh</span>
+<a href='https://github.com/spencertipping/xh'>
+  github.com/spencertipping/<span class='title'>xh</span></a>
 </div>
-_
- \end{javascriptcode}
+_ \end{javascriptcode}
 
 \lstset{caption={src/introspect/js.html},name={src/introspect/js.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('introspection.html', <<'_')}
 <script>
 /*BEGIN {xh::defmodule('introspection.js', <<'_')}*/
 $(caterwaul(':all')(function () {
+  $.fn.toggle_vertically(v) = $(this).each(toggle)
+  -where [toggle(t = $(this).stop()) =
+            cs /~animate/ {top:    v ? 0 : -h}
+     -then- t  /~animate/ {height: v ? h : 0, opacity: +v}
+     -where [cs = t.children().stop() /~css/ {position: 'relative'},
+             h  = cs.first().height()]],
+
   $('body').empty() /~prepend/ jquery[head /append(css)]
                     /~append/  dom
                     /~append/  ui_for(parsed_modules)
@@ -1174,7 +1202,7 @@ $(caterwaul(':all')(function () {
     text            = '',
     process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'/.exec(s)
             -re [it ? name /eq[it[1]] -then- text /eq['']
-                    : /^(?:\/\*)?_(?:\*\/)?$/.test(s)
+                    : /^(?:\/\*)?_+(?:\*\/)?$/.test(s)
                       ? name -ocq- 'bootstrap.pl'
                         -then- xs[name] /eq [text /~substr/ 1]
                         -then- xs.__ordering /~push/ name
@@ -1182,33 +1210,23 @@ $(caterwaul(':all')(function () {
 
   parsed_modules    = self.split(/\n/) /!parse_modules,
   ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq] -where [
-    ui             = jquery in div,
-    toggle()       = $(this).next().toggle(),
-    module_name(x) = jquery [span.prefix /text(pieces[0])
-                           + span.suffix /text(pieces[1])]
-                     -where [pieces = x.split(/\./, 2)],
-    sections       = modules.__ordering
-                     *[jquery in h1 /append(x /!module_name)
-                                    /css({cursor: 'pointer'})
-                                    /click(toggle)
-                               + pre /text(modules[x])
-                                     /hide()] -seq]]}));
+    ui              = jquery in div.modules,
+    toggle()        = $(this).toggleClass('active').next().stop()
+                      /~toggle_vertically/ $(this).hasClass('active'),
+    module_name(x)  = jquery [span.prefix /text(pieces[0])
+                            + span.suffix /text(pieces[1])]
+                      -where [pieces = x.split(/\./, 2)],
+    sections        = seq in
+                      modules.__ordering
+                      *[jquery in h1 /append(x /!module_name)
+                                     /css({cursor: 'pointer'})
+                                     /click(toggle)
+                                + div.module(pre /text(modules[x]))
+                                  /toggle_vertically(false)]]]}));
 /*_*/
 </script>
 _
  \end{javascriptcode}
-
-\chapter{parser}\label{chp:base-parser}
-\lstset{caption={src/baseparser.pl},name={src/baseparser.pl}}\begin{perlcode}
-BEGIN {xh::defmodule('xh::baseparser.pl', <<'_')}
-# TODO
-_ \end{perlcode}
-
-\chapter{evaluator}\label{chp:base-evaluator}
-\lstset{caption={src/baseevaluator.pl},name={src/baseevaluator.pl}}\begin{perlcode}
-BEGIN {xh::defmodule('xh::baseevaluator.pl', <<'_')}
-# TODO
-_ \end{perlcode}
 
 \part{self-hosting implementation}\label{part:self-hosting-implementation}
 \chapter{computational abstraction}\label{chp:computational-abstraction}
@@ -1228,10 +1246,30 @@ _ \end{perlcode}
 \item{}\Label{ica:variable-width-integers}{ca.varwidthint}{\em\ref{ica:variable-width-integers}}
   Integer operations have signed and unsigned variants, and exist at any
   bit width. xh doesn't restrict to 32/64 bits (or other common values)
-  because not all backends, e.g.~Perl, support all bit widths.
+  because not all backends, e.g.~Perl and Javascript, support all bit
+  widths natively.
 \begin{itemize}
 \item \initial
 \item \refboth{i:written-in-perl}
+\end{itemize}
+\item{}\Label{ica:flat-memory}{ca.flatmemory}{\em\ref{ica:flat-memory}}
+  We can't assume that the underlying backend provides any data structures
+  for us; we just address memory as a flat bunch of bytes. It's necessary
+  to do this because we implement our own memory paging.
+\begin{itemize}
+\item \refboth{i:not-slow}
+\item \refboth{i:no-oome}
+\end{itemize}
+
+\item{}\Label{ica:harvard-architecture}{ca.harvard}{\em\ref{ica:harvard-architecture}}
+  Data memory is separate from instructions; this abstraction has no
+  homoiconicity at all. It's ok to do this here because all code at this
+  level is backend-specific and machine generated.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
 \end{itemize}
 \end{enumerate}
 

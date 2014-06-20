@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  c95175ade1a9c9fc192a51b36be4c52d
-# istate: fb21d650a443a03fb5dd96c522be5d45
+# state:  167c2851285f0566cc65f2d194cf3f5b
+# istate: e3161970e9f1192d8621827f24ae443f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -712,14 +712,12 @@ chmod 0700, 'boot/xh';   system 'boot/xh   --recompile > boot/xh-1';
 chmod 0700, 'boot/xh-1'; system 'boot/xh-1 --recompile > xh';
 chmod 0700, 'xh';
 
-# Non-TeX documentation
-mkdir 'doc' unless -d 'doc';
-file::write("doc/$_.md", "markdown::note::$_") for grep s/^note::/$1/, sort keys %data;
-
 unless ($$options{-T}) {
   file::write('xh.tex', $tex);
   compile_tex('--pdf=xh.pdf');
 }
+
+print "xh size is " . length(retrieve('xh')) . " bytes\n";
 __
 meta::function('metadata-from', <<'__');
 my ($filename) = @_;
@@ -2902,17 +2900,25 @@ meta::psection('implementation', <<'__');
   appropriate \verb|BEGIN| block.
 
   - perl >> boot/xh-header << end
+    sub serialize_module {
+      my ($module)   = @_;
+      my $contents   = $modules{$module};
+      my $terminator = '_';
+      $terminator .= '_' while $contents =~ /^$terminator$/m;
+      join "\n", "BEGIN {xh::defmodule('$module', <<'$terminator')}",
+                 $contents,
+                 $terminator;
+    }
+
     sub image {
       join "\n", "#!/usr/bin/env perl",
                  "#<body style='display:none'><script type='xh'>",
                  "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
                  $modules{bootstrap},
                  '_',
-                 map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                     grep !/\.html$/, @module_ordering),
+                 map(serialize_module($_), grep !/\.html$/, @module_ordering),
                  "#</" . "script>",
-                 map("BEGIN {xh::defmodule('$_', <<'_')}\n$modules{$_}\n_",
-                     grep /\.html$/, @module_ordering),
+                 map(serialize_module($_), grep  /\.html$/, @module_ordering),
                  "xh::main::main;\n__DATA__";
     }
     })}
@@ -2928,13 +2934,20 @@ meta::psection('implementation', <<'__');
   - end
 
 - sc html introspection | chp:base-html-introspection
-  xh images can be opened as self-inspecting HTML files.
+  xh images can be opened as self-inspecting HTML files. This strategy of
+  embedding xh module definitions in comments isn't very elegant, but it makes
+  the Javascript parser easier to write. (A better system would be to have the
+  Javascript parse everything in a single \verb|<script>| tag, then build all
+  of the HTML that way; but due to browser security restrictions, this would
+  break local viewing.)
 
   - htmlmodule js-dependencies src/introspect/dependencies.html << end
-    <script src='http://code.jquery.com/jquery.min.js'></script>
-    <script src='http://caterwauljs.org/build/caterwaul.min.js'></script>
-    <script src='http://caterwauljs.org/build/caterwaul.std.min.js'></script>
-    <script src='http://caterwauljs.org/build/caterwaul.ui.min.js'></script>
+    <script>
+    -- include deps/jquery.min.js
+    -- include deps/caterwaul.min.js
+    -- include deps/caterwaul.std.min.js
+    -- include deps/caterwaul.ui.min.js
+    </script>
   - end
 
   - htmlmodule css src/introspect/css.html << end
@@ -2951,30 +2964,46 @@ meta::psection('implementation', <<'__');
 
     h1 {font-family: 'Abel', monospace;
         font-weight: normal;
-        font-size:   20px}
+        font-size:   20px;
+        color:       #878177;
+        margin:      0}
 
-    h1:hover {color: #878177}
+    h1:hover, h1.active {color: #eae8e4}
     h1 .suffix {color: #878177}
     h1 .suffix:before {content: '.'; color: #878177}
 
     pre {font-family: 'Fira Mono', monospace;
-          font-size:  10px}
+         font-size:  10px}
+
+    .module {border-top: solid 1px #383736}
+    .module pre {margin: 0}
 
     #dom   {margin: 20px 0}
-    .title {color:       #f85421;
-            font-family: 'Abel', sans-serif}
+    #dom a {font-family:     'Abel', sans-serif;
+            text-decoration: none;
+            color:           #878177}
+    #dom a:hover {color: #eae8e4}
+    .title {color: #f89421}
     /*_*/
     </style>
   - end
 
   - htmlmodule dom src/introspect/dom.html << end
     <div id='dom'>
-    <span class='title'>xh</span>
+    <a href='https://github.com/spencertipping/xh'>
+      github.com/spencertipping/<span class='title'>xh</span></a>
     </div>
   - end
 
   - jsmodule introspection src/introspect/js.html << end
     $(caterwaul(':all')(function () {
+      $.fn.toggle_vertically(v) = $(this).each(toggle)
+      -where [toggle(t = $(this).stop()) =
+                cs /~animate/ {top:    v ? 0 : -h}
+         -then- t  /~animate/ {height: v ? h : 0, opacity: +v}
+         -where [cs = t.children().stop() /~css/ {position: 'relative'},
+                 h  = cs.first().height()]],
+
       $('body').empty() /~prepend/ jquery[head /append(css)]
                         /~append/  dom
                         /~append/  ui_for(parsed_modules)
@@ -2989,7 +3018,7 @@ meta::psection('implementation', <<'__');
         text            = '',
         process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'/.exec(s)
                 -re [it ? name /eq[it[1]] -then- text /eq['']
-                        : /^(?:\/\*)?_(?:\*\/)?$/.test(s)
+                        : /^(?:\/\*)?_+(?:\*\/)?$/.test(s)
                           ? name -ocq- 'bootstrap.pl'
                             -then- xs[name] /eq [text /~substr/ 1]
                             -then- xs.__ordering /~push/ name
@@ -2997,27 +3026,19 @@ meta::psection('implementation', <<'__');
 
       parsed_modules    = self.split(/\n/) /!parse_modules,
       ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq] -where [
-        ui             = jquery in div,
-        toggle()       = $(this).next().toggle(),
-        module_name(x) = jquery [span.prefix /text(pieces[0])
-                               + span.suffix /text(pieces[1])]
-                         -where [pieces = x.split(/\./, 2)],
-        sections       = modules.__ordering
-                         *[jquery in h1 /append(x /!module_name)
-                                        /css({cursor: 'pointer'})
-                                        /click(toggle)
-                                   + pre /text(modules[x])
-                                         /hide()] -seq]]}));
-  - end
-
-- sc parser | chp:base-parser
-  - perlmodule xh::baseparser src/baseparser.pl << end
-    # TODO
-  - end
-
-- sc evaluator | chp:base-evaluator
-  - perlmodule xh::baseevaluator src/baseevaluator.pl << end
-    # TODO
+        ui              = jquery in div.modules,
+        toggle()        = $(this).toggleClass('active').next().stop()
+                          /~toggle_vertically/ $(this).hasClass('active'),
+        module_name(x)  = jquery [span.prefix /text(pieces[0])
+                                + span.suffix /text(pieces[1])]
+                          -where [pieces = x.split(/\./, 2)],
+        sections        = seq in
+                          modules.__ordering
+                          *[jquery in h1 /append(x /!module_name)
+                                         /css({cursor: 'pointer'})
+                                         /click(toggle)
+                                    + div.module(pre /text(modules[x]))
+                                      /toggle_vertically(false)]]]}));
   - end
 
 - sp self-hosting implementation | part:self-hosting-implementation
@@ -3038,10 +3059,30 @@ meta::psection('implementation', <<'__');
     - nitem | ica:variable-width-integers | ca.varwidthint
       Integer operations have signed and unsigned variants, and exist at any
       bit width. xh doesn't restrict to 32/64 bits (or other common values)
-      because not all backends, e.g.~Perl, support all bit widths.
+      because not all backends, e.g.~Perl and Javascript, support all bit
+      widths natively.
       - antecedents << end
         \initial
         \refboth{i:written-in-perl}
+      - end
+    - nitem | ica:flat-memory | ca.flatmemory
+      We can't assume that the underlying backend provides any data structures
+      for us; we just address memory as a flat bunch of bytes. It's necessary
+      to do this because we implement our own memory paging.
+      - antecedents << end
+        \refboth{i:not-slow}
+        \refboth{i:no-oome}
+      - end
+
+    - nitem | ica:harvard-architecture | ca.harvard
+      Data memory is separate from instructions; this abstraction has no
+      homoiconicity at all. It's ok to do this here because all code at this
+      level is backend-specific and machine generated.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
       - end
   - end
 
@@ -3158,10 +3199,8 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__c');
+meta::sdoc('xh', <<'__e');
 - include boot/xh-header
-- include src/baseparser.pl
-- include src/baseevaluator.pl
 - include src/test/main.pl
 - include src/introspect/dom.html
 - include src/introspect/dependencies.html
@@ -3170,7 +3209,7 @@ meta::sdoc('xh', <<'__c');
 xh::main::main;
 __DATA__
 
-__c
+__e
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
@@ -3295,15 +3334,13 @@ meta::template('htmlmodule', <<'__');
 my ($line, $block) = @_;
 my ($name, $line)  = split /\s+/, $line, 2;
 my $append         = $line =~ s/^\h*>>\h*//;
-
-my $wrapped = qq{BEGIN {xh::defmodule('$name.html', <<'_')}
-$block
-_
-};
+my $preprocessed   = preprocess($block =~ s/^\s*--/-/mgr);
+my $wrap           = sub {"BEGIN {xh::defmodule('$name.html', <<'_')}\n$_[0]\n_"};
+my $display        = $wrap->($block);
 
 $line =~ s/\s+.*$//o;
-file::write($line, ($append && "\n") . $wrapped, mkpath => 1, append => $append);
-"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{javascriptcode}\n$wrapped \\end{javascriptcode}";
+file::write($line, ($append && "\n") . $wrap->($preprocessed), mkpath => 1, append => $append);
+"\\lstset{caption={$line" . ($append && ' (continued)') . "},name={$line}}\\begin{javascriptcode}\n$display \\end{javascriptcode}";
 
 __
 meta::template('include', <<'__');
