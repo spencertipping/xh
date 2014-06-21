@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  167c2851285f0566cc65f2d194cf3f5b
+# state:  1591b5c9a7cfc333aaabd2145767b74e
 # istate: e3161970e9f1192d8621827f24ae443f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2086,8 +2086,8 @@ meta::psection('implementation', <<'__');
       - end
     - nitem | i:state-ownership | stateown
       Every piece of mutable state, including symbol tables, must have at most
-      one authoritative copy (mutable state within xh is managed by a CP
-      system).
+      one authoritative copy (mutable state ownership within xh is managed by a
+      CP system, and the state itself is trivially CP).
       - antecedents << end
         \refboth{i:unreliable-connections}
         \refboth{i:opaque-resources}
@@ -2957,7 +2957,7 @@ meta::psection('implementation', <<'__');
     body {background:   #080808;
           color:        #eae8e4;
           margin:       auto;
-          max-width:    700px;
+          max-width:    600px;
           overflow-y:   scroll;
           padding-left: 14px;
           border-left:  solid 1px #383736}
@@ -2975,7 +2975,8 @@ meta::psection('implementation', <<'__');
     pre {font-family: 'Fira Mono', monospace;
          font-size:  10px}
 
-    .module {border-top: solid 1px #383736}
+    .module {border-top: solid 1px #383736;
+             overflow:   hidden}
     .module pre {margin: 0}
 
     #dom   {margin: 20px 0}
@@ -3065,6 +3066,10 @@ meta::psection('implementation', <<'__');
         \initial
         \refboth{i:written-in-perl}
       - end
+    - nitem | ica:floating-point | ca.float
+      Floating-point operations are defined for 32-bit and 64-bit floats. These
+      are present on every sane platform.
+      - antecedents \initial
     - nitem | ica:flat-memory | ca.flatmemory
       We can't assume that the underlying backend provides any data structures
       for us; we just address memory as a flat bunch of bytes. It's necessary
@@ -3077,12 +3082,76 @@ meta::psection('implementation', <<'__');
     - nitem | ica:harvard-architecture | ca.harvard
       Data memory is separate from instructions; this abstraction has no
       homoiconicity at all. It's ok to do this here because all code at this
-      level is backend-specific and machine generated.
+      level is backend-specific and machine generated. The only exception to
+      this is that you can refer to function pointers, but they're assumed to
+      be untyped and opaque.
       - antecedents << end
         \initial
         \refboth{i:compile-to-c}
         \refboth{i:compile-to-perl}
         \refboth{i:compile-to-js}
+        \refboth{ica:flat-memory}
+      - end
+
+    - nitem | ica:user-gc | ca.usergc
+      All garbage collectors are implemented in xh-script and compiled into the
+      flat memory model.
+      - antecedents << end
+        \initial
+        \refboth{i:real-programming}
+        \refboth{i:imperative}
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{ica:flat-memory}
+        \refboth{ica:harvard-architecture}
+      - end
+    - nitem | ica:lazy-gc | ca.lazygc
+      Garbage collectors are lazy, since the heap is useful as a cache and is
+      swapped to disk.
+      - antecedents << end
+        \refboth{i:no-oome}
+        \refboth{is:relational-evaluation}
+        \refboth{is:best-first-search}
+        \refboth{is:transient-definitions}
+        \refboth{is:global-definition-universality}
+        \refboth{ica:flat-memory}
+      - end
+    - nitem | ica:gc-locality | ca.gclocality
+      GC is a strictly local process; all values sent over RPCs are quoted. The
+      only exception is for mutable resources, which can be referred to
+      remotely by acquiring a unique reference to it. When those references are
+      no longer referred to, the remote instance notifies the owner. If the
+      remote instance drops offline, any references it holds are invalidated.
+      - antecedents << end
+        \refboth{i:distributed-computation}
+        \refboth{i:unreliable-connections}
+        \refboth{i:remote-resources}
+        \refboth{i:data-structures-can-be-serialized}
+        \refboth{i:data-structures-are-immutable}
+        \refboth{i:state-ownership}
+        \refboth{ica:user-gc}
+      - end
+
+    - nitem | ica:user-profiling | ca.userprofiling
+      Profiling is implemented as an xh-script library and is compiled into
+      each backend automatically.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{i:not-slow}
+        \refboth{is:relational-evaluation}
+      - end
+
+    - nitem | ica:compiled-instances | ca.compiledinstances
+      Every image compiled into a backend becomes a connected xh instance with
+      an independently-managed heap, symbol table, etc. Communication is done
+      via the usual RPC protocol.
+      - antecedents << end
+        \initial
+        \refboth{i:not-slow}
       - end
   - end
 

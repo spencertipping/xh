@@ -265,8 +265,8 @@
 \end{itemize}
 \item{}\Label{i:state-ownership}{stateown}{\em\ref{i:state-ownership}}
   Every piece of mutable state, including symbol tables, must have at most
-  one authoritative copy (mutable state within xh is managed by a CP
-  system).
+  one authoritative copy (mutable state ownership within xh is managed by a
+  CP system, and the state itself is trivially CP).
 \begin{itemize}
 \item \refboth{i:unreliable-connections}
 \item \refboth{i:opaque-resources}
@@ -1137,7 +1137,7 @@ BEGIN {xh::defmodule('css.html', <<'_')}
 body {background:   #080808;
       color:        #eae8e4;
       margin:       auto;
-      max-width:    700px;
+      max-width:    600px;
       overflow-y:   scroll;
       padding-left: 14px;
       border-left:  solid 1px #383736}
@@ -1155,7 +1155,8 @@ h1 .suffix:before {content: '.'; color: #878177}
 pre {font-family: 'Fira Mono', monospace;
      font-size:  10px}
 
-.module {border-top: solid 1px #383736}
+.module {border-top: solid 1px #383736;
+         overflow:   hidden}
 .module pre {margin: 0}
 
 #dom   {margin: 20px 0}
@@ -1252,6 +1253,10 @@ _
 \item \initial
 \item \refboth{i:written-in-perl}
 \end{itemize}
+\item{}\Label{ica:floating-point}{ca.float}{\em\ref{ica:floating-point}}
+  Floating-point operations are defined for 32-bit and 64-bit floats. These
+  are present on every sane platform.
+(\initial)
 \item{}\Label{ica:flat-memory}{ca.flatmemory}{\em\ref{ica:flat-memory}}
   We can't assume that the underlying backend provides any data structures
   for us; we just address memory as a flat bunch of bytes. It's necessary
@@ -1264,12 +1269,76 @@ _
 \item{}\Label{ica:harvard-architecture}{ca.harvard}{\em\ref{ica:harvard-architecture}}
   Data memory is separate from instructions; this abstraction has no
   homoiconicity at all. It's ok to do this here because all code at this
-  level is backend-specific and machine generated.
+  level is backend-specific and machine generated. The only exception to
+  this is that you can refer to function pointers, but they're assumed to
+  be untyped and opaque.
 \begin{itemize}
 \item \initial
 \item \refboth{i:compile-to-c}
 \item \refboth{i:compile-to-perl}
 \item \refboth{i:compile-to-js}
+\item \refboth{ica:flat-memory}
+\end{itemize}
+
+\item{}\Label{ica:user-gc}{ca.usergc}{\em\ref{ica:user-gc}}
+  All garbage collectors are implemented in xh-script and compiled into the
+  flat memory model.
+\begin{itemize}
+\item \initial
+\item \refboth{i:real-programming}
+\item \refboth{i:imperative}
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{ica:flat-memory}
+\item \refboth{ica:harvard-architecture}
+\end{itemize}
+\item{}\Label{ica:lazy-gc}{ca.lazygc}{\em\ref{ica:lazy-gc}}
+  Garbage collectors are lazy, since the heap is useful as a cache and is
+  swapped to disk.
+\begin{itemize}
+\item \refboth{i:no-oome}
+\item \refboth{is:relational-evaluation}
+\item \refboth{is:best-first-search}
+\item \refboth{is:transient-definitions}
+\item \refboth{is:global-definition-universality}
+\item \refboth{ica:flat-memory}
+\end{itemize}
+\item{}\Label{ica:gc-locality}{ca.gclocality}{\em\ref{ica:gc-locality}}
+  GC is a strictly local process; all values sent over RPCs are quoted. The
+  only exception is for mutable resources, which can be referred to
+  remotely by acquiring a unique reference to it. When those references are
+  no longer referred to, the remote instance notifies the owner. If the
+  remote instance drops offline, any references it holds are invalidated.
+\begin{itemize}
+\item \refboth{i:distributed-computation}
+\item \refboth{i:unreliable-connections}
+\item \refboth{i:remote-resources}
+\item \refboth{i:data-structures-can-be-serialized}
+\item \refboth{i:data-structures-are-immutable}
+\item \refboth{i:state-ownership}
+\item \refboth{ica:user-gc}
+\end{itemize}
+
+\item{}\Label{ica:user-profiling}{ca.userprofiling}{\em\ref{ica:user-profiling}}
+  Profiling is implemented as an xh-script library and is compiled into
+  each backend automatically.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{i:not-slow}
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+
+\item{}\Label{ica:compiled-instances}{ca.compiledinstances}{\em\ref{ica:compiled-instances}}
+  Every image compiled into a backend becomes a connected xh instance with
+  an independently-managed heap, symbol table, etc. Communication is done
+  via the usual RPC protocol.
+\begin{itemize}
+\item \initial
+\item \refboth{i:not-slow}
 \end{itemize}
 \end{enumerate}
 

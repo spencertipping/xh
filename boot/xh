@@ -323,7 +323,7 @@ BEGIN {xh::defmodule('css.html', <<'_')}
 body {background:   #080808;
       color:        #eae8e4;
       margin:       auto;
-      max-width:    700px;
+      max-width:    600px;
       overflow-y:   scroll;
       padding-left: 14px;
       border-left:  solid 1px #383736}
@@ -341,7 +341,8 @@ h1 .suffix:before {content: '.'; color: #878177}
 pre {font-family: 'Fira Mono', monospace;
      font-size:  10px}
 
-.module {border-top: solid 1px #383736}
+.module {border-top: solid 1px #383736;
+         overflow:   hidden}
 .module pre {margin: 0}
 
 #dom   {margin: 20px 0}
