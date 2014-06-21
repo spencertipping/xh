@@ -332,7 +332,7 @@ body {background:   #080808;
 
 h1 {font-family: 'Abel', monospace;
     font-weight: normal;
-    font-size:   20px;
+    font-size:   16px;
     color:       #878177;
     margin:      0}
 
@@ -349,6 +349,7 @@ pre {font-family: 'Fira Mono', monospace;
 
 #dom   {margin: 20px 0}
 #dom a {font-family:     'Abel', sans-serif;
+        font-size:       16px;
         text-decoration: none;
         color:           #878177}
 #dom a:hover {color: #eae8e4}
@@ -362,7 +363,7 @@ BEGIN {xh::defmodule('introspection.html', <<'_')}
 $(caterwaul(':all')(function () {
   $.fn.toggle_vertically(v) = $(this).each(toggle)
   -where [toggle(t = $(this).stop()) =
-            cs /~animate/ {top:    v ? 0 : -h}
+            cs /~animate/ {top:    v ? 0 : -0.8 * h}
      -then- t  /~animate/ {height: v ? h : 0, opacity: +v}
      -where [cs = t.children().stop() /~css/ {position: 'relative'},
              h  = cs.first().height()]],

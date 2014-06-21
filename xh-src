@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  ErSt1k/fu6KQmhQaSMbmQsS4nIqrjWtn1s2tqXjNTB4
+# state:  v6SVKxYUZGktFkDw0/n6HJ0ORcz2FxJ0n5Sw3lG86R8
 # istate: ls3iofkGz4+3wZxyMHAhdzyAZHdXSmVygrwYgw+MCUU
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3044,6 +3044,17 @@ meta::psection('implementation', <<'__');
     - item Noisy systems
   - end
 
+  All of these can be mitigated to some extent by repeated observation. In
+  particular, $H(\textrm{model}) \le H(\textrm{observations})$ obviously
+  applies. In practice, this is unlikely to be a problem; it's fine if xh never
+  fully understands the systems it's dealing with as long as it observes the
+  most visible/important aspects.
+
+  Fitting a model to observation data is itself subject to optimization; not
+  all models are equally probable. xh is more about the expected than the worst
+  case, so biasing the space of approximators to reduce modeling entropy is
+  fair game.
+
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
   - perl boot/xh-header << end
@@ -3163,7 +3174,7 @@ meta::psection('implementation', <<'__');
 
     h1 {font-family: 'Abel', monospace;
         font-weight: normal;
-        font-size:   20px;
+        font-size:   16px;
         color:       #878177;
         margin:      0}
 
@@ -3180,6 +3191,7 @@ meta::psection('implementation', <<'__');
 
     #dom   {margin: 20px 0}
     #dom a {font-family:     'Abel', sans-serif;
+            font-size:       16px;
             text-decoration: none;
             color:           #878177}
     #dom a:hover {color: #eae8e4}
@@ -3199,7 +3211,7 @@ meta::psection('implementation', <<'__');
     $(caterwaul(':all')(function () {
       $.fn.toggle_vertically(v) = $(this).each(toggle)
       -where [toggle(t = $(this).stop()) =
-                cs /~animate/ {top:    v ? 0 : -h}
+                cs /~animate/ {top:    v ? 0 : -0.8 * h}
          -then- t  /~animate/ {height: v ? h : 0, opacity: +v}
          -where [cs = t.children().stop() /~css/ {position: 'relative'},
                  h  = cs.first().height()]],
