@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  VQPkOHo7f85mbmpbxGLIx0NM+AzebQ84KpbAaRshKhU
+# state:  UYjKK2ZL0NL078YGhJ9VvsXFgYcBxwQuz5db3LjkRQc
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3057,12 +3057,13 @@ meta::psection('implementation', <<'__');
 
   Modeling solutions is related to the representational optimization implied by
   \refboth{ir:flat-container-limit}, which gives us a convenient way to
-  quantify optimization in terms of data throughput rates:~the optimization
-  ratio is the ultimate data size over the total data generated. Our goal is to
-  maximize this, while minimizing the expected size of any given piece of data.
-  This model is also helpful when designing backends, since it's
-  bandwidth-focused rather than process-focused (doing it this way might make
-  it easier to vectorize things).
+  quantify optimization:~an optimal program has the highest computational
+  throughput per unit time. In practical terms, this means that (1) the
+  representations of data tend to be small/efficient, and (2) they are moved
+  through components that can process them quickly (i.e.~no significant
+  bottlenecks). Because this system is modeled as a throughput problem, the
+  network routing logic from \refboth{i:network-routing} applies to algorithm
+  optimization.
 
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
