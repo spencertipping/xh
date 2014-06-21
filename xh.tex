@@ -148,10 +148,7 @@
   The likelihood that xh forgets anything from your command history should
   be inversely proportional to the amount of effort required to
   retype/recreate it.
-\begin{itemize}
-\item \refboth{i:ergonomic-limit}
-\item \refboth{i:universal-prediction}
-\end{itemize}
+(\refboth{i:ergonomic-limit}, \refboth{i:universal-prediction})
 \item{}\Label{i:locally-anonymous}{anonymous}{\em\ref{i:locally-anonymous}}
   xh must provide a way to accept input and execute commands without
   updating its prediction model.
@@ -213,10 +210,7 @@
 (\refboth{i:shell})
 \item{}\Label{i:unquoting}{unquote}{\em\ref{i:unquoting}}
   xh-script defines an unquote operator.
-\begin{itemize}
-\item \refboth{i:shell}
-\item \refboth{i:quasiquoting}
-\end{itemize}
+(\refboth{i:shell}, \refboth{i:quasiquoting})
 
 \item{}\Label{i:real-data-structures}{datastruct}{\em\ref{i:real-data-structures}}
   The xh runtime provides real, garbage-collected data structures.
@@ -241,18 +235,12 @@
 \end{itemize}
 \item{}\Label{i:data-structures-are-immutable}{immutable}{\em\ref{i:data-structures-are-immutable}}
   Data structures have no identity and therefore are immutable.
-\begin{itemize}
-\item \refboth{i:distributed-computation}
-\item \refboth{i:data-structures-can-be-serialized}
-\end{itemize}
+(\refboth{i:distributed-computation}, \refboth{i:data-structures-can-be-serialized})
 
 \item{}\Label{i:opaque-resources}{opaques}{\em\ref{i:opaque-resources}}
   xh-script must have access to machine-specific opaque resources like PIDs
   and file handles.
-\begin{itemize}
-\item \refboth{i:real-programming}
-\item \refboth{i:shell}
-\end{itemize}
+(\refboth{i:real-programming}, \refboth{i:shell})
 \item{}\Label{i:mutable-symbol-table}{mutablesyms}{\em\ref{i:mutable-symbol-table}}
   Each xh instance should implement a mutable symbol table with weak
   reference support, subject to semi-conservative distributed garbage
@@ -276,10 +264,7 @@
 \item{}\Label{i:checkpointing}{checkpoint}{\em\ref{i:checkpointing}}
   An xh instance should be able to save checkpoints of itself in case of
   failure. If you do this, xh becomes an AP system.
-\begin{itemize}
-\item \refboth{i:unreliable-connections}
-\item \refboth{i:state-ownership}
-\end{itemize}
+(\refboth{i:unreliable-connections}, \refboth{i:state-ownership})
 
 \item{}\Label{i:lazy-evaluation}{lazy}{\em\ref{i:lazy-evaluation}}
   xh's evaluator must support some kind of laziness.
@@ -321,10 +306,7 @@
 \end{itemize}
 \item{}\Label{i:code-as-data}{code=data}{\em\ref{i:code-as-data}}
   xh-script code should be a reasonable data storage format.
-\begin{itemize}
-\item \refboth{i:shell}
-\item \refboth{i:abstract-evaluation}
-\end{itemize}
+(\refboth{i:shell}, \refboth{i:abstract-evaluation})
 \item{}\Label{i:parse-self}{selfparse}{\em\ref{i:parse-self}}
   xh-script must contain a library to parse itself.
 (\refboth{i:code-as-data})
@@ -424,32 +406,20 @@
 \item{}\Label{i:reference-locality}{refaffinity}{\em\ref{i:reference-locality}}
   All machine-specific references must encode the machine for which they
   are defined.
-\begin{itemize}
-\item \refboth{i:opaque-resources}
-\item \refboth{i:thread-mobility}
-\end{itemize}
+(\refboth{i:opaque-resources}, \refboth{i:thread-mobility})
 \item{}\Label{i:unique-ids}{uniqueid}{\em\ref{i:unique-ids}}
   Every xh instance must have a unique ID, ideally one that can be typed
   easily.
-\begin{itemize}
-\item \refboth{i:ergonomic-limit}
-\item \refboth{i:reference-locality}
-\end{itemize}
+(\refboth{i:ergonomic-limit}, \refboth{i:reference-locality})
 
 \item{}\Label{i:transparent-self-install}{selfinstall}{\em\ref{i:transparent-self-install}}
   xh needs to be able to self-install on remote machines with no
   intervention (assuming you have a passwordless SSH connection).
-\begin{itemize}
-\item \refboth{i:distributed-computation}
-\item \refboth{i:no-root-access}
-\end{itemize}
+(\refboth{i:distributed-computation}, \refboth{i:no-root-access})
 \item{}\Label{i:www-initialization}{wwwinit}{\em\ref{i:www-initialization}}
   You should be able to upload your xh image to a website and then install
   it with a command like this:~\verb+curl me.com/xh | perl+.
-\begin{itemize}
-\item \refboth{i:distributed-computation}
-\item \refboth{i:no-root-access}
-\end{itemize}
+(\refboth{i:distributed-computation}, \refboth{i:no-root-access})
 \item{}\Label{i:self-modifying-image}{selfmodifying}{\em\ref{i:self-modifying-image}}
   Your settings should be present as soon as you download your image, so
   the image must be self-modifying and contain your settings.
@@ -491,10 +461,7 @@
 \item{}\Label{i:image-merging}{imagemerging}{\em\ref{i:image-merging}}
   It should be possible to address variables defined within xh images (as
   files or network locations).
-\begin{itemize}
-\item \refboth{i:self-modifying-image}
-\item \refboth{i:settings-contain-variable-definitions}
-\end{itemize}
+(\refboth{i:self-modifying-image}, \refboth{i:settings-contain-variable-definitions})
 
 \item{}\Label{i:rpc-via-ssh}{sshrpc}{\em\ref{i:rpc-via-ssh}}
   xh's RPC protocol must work via stdin/out communication over an SSH
@@ -528,10 +495,7 @@
 \item{}\Label{i:domain-sockets}{domainsockets}{\em\ref{i:domain-sockets}}
   xh should create a UNIX domain socket to listen for other same-machine
   instances.
-\begin{itemize}
-\item \refboth{i:security}
-\item \refboth{i:xh-self-connection}
-\end{itemize}
+(\refboth{i:security}, \refboth{i:xh-self-connection})
 \item{}\Label{i:transitive-topology}{transitive}{\em\ref{i:transitive-topology}}
   xh's network topology should forward requests transitively.
 \begin{itemize}
@@ -591,10 +555,7 @@
   search through the space of values. You can influence this search by
   defining the {\tt abstraction} relation for a particular class of
   expressions.
-\begin{itemize}
-\item \refboth{i:not-slow} above
-\item \refboth{is:relational-evaluation}
-\end{itemize}
+(\refboth{i:not-slow} above, \refboth{is:relational-evaluation})
 \item{}\Label{is:no-cut-operator}{xhs.nocut}{\em\ref{is:no-cut-operator}}
   Unlike Prolog, xh defines no cut primitive. You should use {\tt
   abstraction} to locally grade the search space instead.
@@ -625,10 +586,7 @@
 \end{itemize}
 \item{}\Label{is:no-variable-shadowing}{xhs.noshadow}{\em\ref{is:no-variable-shadowing}}
   Variable shadowing is impossible.
-\begin{itemize}
-\item \refboth{is:evaluation-identities}
-\item \refboth{is:stack-local-scoping}
-\end{itemize}
+(\refboth{is:evaluation-identities}, \refboth{is:stack-local-scoping})
 \item{}\Label{is:unquoting-vs-parsing}{xhs.unquote-parse}{\em\ref{is:unquoting-vs-parsing}}
   Unquoting and structural parsing are orthogonal operations provided by
   {\tt unquote} and {\tt read}, respectively.
@@ -682,18 +640,12 @@
 \item{}\Label{is:global-definition-universality}{xhs.globaldefs}{\em\ref{is:global-definition-universality}}
   Global definitions can apply to values at any time, and to values on
   different machines (i.e.~their existence is broadcast).
-\begin{itemize}
-\item \refboth{i:lazy-evaluation} above
-\item \refboth{is:transient-definitions}
-\end{itemize}
+(\refboth{i:lazy-evaluation} above, \refboth{is:transient-definitions})
 
 \item{}\Label{is:macros-cannot-exist}{xhs.nomacros}{\em\ref{is:macros-cannot-exist}}
   Syntactic macros cannot exist because invocation commutes with expansion,
   but functions may operate on terms whose values are undefined.
-\begin{itemize}
-\item \refboth{is:evaluation-identities}
-\item \refboth{is:unquote-structure-preserving}
-\end{itemize}
+(\refboth{is:evaluation-identities}, \refboth{is:unquote-structure-preserving})
 \item{}\Label{is:errors-cannot-exist}{xhs.noerrors}{\em\ref{is:errors-cannot-exist}}
   Errors cannot exist, but are represented by lazy values that contain
   undefined quantities that will never be realized. These undefined
@@ -708,10 +660,7 @@
 
 \item{}\Label{is:arbitrary-destructuring}{xhs.destructuring}{\em\ref{is:arbitrary-destructuring}}
   Any value can be used as a destructuring bind pattern.
-\begin{itemize}
-\item \initial
-\item \refboth{is:relational-evaluation}
-\end{itemize}
+(\initial, \refboth{is:relational-evaluation})
 \item{}\Label{is:amb-desctructuring}{xhs.ambdestructure}{\em\ref{is:amb-desctructuring}}
   \verb|(amb)| can be used to destructure values, and it behaves as a
   disjunction.
@@ -724,10 +673,7 @@
   Degrees of freedom within an inversion are represented by abstract values
   that will prevent the result from being realized. They are visible as
   unknowns within the quoted form.
-\begin{itemize}
-\item \initial
-\item \refboth{is:relational-evaluation}
-\end{itemize}
+(\initial, \refboth{is:relational-evaluation})
 
 \item{}\Label{is:side-effects-as-axioms}{xhs.se-axioms}{\em\ref{is:side-effects-as-axioms}}
   Side effects and axioms are the same thing in xh. Once it commits to a
@@ -743,10 +689,7 @@
 \item{}\Label{is:hypotheses-are-virtualization}{xhs.virtualization}{\em\ref{is:hypotheses-are-virtualization}}
   Every side effect can be replaced by a temporary assumption that models
   the effect. If you do this, you're replacing an axiom with a hypothesis.
-\begin{itemize}
-\item \initial
-\item \refboth{is:side-effects-as-axioms}
-\end{itemize}
+(\initial, \refboth{is:side-effects-as-axioms})
 \end{enumerate}
 
 \chapter{xh-script syntax}\label{chp:xhs-syntax}
@@ -778,19 +721,13 @@
   Any character can be prefixed with {\tt \textbackslash} to cause it to be
   interpreted as a string. The only exception is that some escape sequences
   are interpreted, including \verb|\n|, \verb|\t|, and similar.
-\begin{itemize}
-\item \initial
-\item \refboth{i:feel-like-shell}
-\end{itemize}
+(\initial, \refboth{i:feel-like-shell})
 
 \item{}\Label{isyn:hash-comments}{syn.hashcomments}{\em\ref{isyn:hash-comments}}
   Comments begin with \verb|#| preceded either by whitespace or the
   beginning of a line. Unlike in many languages, comment data is available
   in the parsed representation of xh source code.
-\begin{itemize}
-\item \refboth{i:feel-like-shell}
-\item \refboth{isyn:reversible-parsing}
-\end{itemize}
+(\refboth{i:feel-like-shell}, \refboth{isyn:reversible-parsing})
 \item{}\Label{isyn:string-quoting}{syn.stringquoting}{\em\ref{isyn:string-quoting}}
   Single-quoted and double-quoted strings have exactly the semantics they
   do in Perl or bash; that is, single-quoted strings are oblivious to most
@@ -799,18 +736,12 @@
 \item{}\Label{isyn:expression-interpolation}{syn.stringexpressions}{\em\ref{isyn:expression-interpolation}}
   Within a double-quoted string, you need to prefix any interpolating
   \verb|()| group with a \verb|$| to make it active.
-\begin{itemize}
-\item \refboth{i:trivial-debugging}
-\item \refboth{i:feel-like-shell}
-\end{itemize}
+(\refboth{i:trivial-debugging}, \refboth{i:feel-like-shell})
 \item{}\Label{isyn:toplevel-expressions}{syn.toplevelexpressions}{\em\ref{isyn:toplevel-expressions}}
   Outside words and quoted strings, \verb|()| does not require a \verb|$|
   prefix to interpolate. Put differently, the \verb|$| is required if and
   only if you are interpolating by same-word string concatenation.
-\begin{itemize}
-\item \refboth{i:real-programming}
-\item \refboth{i:ergonomic-limit}
-\end{itemize}
+(\refboth{i:real-programming}, \refboth{i:ergonomic-limit})
 
 \item{}\Label{isyn:flat-toplevel-lists}{syn.flattoplevel}{\em\ref{isyn:flat-toplevel-lists}}
   xh's toplevel grammar is based on Tcl, not Lisp; this means that you
@@ -844,10 +775,7 @@
 \item{}\Label{ir:priority-tracing}{xhr.prioritytracing}{\em\ref{ir:priority-tracing}}
   Every expression in the queue knows its ``origin'' for scheduling
   purposes.
-\begin{itemize}
-\item \refboth{is:best-first-search}
-\item \refboth{ir:priority-queue}
-\end{itemize}
+(\refboth{is:best-first-search}, \refboth{ir:priority-queue})
 
 \item{}\Label{ir:static-inlining}{xhr.staticinline}{\em\ref{ir:static-inlining}}
   Function compositions should be added as derived definitions to minimize
@@ -941,10 +869,7 @@
   The runtime should use some type of masked hashing strategy (or other
   decision tree) to minimize the expected resolution time for each
   expression.
-\begin{itemize}
-\item \initial
-\item \refboth{ir:hinting}
-\end{itemize}
+(\initial, \refboth{ir:hinting})
 \item{}\Label{ir:transient-prediction}{xhr.transientprediction}{\em\ref{ir:transient-prediction}}
   Many functions will end up returning lazy values, and most of the time
   those lazy values will eventually be realized. The runtime should have
@@ -1010,10 +935,7 @@
   mapping that requires each permutation to be evaluated independently.
   (This is relevant for code synthesis, which is an inversion of the
   evaluator.)
-\begin{itemize}
-\item \initial
-\item \refboth{is:relational-evaluation}
-\end{itemize}
+(\initial, \refboth{is:relational-evaluation})
 \item{}\Label{ir:uniformity-reduction}{xhr.uniformityreduction}{\em\ref{ir:uniformity-reduction}}
   Entropy can be reduced by biasing otherwise uniform distributions of
   \verb|(amb)| alternatives, possibly by looking at context. This can be
@@ -1023,6 +945,198 @@
   Entropy can be reduced by identifying input separability or other such
   structure. This is done through cryptanalysis.
 (\refboth{ir:cryptographic-limit})
+\end{enumerate}
+
+\chapter{computational abstraction}\label{chp:computational-abstraction}
+\begin{enumerate}
+\item{}\Label{ica:structured-programming}{ca.structured}{\em\ref{ica:structured-programming}}
+  All compilation is run through a structured programming layer that has
+  abstractions for numeric operations and basic control flow. Shortcuts for
+  higher-level operations are provided to leverage platform-specific
+  optimized libraries.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\end{itemize}
+
+\item{}\Label{ica:variable-width-integers}{ca.varwidthint}{\em\ref{ica:variable-width-integers}}
+  Integer operations have signed and unsigned variants, and exist at any
+  bit width. xh doesn't restrict to 32/64 bits (or other common values)
+  because not all backends, e.g.~Perl and Javascript, support all bit
+  widths natively.
+(\initial, \refboth{i:written-in-perl})
+\item{}\Label{ica:floating-point}{ca.float}{\em\ref{ica:floating-point}}
+  Floating-point operations are defined for 32-bit and 64-bit floats. These
+  are present on every sane platform.
+(\initial)
+\item{}\Label{ica:flat-memory}{ca.flatmemory}{\em\ref{ica:flat-memory}}
+  We can't assume that the underlying backend provides any data structures
+  for us; we just address memory as a flat bunch of bytes. It's necessary
+  to do this because we implement our own memory paging.
+(\refboth{i:not-slow}, \refboth{i:no-oome})
+
+\item{}\Label{ica:harvard-architecture}{ca.harvard}{\em\ref{ica:harvard-architecture}}
+  Data memory is separate from instructions; this abstraction has no
+  homoiconicity at all. It's ok to do this here because all code at this
+  level is backend-specific and machine generated. The only exception to
+  this is that you can refer to function pointers, but they're assumed to
+  be untyped and opaque.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{ica:flat-memory}
+\end{itemize}
+
+\item{}\Label{ica:user-gc}{ca.usergc}{\em\ref{ica:user-gc}}
+  All garbage collectors are implemented in xh-script and compiled into the
+  flat memory model.
+\begin{itemize}
+\item \initial
+\item \refboth{i:real-programming}
+\item \refboth{i:imperative}
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{ica:flat-memory}
+\item \refboth{ica:harvard-architecture}
+\end{itemize}
+\item{}\Label{ica:lazy-gc}{ca.lazygc}{\em\ref{ica:lazy-gc}}
+  Garbage collectors are lazy, since the heap is useful as a cache and is
+  swapped to disk.
+\begin{itemize}
+\item \refboth{i:no-oome}
+\item \refboth{is:relational-evaluation}
+\item \refboth{is:best-first-search}
+\item \refboth{is:transient-definitions}
+\item \refboth{is:global-definition-universality}
+\item \refboth{ica:flat-memory}
+\end{itemize}
+\item{}\Label{ica:gc-locality}{ca.gclocality}{\em\ref{ica:gc-locality}}
+  GC is a strictly local process; all values sent over RPCs are quoted. The
+  only exception is for mutable resources, which can be referred to
+  remotely by acquiring a unique reference to it. When those references are
+  no longer referred to, the remote instance notifies the owner. If the
+  remote instance drops offline, any references it holds are invalidated.
+\begin{itemize}
+\item \refboth{i:distributed-computation}
+\item \refboth{i:unreliable-connections}
+\item \refboth{i:remote-resources}
+\item \refboth{i:data-structures-can-be-serialized}
+\item \refboth{i:data-structures-are-immutable}
+\item \refboth{i:state-ownership}
+\item \refboth{ica:user-gc}
+\end{itemize}
+
+\item{}\Label{ica:user-profiling}{ca.userprofiling}{\em\ref{ica:user-profiling}}
+  Profiling is implemented as an xh-script library and is compiled into
+  each backend automatically.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{i:not-slow}
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+
+\item{}\Label{ica:user-relational}{ca.userrelational}{\em\ref{ica:user-relational}}
+  Relational evaluation is implemented as an xh-script library that is then
+  compiled into each backend automatically. Because of this self reference,
+  the xh image contains two implementations of the relational evaluator.
+\begin{itemize}
+\item \initial
+\item \refboth{i:compile-to-c}
+\item \refboth{i:compile-to-perl}
+\item \refboth{i:compile-to-js}
+\item \refboth{is:relational-evaluation}
+\end{itemize}
+\item{}\Label{ica:backend-relational}{ca.backendrelational}{\em\ref{ica:backend-relational}}
+  Because the computational abstraction is xh-script hosted, compiler
+  backends assume a relational evaluator.
+(\initial, \refboth{ica:user-relational})
+
+\item{}\Label{ica:compiled-instances}{ca.compiledinstances}{\em\ref{ica:compiled-instances}}
+  Every image compiled into a backend becomes a connected xh instance with
+  an independently-managed heap, symbol table, etc. Communication is done
+  via the usual RPC protocol. In a sense, the default xh image is one that
+  has been precompiled into Perl.
+\begin{itemize}
+\item \initial
+\item \refboth{i:distributed-computation}
+\item \refboth{i:not-slow}
+\end{itemize}
+\item{}\Label{ica:compiled-instance-visibility}{ca.compiledvisibility}{\em\ref{ica:compiled-instance-visibility}}
+  Compiled images are visible in the global xh network topology.
+(\refboth{ica:compiled-instances})
+\item{}\Label{ica:self-management}{ca.selfmanagement}{\em\ref{ica:self-management}}
+  Compiled images don't have managing instances; that is, they are expected
+  to recompile themselves in response to any profile-guided optimization.
+(\refboth{ica:compiled-instances}, \refboth{ica:compiled-instance-visibility})
+\item{}\Label{ica:no-speculative-multiplicity}{ca.nomultiplicity}{\em\ref{ica:no-speculative-multiplicity}}
+  Images can't spontaneously multiply for the purpose of exploring the
+  space of possible optimizations. This would require some kind of instance
+  GC process, which is beyond the scope of xh. The only exception is that
+  every compiler backend can create a new instance, obviously, since
+  runtimes in different languages don't tend to work together trivially.
+(\refboth{ica:self-management})
+\item{}\Label{ica:multiple-instances-per-machine}{ca.mipermachine}{\em\ref{ica:multiple-instances-per-machine}}
+  Even if xh is careful about the number of instances it creates, there
+  will be multiple instances per physical machine.
+\begin{itemize}
+\item \refboth{i:distributed-computation}
+\item \refboth{ica:compiled-instances}
+\item \refboth{ica:compiled-instance-visibility}
+\end{itemize}
+
+\item{}\Label{ica:machine-id}{ca.machineid}{\em\ref{ica:machine-id}}
+  xh instances need a way to unambiguously identify a machine, even when
+  the topology spans multiple networks (so there may be hostname
+  collisions).
+\begin{itemize}
+\item \refboth{i:remote-resources}
+\item \refboth{i:opaque-resources}
+\item \refboth{ica:multiple-instances-per-machine}
+\end{itemize}
+\item{}\Label{ica:uuid-machine-ids-are-ok}{ca.machineiduuid}{\em\ref{ica:uuid-machine-ids-are-ok}}
+  Hostnames as aliases for machine UUIDs is an acceptable strategy for
+  dealing with machine identification. It's important to make the names as
+  human-friendly as possible.
+(\refboth{i:ergonomic-limit}, \refboth{ica:machine-id})
+\end{enumerate}
+
+\chapter{feasibility of relational evaluation}\label{chp:relational-feasibility}
+  Writing a compiler in a relational framework is slightly insane because
+  there's a fine line between judiciously combining known strategies for things
+  and synthesizing algorithms. The only way for the problem to be remotely
+  tractable is for us to either use heuristics, or to cache solutions
+  somewhere. xh does the latter.
+
+  The idea of a ``solution'' deserves some discussion. xh doesn't need to know
+  answers to questions, but it does need to have something that decreases the
+  entropy of the search space. Specifically, xh most likely has a synthesis
+  rate of 20 bits per minute if we're lucky, and that number goes up
+  exponentially with additional bits (though not if the bits are separable,
+  which xh can figure out using differential cryptanalysis).
+
+  Using techniques like cryptanalysis is ideal because it allows the core
+  relational evaluator to be unbiased; any optimizations it makes are
+  empirically verified first. Verification is itself not quite trivial, since
+  xh won't always have a predictive model to prove things (and proving things
+  is hard in any case). To get around this, xh is allowed to assume that
+  correlations it observes are reproducible.\footnote{This may be suggested by
+    Occam's Razor, depending on how you look at it, though it's still a weak
+    form of the causation-from-correlation inference fallacy.}
+
+  More specifically, xh needs to deal with:
+
+\begin{enumerate}
+\item{Black-box systems (so no analytical solutions or proofs)}
+\item{Time-variant systems}
+\item{Noisy systems}
 \end{enumerate}
 
 \part{base implementation}\label{part:base-implementation}
@@ -1107,6 +1221,7 @@ sub image {
 \lstset{caption={src/test/main.pl},name={src/test/main.pl}}\begin{perlcode}
 BEGIN {xh::defmodule('xh::main.pl', <<'_')}
 sub main {
+  # TESTCODE (FIXME if in a real image)
   print ::xh::image;
 }
 _ \end{perlcode}
@@ -1172,7 +1287,7 @@ _ \end{javascriptcode}
 \lstset{caption={src/introspect/dom.html},name={src/introspect/dom.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
-<a href='https://github.com/spencertipping/xh'>
+<a href='https://github.com/spencertipping/xh' target='_blank'>
   github::<span class='title'>xh</span></a>
 </div>
 _ \end{javascriptcode}
@@ -1230,161 +1345,5 @@ _
  \end{javascriptcode}
 
 \part{self-hosting implementation}\label{part:self-hosting-implementation}
-\chapter{computational abstraction}\label{chp:computational-abstraction}
-\begin{enumerate}
-\item{}\Label{ica:structured-programming}{ca.structured}{\em\ref{ica:structured-programming}}
-  All compilation is run through a structured programming layer that has
-  abstractions for numeric operations and basic control flow. Shortcuts for
-  higher-level operations are provided to leverage platform-specific
-  optimized libraries.
-\begin{itemize}
-\item \initial
-\item \refboth{i:compile-to-c}
-\item \refboth{i:compile-to-perl}
-\item \refboth{i:compile-to-js}
-\end{itemize}
-
-\item{}\Label{ica:variable-width-integers}{ca.varwidthint}{\em\ref{ica:variable-width-integers}}
-  Integer operations have signed and unsigned variants, and exist at any
-  bit width. xh doesn't restrict to 32/64 bits (or other common values)
-  because not all backends, e.g.~Perl and Javascript, support all bit
-  widths natively.
-\begin{itemize}
-\item \initial
-\item \refboth{i:written-in-perl}
-\end{itemize}
-\item{}\Label{ica:floating-point}{ca.float}{\em\ref{ica:floating-point}}
-  Floating-point operations are defined for 32-bit and 64-bit floats. These
-  are present on every sane platform.
-(\initial)
-\item{}\Label{ica:flat-memory}{ca.flatmemory}{\em\ref{ica:flat-memory}}
-  We can't assume that the underlying backend provides any data structures
-  for us; we just address memory as a flat bunch of bytes. It's necessary
-  to do this because we implement our own memory paging.
-\begin{itemize}
-\item \refboth{i:not-slow}
-\item \refboth{i:no-oome}
-\end{itemize}
-
-\item{}\Label{ica:harvard-architecture}{ca.harvard}{\em\ref{ica:harvard-architecture}}
-  Data memory is separate from instructions; this abstraction has no
-  homoiconicity at all. It's ok to do this here because all code at this
-  level is backend-specific and machine generated. The only exception to
-  this is that you can refer to function pointers, but they're assumed to
-  be untyped and opaque.
-\begin{itemize}
-\item \initial
-\item \refboth{i:compile-to-c}
-\item \refboth{i:compile-to-perl}
-\item \refboth{i:compile-to-js}
-\item \refboth{ica:flat-memory}
-\end{itemize}
-
-\item{}\Label{ica:user-gc}{ca.usergc}{\em\ref{ica:user-gc}}
-  All garbage collectors are implemented in xh-script and compiled into the
-  flat memory model.
-\begin{itemize}
-\item \initial
-\item \refboth{i:real-programming}
-\item \refboth{i:imperative}
-\item \refboth{i:compile-to-c}
-\item \refboth{i:compile-to-perl}
-\item \refboth{i:compile-to-js}
-\item \refboth{ica:flat-memory}
-\item \refboth{ica:harvard-architecture}
-\end{itemize}
-\item{}\Label{ica:lazy-gc}{ca.lazygc}{\em\ref{ica:lazy-gc}}
-  Garbage collectors are lazy, since the heap is useful as a cache and is
-  swapped to disk.
-\begin{itemize}
-\item \refboth{i:no-oome}
-\item \refboth{is:relational-evaluation}
-\item \refboth{is:best-first-search}
-\item \refboth{is:transient-definitions}
-\item \refboth{is:global-definition-universality}
-\item \refboth{ica:flat-memory}
-\end{itemize}
-\item{}\Label{ica:gc-locality}{ca.gclocality}{\em\ref{ica:gc-locality}}
-  GC is a strictly local process; all values sent over RPCs are quoted. The
-  only exception is for mutable resources, which can be referred to
-  remotely by acquiring a unique reference to it. When those references are
-  no longer referred to, the remote instance notifies the owner. If the
-  remote instance drops offline, any references it holds are invalidated.
-\begin{itemize}
-\item \refboth{i:distributed-computation}
-\item \refboth{i:unreliable-connections}
-\item \refboth{i:remote-resources}
-\item \refboth{i:data-structures-can-be-serialized}
-\item \refboth{i:data-structures-are-immutable}
-\item \refboth{i:state-ownership}
-\item \refboth{ica:user-gc}
-\end{itemize}
-
-\item{}\Label{ica:user-profiling}{ca.userprofiling}{\em\ref{ica:user-profiling}}
-  Profiling is implemented as an xh-script library and is compiled into
-  each backend automatically.
-\begin{itemize}
-\item \initial
-\item \refboth{i:compile-to-c}
-\item \refboth{i:compile-to-perl}
-\item \refboth{i:compile-to-js}
-\item \refboth{i:not-slow}
-\item \refboth{is:relational-evaluation}
-\end{itemize}
-
-\item{}\Label{ica:compiled-instances}{ca.compiledinstances}{\em\ref{ica:compiled-instances}}
-  Every image compiled into a backend becomes a connected xh instance with
-  an independently-managed heap, symbol table, etc. Communication is done
-  via the usual RPC protocol. In a sense, the default xh image is one that
-  has been precompiled into Perl.
-\begin{itemize}
-\item \initial
-\item \refboth{i:distributed-computation}
-\item \refboth{i:not-slow}
-\end{itemize}
-\item{}\Label{ica:compiled-instance-visibility}{ca.compiledvisibility}{\em\ref{ica:compiled-instance-visibility}}
-  Compiled images are visible in the global xh network topology.
-(\refboth{ica:compiled-instances})
-\item{}\Label{ica:self-management}{ca.selfmanagement}{\em\ref{ica:self-management}}
-  Compiled images don't have managing instances; that is, they are expected
-  to recompile themselves in response to any profile-guided optimization.
-\begin{itemize}
-\item \refboth{ica:compiled-instances}
-\item \refboth{ica:compiled-instance-visibility}
-\end{itemize}
-\item{}\Label{ica:no-speculative-multiplicity}{ca.nomultiplicity}{\em\ref{ica:no-speculative-multiplicity}}
-  Images can't spontaneously multiply for the purpose of exploring the
-  space of possible optimizations. This would require some kind of instance
-  GC process, which is beyond the scope of xh. The only exception is that
-  every compiler backend can create a new instance, obviously, since
-  runtimes in different languages don't tend to work together trivially.
-(\refboth{ica:self-management})
-\item{}\Label{ica:multiple-instances-per-machine}{ca.mipermachine}{\em\ref{ica:multiple-instances-per-machine}}
-  Even if xh is careful about the number of instances it creates, there
-  will be multiple instances per physical machine.
-\begin{itemize}
-\item \refboth{i:distributed-computation}
-\item \refboth{ica:compiled-instances}
-\item \refboth{ica:compiled-instance-visibility}
-\end{itemize}
-
-\item{}\Label{ica:machine-id}{ca.machineid}{\em\ref{ica:machine-id}}
-  xh instances need a way to unambiguously identify a machine, even when
-  the topology spans multiple networks (so there may be hostname
-  collisions).
-\begin{itemize}
-\item \refboth{i:remote-resources}
-\item \refboth{i:opaque-resources}
-\item \refboth{ica:multiple-instances-per-machine}
-\end{itemize}
-\item{}\Label{ica:uuid-machine-ids-are-ok}{ca.machineiduuid}{\em\ref{ica:uuid-machine-ids-are-ok}}
-  Hostnames as aliases for machine UUIDs is an acceptable strategy for
-  dealing with machine identification. It's important to make the names as
-  human-friendly as possible.
-\begin{itemize}
-\item \refboth{i:ergonomic-limit}
-\item \refboth{ica:machine-id}
-\end{itemize}
-\end{enumerate}
 
 \end{document}

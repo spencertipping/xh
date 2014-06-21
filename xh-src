@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  74720f8ff0fe17428a7a929626b80cc7
-# istate: e3161970e9f1192d8621827f24ae443f
+# state:  0d76c8e986af8f28bdb5d2fed76d2822
+# istate: aed18793d65b3c6b8e6ced6e2eff765a
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -718,6 +718,7 @@ unless ($$options{-T}) {
 }
 
 print "xh size is " . length(retrieve('xh')) . " bytes\n";
+system 'echo `grep TESTCODE xh | wc -l` "line(s) of test code in ./xh"';
 __
 meta::function('metadata-from', <<'__');
 my ($filename) = @_;
@@ -2846,6 +2847,213 @@ meta::psection('implementation', <<'__');
       - antecedents \refboth{ir:cryptographic-limit}
   - end
 
+- sc computational abstraction | chp:computational-abstraction
+  - enumerate << end
+    - nitem | ica:structured-programming | ca.structured
+      All compilation is run through a structured programming layer that has
+      abstractions for numeric operations and basic control flow. Shortcuts for
+      higher-level operations are provided to leverage platform-specific
+      optimized libraries.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+      - end
+
+    - nitem | ica:variable-width-integers | ca.varwidthint
+      Integer operations have signed and unsigned variants, and exist at any
+      bit width. xh doesn't restrict to 32/64 bits (or other common values)
+      because not all backends, e.g.~Perl and Javascript, support all bit
+      widths natively.
+      - antecedents << end
+        \initial
+        \refboth{i:written-in-perl}
+      - end
+    - nitem | ica:floating-point | ca.float
+      Floating-point operations are defined for 32-bit and 64-bit floats. These
+      are present on every sane platform.
+      - antecedents \initial
+    - nitem | ica:flat-memory | ca.flatmemory
+      We can't assume that the underlying backend provides any data structures
+      for us; we just address memory as a flat bunch of bytes. It's necessary
+      to do this because we implement our own memory paging.
+      - antecedents << end
+        \refboth{i:not-slow}
+        \refboth{i:no-oome}
+      - end
+
+    - nitem | ica:harvard-architecture | ca.harvard
+      Data memory is separate from instructions; this abstraction has no
+      homoiconicity at all. It's ok to do this here because all code at this
+      level is backend-specific and machine generated. The only exception to
+      this is that you can refer to function pointers, but they're assumed to
+      be untyped and opaque.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{ica:flat-memory}
+      - end
+
+    - nitem | ica:user-gc | ca.usergc
+      All garbage collectors are implemented in xh-script and compiled into the
+      flat memory model.
+      - antecedents << end
+        \initial
+        \refboth{i:real-programming}
+        \refboth{i:imperative}
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{ica:flat-memory}
+        \refboth{ica:harvard-architecture}
+      - end
+    - nitem | ica:lazy-gc | ca.lazygc
+      Garbage collectors are lazy, since the heap is useful as a cache and is
+      swapped to disk.
+      - antecedents << end
+        \refboth{i:no-oome}
+        \refboth{is:relational-evaluation}
+        \refboth{is:best-first-search}
+        \refboth{is:transient-definitions}
+        \refboth{is:global-definition-universality}
+        \refboth{ica:flat-memory}
+      - end
+    - nitem | ica:gc-locality | ca.gclocality
+      GC is a strictly local process; all values sent over RPCs are quoted. The
+      only exception is for mutable resources, which can be referred to
+      remotely by acquiring a unique reference to it. When those references are
+      no longer referred to, the remote instance notifies the owner. If the
+      remote instance drops offline, any references it holds are invalidated.
+      - antecedents << end
+        \refboth{i:distributed-computation}
+        \refboth{i:unreliable-connections}
+        \refboth{i:remote-resources}
+        \refboth{i:data-structures-can-be-serialized}
+        \refboth{i:data-structures-are-immutable}
+        \refboth{i:state-ownership}
+        \refboth{ica:user-gc}
+      - end
+
+    - nitem | ica:user-profiling | ca.userprofiling
+      Profiling is implemented as an xh-script library and is compiled into
+      each backend automatically.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{i:not-slow}
+        \refboth{is:relational-evaluation}
+      - end
+
+    - nitem | ica:user-relational | ca.userrelational
+      Relational evaluation is implemented as an xh-script library that is then
+      compiled into each backend automatically. Because of this self reference,
+      the xh image contains two implementations of the relational evaluator.
+      - antecedents << end
+        \initial
+        \refboth{i:compile-to-c}
+        \refboth{i:compile-to-perl}
+        \refboth{i:compile-to-js}
+        \refboth{is:relational-evaluation}
+      - end
+    - nitem | ica:backend-relational | ca.backendrelational
+      Because the computational abstraction is xh-script hosted, compiler
+      backends assume a relational evaluator.
+      - antecedents << end
+        \initial
+        \refboth{ica:user-relational}
+      - end
+
+    - nitem | ica:compiled-instances | ca.compiledinstances
+      Every image compiled into a backend becomes a connected xh instance with
+      an independently-managed heap, symbol table, etc. Communication is done
+      via the usual RPC protocol. In a sense, the default xh image is one that
+      has been precompiled into Perl.
+      - antecedents << end
+        \initial
+        \refboth{i:distributed-computation}
+        \refboth{i:not-slow}
+      - end
+    - nitem | ica:compiled-instance-visibility | ca.compiledvisibility
+      Compiled images are visible in the global xh network topology.
+      - antecedents \refboth{ica:compiled-instances}
+    - nitem | ica:self-management | ca.selfmanagement
+      Compiled images don't have managing instances; that is, they are expected
+      to recompile themselves in response to any profile-guided optimization.
+      - antecedents << end
+        \refboth{ica:compiled-instances}
+        \refboth{ica:compiled-instance-visibility}
+      - end
+    - nitem | ica:no-speculative-multiplicity | ca.nomultiplicity
+      Images can't spontaneously multiply for the purpose of exploring the
+      space of possible optimizations. This would require some kind of instance
+      GC process, which is beyond the scope of xh. The only exception is that
+      every compiler backend can create a new instance, obviously, since
+      runtimes in different languages don't tend to work together trivially.
+      - antecedents \refboth{ica:self-management}
+    - nitem | ica:multiple-instances-per-machine | ca.mipermachine
+      Even if xh is careful about the number of instances it creates, there
+      will be multiple instances per physical machine.
+      - antecedents << end
+        \refboth{i:distributed-computation}
+        \refboth{ica:compiled-instances}
+        \refboth{ica:compiled-instance-visibility}
+      - end
+
+    - nitem | ica:machine-id | ca.machineid
+      xh instances need a way to unambiguously identify a machine, even when
+      the topology spans multiple networks (so there may be hostname
+      collisions).
+      - antecedents << end
+        \refboth{i:remote-resources}
+        \refboth{i:opaque-resources}
+        \refboth{ica:multiple-instances-per-machine}
+      - end
+    - nitem | ica:uuid-machine-ids-are-ok | ca.machineiduuid
+      Hostnames as aliases for machine UUIDs is an acceptable strategy for
+      dealing with machine identification. It's important to make the names as
+      human-friendly as possible.
+      - antecedents << end
+        \refboth{i:ergonomic-limit}
+        \refboth{ica:machine-id}
+      - end
+  - end
+
+- sc feasibility of relational evaluation | chp:relational-feasibility
+  Writing a compiler in a relational framework is slightly insane because
+  there's a fine line between judiciously combining known strategies for things
+  and synthesizing algorithms. The only way for the problem to be remotely
+  tractable is for us to either use heuristics, or to cache solutions
+  somewhere. xh does the latter.
+
+  The idea of a ``solution'' deserves some discussion. xh doesn't need to know
+  answers to questions, but it does need to have something that decreases the
+  entropy of the search space. Specifically, xh most likely has a synthesis
+  rate of 20 bits per minute if we're lucky, and that number goes up
+  exponentially with additional bits (though not if the bits are separable,
+  which xh can figure out using differential cryptanalysis).
+
+  Using techniques like cryptanalysis is ideal because it allows the core
+  relational evaluator to be unbiased; any optimizations it makes are
+  empirically verified first. Verification is itself not quite trivial, since
+  xh won't always have a predictive model to prove things (and proving things
+  is hard in any case). To get around this, xh is allowed to assume that
+  correlations it observes are reproducible.\footnote{This may be suggested by
+    Occam's Razor, depending on how you look at it, though it's still a weak
+    form of the causation-from-correlation inference fallacy.}
+
+  More specifically, xh needs to deal with:
+
+  - enumerate << end
+    - item Black-box systems (so no analytical solutions or proofs)
+    - item Time-variant systems
+    - item Noisy systems
+  - end
+
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
   - perl boot/xh-header << end
@@ -2929,6 +3137,7 @@ meta::psection('implementation', <<'__');
 
   - perlmodule xh::main src/test/main.pl << end
     sub main {
+      # TESTCODE (FIXME if in a real image)
       print ::xh::image;
     }
   - end
@@ -3043,162 +3252,6 @@ meta::psection('implementation', <<'__');
   - end
 
 - sp self-hosting implementation | part:self-hosting-implementation
-- sc computational abstraction | chp:computational-abstraction
-  - enumerate << end
-    - nitem | ica:structured-programming | ca.structured
-      All compilation is run through a structured programming layer that has
-      abstractions for numeric operations and basic control flow. Shortcuts for
-      higher-level operations are provided to leverage platform-specific
-      optimized libraries.
-      - antecedents << end
-        \initial
-        \refboth{i:compile-to-c}
-        \refboth{i:compile-to-perl}
-        \refboth{i:compile-to-js}
-      - end
-
-    - nitem | ica:variable-width-integers | ca.varwidthint
-      Integer operations have signed and unsigned variants, and exist at any
-      bit width. xh doesn't restrict to 32/64 bits (or other common values)
-      because not all backends, e.g.~Perl and Javascript, support all bit
-      widths natively.
-      - antecedents << end
-        \initial
-        \refboth{i:written-in-perl}
-      - end
-    - nitem | ica:floating-point | ca.float
-      Floating-point operations are defined for 32-bit and 64-bit floats. These
-      are present on every sane platform.
-      - antecedents \initial
-    - nitem | ica:flat-memory | ca.flatmemory
-      We can't assume that the underlying backend provides any data structures
-      for us; we just address memory as a flat bunch of bytes. It's necessary
-      to do this because we implement our own memory paging.
-      - antecedents << end
-        \refboth{i:not-slow}
-        \refboth{i:no-oome}
-      - end
-
-    - nitem | ica:harvard-architecture | ca.harvard
-      Data memory is separate from instructions; this abstraction has no
-      homoiconicity at all. It's ok to do this here because all code at this
-      level is backend-specific and machine generated. The only exception to
-      this is that you can refer to function pointers, but they're assumed to
-      be untyped and opaque.
-      - antecedents << end
-        \initial
-        \refboth{i:compile-to-c}
-        \refboth{i:compile-to-perl}
-        \refboth{i:compile-to-js}
-        \refboth{ica:flat-memory}
-      - end
-
-    - nitem | ica:user-gc | ca.usergc
-      All garbage collectors are implemented in xh-script and compiled into the
-      flat memory model.
-      - antecedents << end
-        \initial
-        \refboth{i:real-programming}
-        \refboth{i:imperative}
-        \refboth{i:compile-to-c}
-        \refboth{i:compile-to-perl}
-        \refboth{i:compile-to-js}
-        \refboth{ica:flat-memory}
-        \refboth{ica:harvard-architecture}
-      - end
-    - nitem | ica:lazy-gc | ca.lazygc
-      Garbage collectors are lazy, since the heap is useful as a cache and is
-      swapped to disk.
-      - antecedents << end
-        \refboth{i:no-oome}
-        \refboth{is:relational-evaluation}
-        \refboth{is:best-first-search}
-        \refboth{is:transient-definitions}
-        \refboth{is:global-definition-universality}
-        \refboth{ica:flat-memory}
-      - end
-    - nitem | ica:gc-locality | ca.gclocality
-      GC is a strictly local process; all values sent over RPCs are quoted. The
-      only exception is for mutable resources, which can be referred to
-      remotely by acquiring a unique reference to it. When those references are
-      no longer referred to, the remote instance notifies the owner. If the
-      remote instance drops offline, any references it holds are invalidated.
-      - antecedents << end
-        \refboth{i:distributed-computation}
-        \refboth{i:unreliable-connections}
-        \refboth{i:remote-resources}
-        \refboth{i:data-structures-can-be-serialized}
-        \refboth{i:data-structures-are-immutable}
-        \refboth{i:state-ownership}
-        \refboth{ica:user-gc}
-      - end
-
-    - nitem | ica:user-profiling | ca.userprofiling
-      Profiling is implemented as an xh-script library and is compiled into
-      each backend automatically.
-      - antecedents << end
-        \initial
-        \refboth{i:compile-to-c}
-        \refboth{i:compile-to-perl}
-        \refboth{i:compile-to-js}
-        \refboth{i:not-slow}
-        \refboth{is:relational-evaluation}
-      - end
-
-    - nitem | ica:compiled-instances | ca.compiledinstances
-      Every image compiled into a backend becomes a connected xh instance with
-      an independently-managed heap, symbol table, etc. Communication is done
-      via the usual RPC protocol. In a sense, the default xh image is one that
-      has been precompiled into Perl.
-      - antecedents << end
-        \initial
-        \refboth{i:distributed-computation}
-        \refboth{i:not-slow}
-      - end
-    - nitem | ica:compiled-instance-visibility | ca.compiledvisibility
-      Compiled images are visible in the global xh network topology.
-      - antecedents \refboth{ica:compiled-instances}
-    - nitem | ica:self-management | ca.selfmanagement
-      Compiled images don't have managing instances; that is, they are expected
-      to recompile themselves in response to any profile-guided optimization.
-      - antecedents << end
-        \refboth{ica:compiled-instances}
-        \refboth{ica:compiled-instance-visibility}
-      - end
-    - nitem | ica:no-speculative-multiplicity | ca.nomultiplicity
-      Images can't spontaneously multiply for the purpose of exploring the
-      space of possible optimizations. This would require some kind of instance
-      GC process, which is beyond the scope of xh. The only exception is that
-      every compiler backend can create a new instance, obviously, since
-      runtimes in different languages don't tend to work together trivially.
-      - antecedents \refboth{ica:self-management}
-    - nitem | ica:multiple-instances-per-machine | ca.mipermachine
-      Even if xh is careful about the number of instances it creates, there
-      will be multiple instances per physical machine.
-      - antecedents << end
-        \refboth{i:distributed-computation}
-        \refboth{ica:compiled-instances}
-        \refboth{ica:compiled-instance-visibility}
-      - end
-
-    - nitem | ica:machine-id | ca.machineid
-      xh instances need a way to unambiguously identify a machine, even when
-      the topology spans multiple networks (so there may be hostname
-      collisions).
-      - antecedents << end
-        \refboth{i:remote-resources}
-        \refboth{i:opaque-resources}
-        \refboth{ica:multiple-instances-per-machine}
-      - end
-    - nitem | ica:uuid-machine-ids-are-ok | ca.machineiduuid
-      Hostnames as aliases for machine UUIDs is an acceptable strategy for
-      dealing with machine identification. It's important to make the names as
-      human-friendly as possible.
-      - antecedents << end
-        \refboth{i:ergonomic-limit}
-        \refboth{ica:machine-id}
-      - end
-  - end
 
 __
 meta::resource('header', <<'__');
@@ -3351,12 +3404,12 @@ my ($line, $block) = @_;
 my @antecedents = length $block ? grep(length, split /\v+/, $block)
                                 : grep(length, split /\s+/, $line);
 
-if (length $block) {
+if (@antecedents > 2) {
   join "\n", "\\begin{itemize}",
              map("\\item $_", @antecedents),
              "\\end{itemize}";
 } else {
-  "(@antecedents)";
+  "(" . join(', ', @antecedents) . ")";
 }
 
 __
