@@ -74,7 +74,8 @@ _
 BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
 <a href='https://github.com/spencertipping/xh' target='_blank'>
-  github::<span class='title'>xh</span></a>
+  <span class='title'>xh</span></a>
+<div>$ curl http://xh.spencertipping.com | perl</div>
 </div>
 _
 BEGIN {xh::defmodule('js-dependencies.html', <<'_')}
@@ -347,10 +348,10 @@ pre {font-family: 'Fira Mono', monospace;
 .module pre {margin: 0}
 
 #dom   {margin: 20px 0}
-#dom a {font-family:     'Abel', sans-serif;
-        font-size:       16px;
-        text-decoration: none;
-        color:           #878177}
+#dom, #dom a {font-family:     'Abel', sans-serif;
+              font-size:       16px;
+              text-decoration: none;
+              color:           #878177}
 #dom a:hover {color: #eae8e4}
 .title {color: #f89421}
 /*_*/
@@ -362,15 +363,16 @@ BEGIN {xh::defmodule('introspection.html', <<'_')}
 $(caterwaul(':all')(function () {
   $.fn.toggle_vertically(v) = $(this).each(toggle)
   -where [toggle(t = $(this).stop()) =
-            cs /~animate/ {top:    v ? 0 : -0.8 * h}
-     -then- t  /~animate/ {height: v ? h : 0, opacity: +v}
+            cs /~animate/ {top:    v ? 0 : -0.3 * h}
+     -then- t  /~animate/ {height: v ? h : 0}
+/{opacity: +v} /~animate/ {queue: false, duration: 300}
      -where [cs = t.children().stop() /~css/ {position: 'relative'},
              h  = cs.first().height()]],
 
-  $('body').empty() /~prepend/ jquery[head /append(css)]
-                    /~append/  dom
-                    /~append/  ui_for(parsed_modules)
-                    /~css/     {display: 'block'},
+  $('body').empty() /~before/ jquery[head /append(css)]
+                    /~append/ dom
+                    /~append/ ui_for(parsed_modules)
+                    /~css/    {display: 'block'},
   where [
   css               = $('style'),
   dom               = $('#dom'),
