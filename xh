@@ -73,8 +73,8 @@ _
 #</script>
 BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
-<a href='https://github.com/spencertipping/xh'>
-  github.com/spencertipping/<span class='title'>xh</span></a>
+<a href='https://github.com/spencertipping/xh' target='_blank'>
+  github::<span class='title'>xh</span></a>
 </div>
 _
 BEGIN {xh::defmodule('js-dependencies.html', <<'_')}

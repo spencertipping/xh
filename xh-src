@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  1591b5c9a7cfc333aaabd2145767b74e
+# state:  74720f8ff0fe17428a7a929626b80cc7
 # istate: e3161970e9f1192d8621827f24ae443f
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2991,8 +2991,8 @@ meta::psection('implementation', <<'__');
 
   - htmlmodule dom src/introspect/dom.html << end
     <div id='dom'>
-    <a href='https://github.com/spencertipping/xh'>
-      github.com/spencertipping/<span class='title'>xh</span></a>
+    <a href='https://github.com/spencertipping/xh' target='_blank'>
+      github::<span class='title'>xh</span></a>
     </div>
   - end
 
@@ -3148,10 +3148,55 @@ meta::psection('implementation', <<'__');
     - nitem | ica:compiled-instances | ca.compiledinstances
       Every image compiled into a backend becomes a connected xh instance with
       an independently-managed heap, symbol table, etc. Communication is done
-      via the usual RPC protocol.
+      via the usual RPC protocol. In a sense, the default xh image is one that
+      has been precompiled into Perl.
       - antecedents << end
         \initial
+        \refboth{i:distributed-computation}
         \refboth{i:not-slow}
+      - end
+    - nitem | ica:compiled-instance-visibility | ca.compiledvisibility
+      Compiled images are visible in the global xh network topology.
+      - antecedents \refboth{ica:compiled-instances}
+    - nitem | ica:self-management | ca.selfmanagement
+      Compiled images don't have managing instances; that is, they are expected
+      to recompile themselves in response to any profile-guided optimization.
+      - antecedents << end
+        \refboth{ica:compiled-instances}
+        \refboth{ica:compiled-instance-visibility}
+      - end
+    - nitem | ica:no-speculative-multiplicity | ca.nomultiplicity
+      Images can't spontaneously multiply for the purpose of exploring the
+      space of possible optimizations. This would require some kind of instance
+      GC process, which is beyond the scope of xh. The only exception is that
+      every compiler backend can create a new instance, obviously, since
+      runtimes in different languages don't tend to work together trivially.
+      - antecedents \refboth{ica:self-management}
+    - nitem | ica:multiple-instances-per-machine | ca.mipermachine
+      Even if xh is careful about the number of instances it creates, there
+      will be multiple instances per physical machine.
+      - antecedents << end
+        \refboth{i:distributed-computation}
+        \refboth{ica:compiled-instances}
+        \refboth{ica:compiled-instance-visibility}
+      - end
+
+    - nitem | ica:machine-id | ca.machineid
+      xh instances need a way to unambiguously identify a machine, even when
+      the topology spans multiple networks (so there may be hostname
+      collisions).
+      - antecedents << end
+        \refboth{i:remote-resources}
+        \refboth{i:opaque-resources}
+        \refboth{ica:multiple-instances-per-machine}
+      - end
+    - nitem | ica:uuid-machine-ids-are-ok | ca.machineiduuid
+      Hostnames as aliases for machine UUIDs is an acceptable strategy for
+      dealing with machine identification. It's important to make the names as
+      human-friendly as possible.
+      - antecedents << end
+        \refboth{i:ergonomic-limit}
+        \refboth{ica:machine-id}
       - end
   - end
 

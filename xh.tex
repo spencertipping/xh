@@ -1173,7 +1173,7 @@ _ \end{javascriptcode}
 BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
 <a href='https://github.com/spencertipping/xh'>
-  github.com/spencertipping/<span class='title'>xh</span></a>
+  github::<span class='title'>xh</span></a>
 </div>
 _ \end{javascriptcode}
 
@@ -1335,10 +1335,55 @@ _
 \item{}\Label{ica:compiled-instances}{ca.compiledinstances}{\em\ref{ica:compiled-instances}}
   Every image compiled into a backend becomes a connected xh instance with
   an independently-managed heap, symbol table, etc. Communication is done
-  via the usual RPC protocol.
+  via the usual RPC protocol. In a sense, the default xh image is one that
+  has been precompiled into Perl.
 \begin{itemize}
 \item \initial
+\item \refboth{i:distributed-computation}
 \item \refboth{i:not-slow}
+\end{itemize}
+\item{}\Label{ica:compiled-instance-visibility}{ca.compiledvisibility}{\em\ref{ica:compiled-instance-visibility}}
+  Compiled images are visible in the global xh network topology.
+(\refboth{ica:compiled-instances})
+\item{}\Label{ica:self-management}{ca.selfmanagement}{\em\ref{ica:self-management}}
+  Compiled images don't have managing instances; that is, they are expected
+  to recompile themselves in response to any profile-guided optimization.
+\begin{itemize}
+\item \refboth{ica:compiled-instances}
+\item \refboth{ica:compiled-instance-visibility}
+\end{itemize}
+\item{}\Label{ica:no-speculative-multiplicity}{ca.nomultiplicity}{\em\ref{ica:no-speculative-multiplicity}}
+  Images can't spontaneously multiply for the purpose of exploring the
+  space of possible optimizations. This would require some kind of instance
+  GC process, which is beyond the scope of xh. The only exception is that
+  every compiler backend can create a new instance, obviously, since
+  runtimes in different languages don't tend to work together trivially.
+(\refboth{ica:self-management})
+\item{}\Label{ica:multiple-instances-per-machine}{ca.mipermachine}{\em\ref{ica:multiple-instances-per-machine}}
+  Even if xh is careful about the number of instances it creates, there
+  will be multiple instances per physical machine.
+\begin{itemize}
+\item \refboth{i:distributed-computation}
+\item \refboth{ica:compiled-instances}
+\item \refboth{ica:compiled-instance-visibility}
+\end{itemize}
+
+\item{}\Label{ica:machine-id}{ca.machineid}{\em\ref{ica:machine-id}}
+  xh instances need a way to unambiguously identify a machine, even when
+  the topology spans multiple networks (so there may be hostname
+  collisions).
+\begin{itemize}
+\item \refboth{i:remote-resources}
+\item \refboth{i:opaque-resources}
+\item \refboth{ica:multiple-instances-per-machine}
+\end{itemize}
+\item{}\Label{ica:uuid-machine-ids-are-ok}{ca.machineiduuid}{\em\ref{ica:uuid-machine-ids-are-ok}}
+  Hostnames as aliases for machine UUIDs is an acceptable strategy for
+  dealing with machine identification. It's important to make the names as
+  human-friendly as possible.
+\begin{itemize}
+\item \refboth{i:ergonomic-limit}
+\item \refboth{ica:machine-id}
 \end{itemize}
 \end{enumerate}
 
