@@ -361,6 +361,7 @@ _
 BEGIN {xh::defmodule('introspection.html', <<'_')}
 <script>
 /*BEGIN {xh::defmodule('introspection.js', <<'_')}*/
+// TESTCODE (should contain a functioning repl)
 $(caterwaul(':all')(function () {
   $.fn.toggle_vertically(v) = $(this).each(toggle)
   -where [toggle(t = $(this).stop()) =

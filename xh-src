@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  UYjKK2ZL0NL078YGhJ9VvsXFgYcBxwQuz5db3LjkRQc
+# state:  DpC/RRZkgpE//j41siCucHWL86DpmqH6U0OmqwxG00o
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2366,6 +2366,17 @@ meta::psection('implementation', <<'__');
   \Ref{chapter}{chp:design-constraints}.
 
   - enumerate << end
+    - nitem | is:data-types | xhs.datatypes
+      xh has two fundamental data types, lists and strings.
+      - antecedents \initial
+    - nitem | is:list-types | xhs.listtypes
+      Lists have three types, {\tt list}, {\tt array}, and {\tt map},
+      corresponding to \verb|()|, \verb|[]|, and \verb|{}|, respectively.
+      - antecedents << end
+        \initial
+        \refboth{is:data-types}
+      - end
+
     - nitem | is:evaluation-identities | xhs.eval-identities
       Evaluation of any expression may happen at any time; the only scheduling
       constraint is the realization of lazy expressions, whose status is
@@ -3065,6 +3076,28 @@ meta::psection('implementation', <<'__');
   network routing logic from \refboth{i:network-routing} applies to algorithm
   optimization.
 
+- sc feasibility of representational abstraction | chp:ra-feasibility
+  Given \refboth{i:data-structures-are-immutable}, representational abstraction
+  is just a question of whole-value encoding; we don't have to worry about
+  things like updating a value in place. The goal of representational
+  abstraction is to generate value encodings that minimize the expected heap
+  size, which can happen easily during garbage collection (since the heap gets
+  copied in any case). There will end up being several such encodings for any
+  given type of value, and the optimizer will choose different ones depending
+  on the use case. The presence of such alternatives implies the existence of
+  transcoding functions, which means that $n$ alternatives require $O(n^2)$
+  code space (and possibly more because representations are sometimes mutually
+  dependent). We can mitigate this slightly by generating these functions
+  lazily.
+
+  Concretely speaking, representational abstraction applies to strings and
+  lists, which are the only two data types in xh (\refboth{is:data-types}).
+  This makes analysis interesting because there isn't much of a distinction
+  between types and values; for example, {\tt 3.141592} is a bare string that
+  can be interpreted as a number. Most of the typeful semantics of xh are built
+  around structured transformations of quoted values, so any type inference
+  involves predicting which transformations will apply.
+
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication
   - perl boot/xh-header << end
@@ -3219,6 +3252,7 @@ meta::psection('implementation', <<'__');
   - end
 
   - jsmodule introspection src/introspect/js.html << end
+    // TESTCODE (should contain a functioning repl)
     $(caterwaul(':all')(function () {
       $.fn.toggle_vertically(v) = $(this).each(toggle)
       -where [toggle(t = $(this).stop()) =

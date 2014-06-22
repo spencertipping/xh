@@ -518,6 +518,14 @@
   \Ref{chapter}{chp:design-constraints}.
 
 \begin{enumerate}
+\item{}\Label{is:data-types}{xhs.datatypes}{\em\ref{is:data-types}}
+  xh has two fundamental data types, lists and strings.
+(\initial)
+\item{}\Label{is:list-types}{xhs.listtypes}{\em\ref{is:list-types}}
+  Lists have three types, {\tt list}, {\tt array}, and {\tt map},
+  corresponding to \verb|()|, \verb|[]|, and \verb|{}|, respectively.
+(\initial, \refboth{is:data-types})
+
 \item{}\Label{is:evaluation-identities}{xhs.eval-identities}{\em\ref{is:evaluation-identities}}
   Evaluation of any expression may happen at any time; the only scheduling
   constraint is the realization of lazy expressions, whose status is
@@ -1160,6 +1168,28 @@
   network routing logic from \refboth{i:network-routing} applies to algorithm
   optimization.
 
+\chapter{feasibility of representational abstraction}\label{chp:ra-feasibility}
+  Given \refboth{i:data-structures-are-immutable}, representational abstraction
+  is just a question of whole-value encoding; we don't have to worry about
+  things like updating a value in place. The goal of representational
+  abstraction is to generate value encodings that minimize the expected heap
+  size, which can happen easily during garbage collection (since the heap gets
+  copied in any case). There will end up being several such encodings for any
+  given type of value, and the optimizer will choose different ones depending
+  on the use case. The presence of such alternatives implies the existence of
+  transcoding functions, which means that $n$ alternatives require $O(n^2)$
+  code space (and possibly more because representations are sometimes mutually
+  dependent). We can mitigate this slightly by generating these functions
+  lazily.
+
+  Concretely speaking, representational abstraction applies to strings and
+  lists, which are the only two data types in xh (\refboth{is:data-types}).
+  This makes analysis interesting because there isn't much of a distinction
+  between types and values; for example, {\tt 3.141592} is a bare string that
+  can be interpreted as a number. Most of the typeful semantics of xh are built
+  around structured transformations of quoted values, so any type inference
+  involves predicting which transformations will apply.
+
 \part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
 \lstset{caption={boot/xh-header},name={boot/xh-header}}\begin{perlcode}
@@ -1319,6 +1349,7 @@ _ \end{javascriptcode}
 BEGIN {xh::defmodule('introspection.html', <<'_')}
 <script>
 /*BEGIN {xh::defmodule('introspection.js', <<'_')}*/
+// TESTCODE (should contain a functioning repl)
 $(caterwaul(':all')(function () {
   $.fn.toggle_vertically(v) = $(this).each(toggle)
   -where [toggle(t = $(this).stop()) =
