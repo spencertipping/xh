@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  DpC/RRZkgpE//j41siCucHWL86DpmqH6U0OmqwxG00o
+# state:  FCmTr8UGOGOCLO7IHz5zCUJOvRUC0uxZItir46TZZvw
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2042,7 +2042,10 @@ meta::psection('implementation', <<'__');
         \refboth{i:live-preview}
       - end
     - nitem | i:data-structures-can-be-serialized | printstruct
-      Every xh data structure can be losslessly serialized.
+      Every xh data structure can be losslessly serialized by quoting it. In
+      addition, every type of list can be losslessly serialized by coercing it
+      to a string; the result can be unquoted to coerce it back to its original
+      form.
       - antecedents << end
         \refboth{i:shell}
         \refboth{i:distributed-computation}
@@ -2052,7 +2055,9 @@ meta::psection('implementation', <<'__');
         \refboth{i:image-merging}
       - end
     - nitem | i:data-structures-are-immutable | immutable
-      Data structures have no identity and therefore are immutable.
+      Data structures have no identity and therefore are immutable. By
+      extension, circular references can't be created except by indirection
+      through a mutable value.
       - antecedents << end
         \refboth{i:distributed-computation}
         \refboth{i:data-structures-can-be-serialized}
@@ -2067,8 +2072,7 @@ meta::psection('implementation', <<'__');
       - end
     - nitem | i:mutable-symbol-table | mutablesyms
       Each xh instance should implement a mutable symbol table with weak
-      reference support, subject to semi-conservative distributed garbage
-      collection.
+      reference support, subject to safe distributed garbage collection.
       - antecedents << end
         \refboth{i:data-structures-are-immutable}
         \refboth{i:opaque-resources}
@@ -2112,8 +2116,9 @@ meta::psection('implementation', <<'__');
         \refboth{i:xh-heap}
       - end
     - nitem | i:lazy-introspection | introspectlazy
-      All lazy values must be subject to introspection to identify why they
-      haven't been realized.
+      All lazy values can be subject to introspection to identify why they
+      haven't been realized. This introspection must fully encode xh's
+      knowledge about a value, modulo outstanding IO or CPU requests.
       - antecedents << end
         \refboth{i:trivial-debugging}
         \refboth{i:not-slow}
@@ -2535,7 +2540,7 @@ meta::psection('implementation', <<'__');
         \initial
         \refboth{is:relational-evaluation}
       - end
-    - nitem | is:amb-desctructuring | xhs.ambdestructure
+    - nitem | is:amb-destructuring | xhs.ambdestructure
       \verb|(amb)| can be used to destructure values, and it behaves as a
       disjunction.
       - antecedents << end
@@ -2546,10 +2551,12 @@ meta::psection('implementation', <<'__');
     - nitem | is:abstract-dof | xhs.dof
       Degrees of freedom within an inversion are represented by abstract values
       that will prevent the result from being realized. They are visible as
-      unknowns within the quoted form.
+      unevaluated expressions within the quoted form, usually taking the form
+      of calls to \verb|(amb)|.
       - antecedents << end
         \initial
         \refboth{is:relational-evaluation}
+        \refboth{is:amb-destructuring}
       - end
 
     - nitem | is:side-effects-as-axioms | xhs.se-axioms
@@ -2569,6 +2576,20 @@ meta::psection('implementation', <<'__');
       - antecedents << end
         \initial
         \refboth{is:side-effects-as-axioms}
+      - end
+
+    - nitem | is:maps-as-relations | xhs.mapsasrelations
+      Maps and relations are isomorphic, which means that \verb|(def)| is a
+      stateful form of \verb|(assoc)|, and that map literals can be used as
+      functions.
+      - antecedents \initial
+    - nitem | is:stable-values | xhs.stablevalues
+      Maps, arrays, and unquoted atoms are stable under unquoting (e.g.~there
+      is no distributive property that would unquote individual values within
+      these structures).
+      - antecedents << end
+        \initial
+        \refboth{is:maps-as-relations}
       - end
   - end
 
@@ -2591,7 +2612,7 @@ meta::psection('implementation', <<'__');
       \verb|@| is a distributive, right-associative prefix expansion operator
       (sort of like \verb|$| in some ways), so you can layer it to expand
       multiple layers of lists. Any non-lists are treated as lists of a single
-      item; \verb|@| will never block evaluation.
+      item; \verb|@| is well-defined for all values.
       - antecedents << end
         \initial
         \refboth{i:real-programming}
@@ -2646,6 +2667,7 @@ meta::psection('implementation', <<'__');
         \refboth{i:feel-like-shell}
         \refboth{i:ergonomic-limit}
       - end
+
   - end
 
 - sc runtime | chp:runtime
@@ -3096,7 +3118,82 @@ meta::psection('implementation', <<'__');
   between types and values; for example, {\tt 3.141592} is a bare string that
   can be interpreted as a number. Most of the typeful semantics of xh are built
   around structured transformations of quoted values, so any type inference
-  involves predicting which transformations will apply.
+  involves predicting which transformations will apply
+  (\Ref{chapter}{chp:quoted-value-relations}).
+
+- sc quoted value relations | chp:quoted-value-relations
+  xh functions are implemented as string$\rightarrow$string relations whose
+  operands bind in ways consistent with the fundamental structure of the
+  language. That is, list forms are always fully matched; it isn't possible to
+  match an unescaped open bracket alone, for example. Fundamental structure
+  includes the following constructs:
+
+  - verbatim << end
+    (x1 x2 ... xN)      # paren-list
+    [x1 x2 ... xN]      # bracket-list
+    {x1 x2 ... xN}      # brace-list
+    "stuff"             # double-quoted string atom
+    'stuff'             # single-quoted string atom
+    word                # unquoted, untyped atom
+  - end
+
+  Of these, lists, double-quoted atoms, and unquoted atoms are subject to
+  interpolation:
+
+  - verbatim << end
+    $x                  # variable value as a single element
+    !x                  # quoted variable value
+    (f x y ...)         # function result interpolation
+    !(f x y ...)        # quoted function result
+  - end
+
+  - enumerate << end
+    - nitem | iqvr:unwrap | qvr.unwrap
+      \verb|@| is a right-associative prefix operator that unwraps one layer of
+      lists. For example, if \verb|$x = [[1 2] [3 4]]|, then \verb|@@$x| would
+      be \verb|1 2 3 4|. Any scalars are treated as single-element lists.
+    - nitem | iqvr:quoted | qvr.quoted
+      \verb|!| and \verb|$| are two ways to dereference something; \verb|$|
+      (implied if you use \verb|()|) may block until a complete value is
+      available, whereas \verb|!| immediately quotes the value in whatever
+      state of evaluation it happens to be in
+      (\refboth{i:data-structures-can-be-quoted},
+      \refboth{i:laziness-serializable}). You can use quoted-value
+      introspection and evaluation functions to inspect and progress the state
+      of such a value.
+    - nitem | iqvr:unquote | qvr.unquote
+      \verb|$| is a prefix operator that unquotes things until they converge to
+      their asymptotic value limit. \verb|()| is a special form that calls a
+      function, returning its unquoted result (\refboth{is:maps-as-relations});
+      function calls are different from general unquoting in that unquoting is
+      a strictly static operation, whereas function calls cause values to be
+      rerun through relations. Within a double-quoted string, \verb|()| must be
+      written as \verb|$()| (\refboth{isyn:string-quoting}).
+  - end
+
+  Destructuring constructs provide some degree of type selection. For example,
+  lists are typeful:
+
+  - verbatim << end
+    [@$xs]              # matches [1 2 3], but not (1 2 3) or {1 2 3}
+    (amb [@$xs] {@$xs}) # matches [1 2 3] and {1 2 3}, but not (1 2 3)
+  - end
+
+  Strings are structure-preserving, which means you can write parsers using
+  destructuring notation. For example, the following parses $a^nb^nc$:
+
+  - verbatim << end
+    def (rep 0 $x) ''
+    def (rep $n $x) "$x$(rep (dec $n) $x)"
+    def (parse "$(rep $n a)$(rep $n b)c") ...
+  - end
+
+  The same kind of logic applies to lists by the following isomorphism:
+
+  - verbatim << end
+    def (list->string []) ''
+    def (list->string [$x @$xs]) "$x$(list->string [@$xs])"
+  - end
 
 - sp base implementation | part:base-implementation
 - sc self-replication | chp:self-replication

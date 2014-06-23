@@ -224,7 +224,10 @@
 \item \refboth{i:live-preview}
 \end{itemize}
 \item{}\Label{i:data-structures-can-be-serialized}{printstruct}{\em\ref{i:data-structures-can-be-serialized}}
-  Every xh data structure can be losslessly serialized.
+  Every xh data structure can be losslessly serialized by quoting it. In
+  addition, every type of list can be losslessly serialized by coercing it
+  to a string; the result can be unquoted to coerce it back to its original
+  form.
 \begin{itemize}
 \item \refboth{i:shell}
 \item \refboth{i:distributed-computation}
@@ -234,7 +237,9 @@
 \item \refboth{i:image-merging}
 \end{itemize}
 \item{}\Label{i:data-structures-are-immutable}{immutable}{\em\ref{i:data-structures-are-immutable}}
-  Data structures have no identity and therefore are immutable.
+  Data structures have no identity and therefore are immutable. By
+  extension, circular references can't be created except by indirection
+  through a mutable value.
 (\refboth{i:distributed-computation}, \refboth{i:data-structures-can-be-serialized})
 
 \item{}\Label{i:opaque-resources}{opaques}{\em\ref{i:opaque-resources}}
@@ -243,8 +248,7 @@
 (\refboth{i:real-programming}, \refboth{i:shell})
 \item{}\Label{i:mutable-symbol-table}{mutablesyms}{\em\ref{i:mutable-symbol-table}}
   Each xh instance should implement a mutable symbol table with weak
-  reference support, subject to semi-conservative distributed garbage
-  collection.
+  reference support, subject to safe distributed garbage collection.
 \begin{itemize}
 \item \refboth{i:data-structures-are-immutable}
 \item \refboth{i:opaque-resources}
@@ -285,8 +289,9 @@
 \item \refboth{i:xh-heap}
 \end{itemize}
 \item{}\Label{i:lazy-introspection}{introspectlazy}{\em\ref{i:lazy-introspection}}
-  All lazy values must be subject to introspection to identify why they
-  haven't been realized.
+  All lazy values can be subject to introspection to identify why they
+  haven't been realized. This introspection must fully encode xh's
+  knowledge about a value, modulo outstanding IO or CPU requests.
 \begin{itemize}
 \item \refboth{i:trivial-debugging}
 \item \refboth{i:not-slow}
@@ -669,7 +674,7 @@
 \item{}\Label{is:arbitrary-destructuring}{xhs.destructuring}{\em\ref{is:arbitrary-destructuring}}
   Any value can be used as a destructuring bind pattern.
 (\initial, \refboth{is:relational-evaluation})
-\item{}\Label{is:amb-desctructuring}{xhs.ambdestructure}{\em\ref{is:amb-desctructuring}}
+\item{}\Label{is:amb-destructuring}{xhs.ambdestructure}{\em\ref{is:amb-destructuring}}
   \verb|(amb)| can be used to destructure values, and it behaves as a
   disjunction.
 \begin{itemize}
@@ -680,8 +685,13 @@
 \item{}\Label{is:abstract-dof}{xhs.dof}{\em\ref{is:abstract-dof}}
   Degrees of freedom within an inversion are represented by abstract values
   that will prevent the result from being realized. They are visible as
-  unknowns within the quoted form.
-(\initial, \refboth{is:relational-evaluation})
+  unevaluated expressions within the quoted form, usually taking the form
+  of calls to \verb|(amb)|.
+\begin{itemize}
+\item \initial
+\item \refboth{is:relational-evaluation}
+\item \refboth{is:amb-destructuring}
+\end{itemize}
 
 \item{}\Label{is:side-effects-as-axioms}{xhs.se-axioms}{\em\ref{is:side-effects-as-axioms}}
   Side effects and axioms are the same thing in xh. Once it commits to a
@@ -698,6 +708,17 @@
   Every side effect can be replaced by a temporary assumption that models
   the effect. If you do this, you're replacing an axiom with a hypothesis.
 (\initial, \refboth{is:side-effects-as-axioms})
+
+\item{}\Label{is:maps-as-relations}{xhs.mapsasrelations}{\em\ref{is:maps-as-relations}}
+  Maps and relations are isomorphic, which means that \verb|(def)| is a
+  stateful form of \verb|(assoc)|, and that map literals can be used as
+  functions.
+(\initial)
+\item{}\Label{is:stable-values}{xhs.stablevalues}{\em\ref{is:stable-values}}
+  Maps, arrays, and unquoted atoms are stable under unquoting (e.g.~there
+  is no distributive property that would unquote individual values within
+  these structures).
+(\initial, \refboth{is:maps-as-relations})
 \end{enumerate}
 
 \chapter{xh-script syntax}\label{chp:xhs-syntax}
@@ -719,7 +740,7 @@
   \verb|@| is a distributive, right-associative prefix expansion operator
   (sort of like \verb|$| in some ways), so you can layer it to expand
   multiple layers of lists. Any non-lists are treated as lists of a single
-  item; \verb|@| will never block evaluation.
+  item; \verb|@| is well-defined for all values.
 \begin{itemize}
 \item \initial
 \item \refboth{i:real-programming}
@@ -762,6 +783,7 @@
 \item \refboth{i:feel-like-shell}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
+
 \end{enumerate}
 
 \chapter{runtime}\label{chp:runtime}
@@ -1188,7 +1210,82 @@
   between types and values; for example, {\tt 3.141592} is a bare string that
   can be interpreted as a number. Most of the typeful semantics of xh are built
   around structured transformations of quoted values, so any type inference
-  involves predicting which transformations will apply.
+  involves predicting which transformations will apply
+  (\Ref{chapter}{chp:quoted-value-relations}).
+
+\chapter{quoted value relations}\label{chp:quoted-value-relations}
+  xh functions are implemented as string$\rightarrow$string relations whose
+  operands bind in ways consistent with the fundamental structure of the
+  language. That is, list forms are always fully matched; it isn't possible to
+  match an unescaped open bracket alone, for example. Fundamental structure
+  includes the following constructs:
+
+\begin{verbatim}
+(x1 x2 ... xN)      # paren-list
+[x1 x2 ... xN]      # bracket-list
+{x1 x2 ... xN}      # brace-list
+"stuff"             # double-quoted string atom
+'stuff'             # single-quoted string atom
+word                # unquoted, untyped atom
+\end{verbatim}
+
+  Of these, lists, double-quoted atoms, and unquoted atoms are subject to
+  interpolation:
+
+\begin{verbatim}
+$x                  # variable value as a single element
+!x                  # quoted variable value
+(f x y ...)         # function result interpolation
+!(f x y ...)        # quoted function result
+\end{verbatim}
+
+\begin{enumerate}
+\item{}\Label{iqvr:unwrap}{qvr.unwrap}{\em\ref{iqvr:unwrap}}
+  \verb|@| is a right-associative prefix operator that unwraps one layer of
+  lists. For example, if \verb|$x = [[1 2] [3 4]]|, then \verb|@@$x| would
+  be \verb|1 2 3 4|. Any scalars are treated as single-element lists.
+\item{}\Label{iqvr:quoted}{qvr.quoted}{\em\ref{iqvr:quoted}}
+  \verb|!| and \verb|$| are two ways to dereference something; \verb|$|
+  (implied if you use \verb|()|) may block until a complete value is
+  available, whereas \verb|!| immediately quotes the value in whatever
+  state of evaluation it happens to be in
+  (\refboth{i:data-structures-can-be-quoted},
+  \refboth{i:laziness-serializable}). You can use quoted-value
+  introspection and evaluation functions to inspect and progress the state
+  of such a value.
+\item{}\Label{iqvr:unquote}{qvr.unquote}{\em\ref{iqvr:unquote}}
+  \verb|$| is a prefix operator that unquotes things until they converge to
+  their asymptotic value limit. \verb|()| is a special form that calls a
+  function, returning its unquoted result (\refboth{is:maps-as-relations});
+  function calls are different from general unquoting in that unquoting is
+  a strictly static operation, whereas function calls cause values to be
+  rerun through relations. Within a double-quoted string, \verb|()| must be
+  written as \verb|$()| (\refboth{isyn:string-quoting}).
+\end{enumerate}
+
+  Destructuring constructs provide some degree of type selection. For example,
+  lists are typeful:
+
+\begin{verbatim}
+[@$xs]              # matches [1 2 3], but not (1 2 3) or {1 2 3}
+(amb [@$xs] {@$xs}) # matches [1 2 3] and {1 2 3}, but not (1 2 3)
+\end{verbatim}
+
+  Strings are structure-preserving, which means you can write parsers using
+  destructuring notation. For example, the following parses $a^nb^nc$:
+
+\begin{verbatim}
+def (rep 0 $x) ''
+def (rep $n $x) "$x$(rep (dec $n) $x)"
+def (parse "$(rep $n a)$(rep $n b)c") ...
+\end{verbatim}
+
+  The same kind of logic applies to lists by the following isomorphism:
+
+\begin{verbatim}
+def (list->string []) ''
+def (list->string [$x @$xs]) "$x$(list->string [@$xs])"
+\end{verbatim}
 
 \part{base implementation}\label{part:base-implementation}
 \chapter{self-replication}\label{chp:self-replication}
