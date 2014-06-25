@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  gT7J3nU2J8u7ZptPlOcnKpmgPy279Alh0pfuMMkeFSA
+# state:  oVWAal/4v/G79B3B/3DLcxJomA8hdRb5p4z7B++pVvc
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3101,6 +3101,14 @@ meta::psection('implementation', <<'__');
   network routing logic from \refboth{i:network-routing} applies to algorithm
   optimization.
 
+  Success/failure prediction is nontrivial because values don't have to be
+  fully realized to be useful. For example, suppose we have two ways to
+  generate the first 4KB of a string, one of which also produces the next 4KB
+  quickly and one of which never realizes it. If all we need is the first 1KB,
+  then the second 4KB of the string doesn't matter. So the question isn't what
+  realizes the value as a whole, it's what ends up causing the value to block
+  evaluation later on. We want to predict and minimize blocking.
+
 - sc feasibility of representational abstraction | chp:ra-feasibility
   Given \refboth{i:data-structures-are-immutable}, representational abstraction
   is just a question of whole-value encoding; we don't have to worry about
@@ -3123,6 +3131,10 @@ meta::psection('implementation', <<'__');
   around structured transformations of quoted values, so any type inference
   involves predicting which transformations will apply
   (\Ref{chapter}{chp:quoted-value-relations}).
+
+  We also need to enable recursive abstraction to handle things like
+  Church-encoded numbers. Generated representations are subject to exactly the
+  same optimization strategies that apply to primitives.
 
 - sc quoted value relations | chp:quoted-value-relations
   xh functions are implemented as string$\rightarrow$string relations whose

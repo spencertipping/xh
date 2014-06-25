@@ -1193,6 +1193,14 @@
   network routing logic from \refboth{i:network-routing} applies to algorithm
   optimization.
 
+  Success/failure prediction is nontrivial because values don't have to be
+  fully realized to be useful. For example, suppose we have two ways to
+  generate the first 4KB of a string, one of which also produces the next 4KB
+  quickly and one of which never realizes it. If all we need is the first 1KB,
+  then the second 4KB of the string doesn't matter. So the question isn't what
+  realizes the value as a whole, it's what ends up causing the value to block
+  evaluation later on. We want to predict and minimize blocking.
+
 \chapter{feasibility of representational abstraction}\label{chp:ra-feasibility}
   Given \refboth{i:data-structures-are-immutable}, representational abstraction
   is just a question of whole-value encoding; we don't have to worry about
@@ -1215,6 +1223,10 @@
   around structured transformations of quoted values, so any type inference
   involves predicting which transformations will apply
   (\Ref{chapter}{chp:quoted-value-relations}).
+
+  We also need to enable recursive abstraction to handle things like
+  Church-encoded numbers. Generated representations are subject to exactly the
+  same optimization strategies that apply to primitives.
 
 \chapter{quoted value relations}\label{chp:quoted-value-relations}
   xh functions are implemented as string$\rightarrow$string relations whose
