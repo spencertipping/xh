@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  DUfIejKHe6Hm4o5vbtwJvJom165R0i+uRT2ExJTKfD4
+# state:  cNHFLM/cEYMWv5l93V1m8Hvqt7JXFc5uTcqH3xRK8p4
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2558,6 +2558,10 @@ meta::psection('implementation', <<'__');
         \refboth{is:relational-evaluation}
         \refboth{is:amb-destructuring}
       - end
+    - nitem | is:no-bareword-synthesis | xhs.nosynbareword
+      Barewords are considered unique symbols; that is, xh will never try to
+      synthesize a bareword using string-style semantics.
+      - antecedents \initial
 
     - nitem | is:side-effects-as-axioms | xhs.se-axioms
       Side effects and axioms are the same thing in xh. Once it commits to a
@@ -2670,7 +2674,6 @@ meta::psection('implementation', <<'__');
         \refboth{i:feel-like-shell}
         \refboth{i:ergonomic-limit}
       - end
-
   - end
 
 - sc runtime | chp:runtime

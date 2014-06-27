@@ -692,6 +692,10 @@
 \item \refboth{is:relational-evaluation}
 \item \refboth{is:amb-destructuring}
 \end{itemize}
+\item{}\Label{is:no-bareword-synthesis}{xhs.nosynbareword}{\em\ref{is:no-bareword-synthesis}}
+  Barewords are considered unique symbols; that is, xh will never try to
+  synthesize a bareword using string-style semantics.
+(\initial)
 
 \item{}\Label{is:side-effects-as-axioms}{xhs.se-axioms}{\em\ref{is:side-effects-as-axioms}}
   Side effects and axioms are the same thing in xh. Once it commits to a
@@ -786,7 +790,6 @@
 \item \refboth{i:feel-like-shell}
 \item \refboth{i:ergonomic-limit}
 \end{itemize}
-
 \end{enumerate}
 
 \chapter{runtime}\label{chp:runtime}
