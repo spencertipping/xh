@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  cNHFLM/cEYMWv5l93V1m8Hvqt7JXFc5uTcqH3xRK8p4
+# state:  jRfNypxIrnT+mv2JN+JVHrT88IxZZNdCsqrlMIdiBew
 # istate: B++opGB7mz0kHquxXp9HATPVMkIYCHL7MlnblnMHers
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -2872,7 +2872,10 @@ meta::psection('implementation', <<'__');
       - antecedents \refboth{ir:cryptographic-limit}
     - nitem | ir:separability | xhr.separability
       Entropy can be reduced by identifying input separability or other such
-      structure. This is done through cryptanalysis.
+      structure. This is done through cryptanalysis, which must ultimately be
+      verified structurally even if observed empirically.\footnote{{\bf
+      TODO:}~is this really true? If so, we're in an awkward place where
+      inference is concerned.}
       - antecedents \refboth{ir:cryptographic-limit}
   - end
 
