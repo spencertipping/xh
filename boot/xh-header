@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 #<body style='display:none'><script id='self' type='xh'>
-BEGIN {eval(our $xh_bootstrap = q{
+BEGIN {eval($::xh_bootstrap = q{
 # xh | https://github.com/spencertipping/xh
 # Copyright (C) 2014, Spencer Tipping
 # Licensed under the terms of the MIT source code license
@@ -55,7 +55,7 @@ sub serialize_module {
 sub image {
   join "\n", "#!/usr/bin/env perl",
              "#<body style='display:none'><script type='xh'>",
-             "BEGIN {eval(our \$xh_bootstrap = <<'_')}",
+             "BEGIN {eval(\$::xh_bootstrap = <<'_')}",
              $modules{bootstrap},
              '_',
              map(serialize_module($_), grep !/\.html$/, @module_ordering),
