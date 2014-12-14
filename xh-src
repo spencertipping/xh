@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  s4oUM92UXHm7tzwdTQObzp9HgU/e9P7CadEvEgDteeA
+# state:  qkJeADOQ2e2JqU/g5uxX1ztM28PI/Wip4zJKBIVL3cU
 # istate: Wa+9XWzEZH/Lz8n3UBmBMMBPcfSzoXogxtZ0W6mRwug
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3342,9 +3342,8 @@ meta::psection('implementation', <<'__');
           if (length) {
             my ($parsed) = xh::corescript::parse $_;
             my $result   = eval {xh::corescript::evaluate $parsed};
-            my $error    = $@;
-            print $error ? "error:  $error\n"
-                         : "= " . $result->str . "\n";
+            print $@ ? "! $@\n"
+                     : "= " . $result->str . "\n";
           }
           print STDERR "> ";
         }
@@ -3385,7 +3384,7 @@ meta::psection('implementation', <<'__');
     sub xh::corescript::native::new   {bless [$_[1], $_[2]], $_[0]}
 
     sub xh::corescript::literal::concrete  {1}
-    sub xh::corescript::var::concrete      {0}
+    sub xh::corescript::var::concrete      { $_[1]->contains($_[0]) }
     sub xh::corescript::list::concrete     {1}
     sub xh::corescript::array::concrete    {1}
     sub xh::corescript::hash::concrete     {1}
@@ -3440,7 +3439,7 @@ meta::psection('implementation', <<'__');
     sub xh::corescript::fn::str {
       my ($self) = @_;
       my ($formals, $body) = @$self;
-      '(' . join(' ', 'fn', array->new(map literal->new($_), @$formals)->str,
+      '(' . join(' ', 'fn', array->new(map var->new($_), @$formals)->str,
                             $body->str) . ')';
     }
 
@@ -3453,6 +3452,12 @@ meta::psection('implementation', <<'__');
       my ($self, $x) = @_;
       my ($parent, $h) = @$self;
       $$h{$x} // ($parent && $parent->get($x));
+    }
+
+    sub xh::corescript::bindings::contains {
+      my ($self, $x) = @_;
+      my ($parent, $h) = @$self;
+      exists($$h{$x}) || $parent && $parent->contains($x);
     }
 
     sub xh::corescript::hash::get {
@@ -3563,7 +3568,7 @@ meta::psection('implementation', <<'__');
       native->new($name, sub {
         my ($bindings, @xs) = @_;
         my @ys = map $_->eval($bindings), @xs;
-        $_->concrete or return list->new($lname, @ys) for @ys;
+        $_->concrete($bindings) or return list->new($lname, @ys) for @ys;
         &$f($bindings, @ys);
       });
     }
@@ -3589,7 +3594,7 @@ meta::psection('implementation', <<'__');
       $f->invoke($bindings, map(quote($_), @xs), map quote($_), @$ref);
     };
 
-    defglobal array => sub { array->new(map $_->eval($_[0]), @_[1..$#_]) };
+    defnglobal array => sub { array->new(map $_->eval($_[0]), @_[1..$#_]) };
 
     defnglobal bindings => sub {
       my ($bindings, $parent, @xs) = @_;
@@ -3601,7 +3606,7 @@ meta::psection('implementation', <<'__');
     };
 
     defnglobal body     => sub { ${$_[1]}[1] };
-    defglobal  concrete => sub { bool $_[1]->eval($_[0])->concrete };
+    defglobal  concrete => sub { bool $_[1]->eval($_[0])->concrete($_[0]) };
     defnglobal contains => sub { bool $_[1]->contains($_[2]) };
     defnglobal count    => sub { literal->new(scalar @{$_[1]}) };
 
@@ -3640,10 +3645,13 @@ meta::psection('implementation', <<'__');
       ($cond->eval($bindings)->true ? $then : $else)->eval($bindings);
     };
 
-    defglobal into => sub {
+    defnglobal into => sub {
       my ($bindings, $to, $from) = @_;
       ref($to)->new(@$to, @$from);
     };
+
+    defnglobal keys => sub { array->new(map literal->new($_),
+                                            sort keys %{$_[1]}) };
 
     defnglobal len  => sub { literal->new(length $_[1]->name) };
     defnglobal list => sub { list->new(@_[1..$#_]) };
@@ -3661,37 +3669,54 @@ meta::psection('implementation', <<'__');
       literal->new(join '', map $_->name, @_[1..$#_]);
     };
 
-    defglobal type => sub {
+    defnglobal type => sub {
       literal->new(ref($_[1]->eval($_[0])) =~ s/^.*:://r);
     };
 
     defnglobal unquote => sub {
       my ($bindings, $x, $b) = @_;
-      $b //= $bindings;
-      $x->eval($bindings)->eval($b);
+      $x->eval($bindings)->eval($b // $bindings);
     };
 
-    defnglobal var => sub { var->new($_[1]->name) };
+    defnglobal vals => sub { array->new(map ${$_[1]}{$_}, sort keys %{$_[1]}) };
+    defnglobal var  => sub { var->new($_[1]->name) };
 
+    # Imperative data structure functions
+    defnglobal 'aset!', sub {
+      my ($bindings, $xs, $i, $x) = @_;
+      $$xs[$i->name] = $x;
+      $xs;
+    };
+
+    defnglobal 'hset!', sub {
+      my ($bindings, $h, $k, $v) = @_;
+      $$h{$k->name} = $v;
+      $h;
+    };
+
+    our %escapes = (n => "\n", r => "\r", t => "\t");
     sub parse {
       my @stack = [];
       local $_;
-      while ($_[0] =~ / \G
-                        (?: (?<comment> \#.*)
-                          | (?<ws>      [\s,]+)
-                          | (?<str>     '(?:[^\\']|\\.)*' | [^\$'()\[\]{}\s,]+)
-                          | (?<var>     \$[^\$'\s()\[\]{},]+)
-                          | (?<opener>  [(\[{])
-                          | (?<closer>  [)\]}])) /gx) {
+      while ($_[0] =~ / \G (?: (?<comment> \#.*)
+                             | (?<ws>      [\s,]+)
+                             | '(?<qstr>   (?:[^\\']|\\.)*)'
+                             | (?<str>     [^\$'()\[\]{}\s,]+)
+                             | (?<var>     \$[^\$'\s()\[\]{},]+)
+                             | (?<opener>  [(\[{])
+                             | (?<closer>  [)\]}])) /gx) {
         next if $+{comment} || $+{ws};
         my $s = $+{str};
-        if (defined $s)            {push @{$stack[-1]}, literal->new($s)}
-        elsif ($s = $+{var})       {push @{$stack[-1]}, var->new(substr $s, 1)}
-        elsif ($+{opener})         {push @stack, []}
+        if (defined $s)      {push @{$stack[-1]}, literal->new($s)}
+        elsif ($s = $+{var}) {push @{$stack[-1]}, var->new(substr $s, 1)}
+        elsif ($+{opener})   {push @stack, []}
         elsif ($s = $+{closer}) {
           my $last = pop @stack;
           die "too many closers" unless @stack;
           push @{$stack[-1]}, $brackets{$s}->new(@$last);
+        } elsif (defined($s = $+{qstr})) {
+          push @{$stack[-1]},
+               literal->new($s =~ s|\\(.)|$escapes{$1} // $1|egr);
         } else {
           die "unrecognized token: $_";
         }
@@ -3704,8 +3729,7 @@ meta::psection('implementation', <<'__');
     sub evaluate {
       my ($expr, $bindings) = @_;
       local $_;
-      $bindings //= $global_bindings;
-      $expr->eval($bindings);
+      $expr->eval($bindings // $global_bindings);
     }
   - end
 
@@ -3823,6 +3847,11 @@ meta::psection('implementation', <<'__');
   - end
 
 - sp self-hosting implementation | part:self-hosting-implementation
+- sc xh-core interpreter | chp:xh-core-self-hosting
+  We defined an xh-core script interpreter in Perl in chapter
+  \ref{chp:xh-core-script}, but we need one written in xh-core so we can
+  compile it to other backends. This forms the foundation for xh-script, which
+  is written in xh-core.
 
 __
 meta::resource('header', <<'__');
