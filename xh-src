@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  Dj0xbVvDUYMZeMBaeHN0P9aiD41rgck37GBQHK23V/4
+# state:  ZpHsdJigrYvWH496cWNDH8il2IIixti1be/ZBLPlD5U
 # istate: Wa+9XWzEZH/Lz8n3UBmBMMBPcfSzoXogxtZ0W6mRwug
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3343,9 +3343,8 @@ meta::psection('implementation', <<'__');
             my ($parsed) = xh::corescript::parse $_;
             my $result   = eval {xh::corescript::evaluate $parsed};
             my $error    = $@;
-            print STDERR "parsed: ", $parsed->str, "\n";
-            print STDERR $error ? "error:  $error\n"
-                                : "result: " . $result->str . "\n";
+            print $error ? "error:  $error\n"
+                         : "= " . $result->str . "\n";
           }
           print STDERR "> ";
         }
@@ -3368,14 +3367,31 @@ meta::psection('implementation', <<'__');
   support any string interpolation or other magic syntax.
 
   - perlmodule xh::corescript src/corescript.pl << end
+    sub into_hash {
+      my %result;
+      for (my $i = 0; $i < @_; $i += 2) {
+        $result{$_[$i]->str} = $_[$i + 1];
+      }
+      \%result;
+    }
+
     sub xh::corescript::literal::new  {bless \$_[1], $_[0]}
     sub xh::corescript::var::new      {bless \$_[1], $_[0]}
     sub xh::corescript::list::new     {bless [@_[1..$#_]], $_[0]}
     sub xh::corescript::array::new    {bless [@_[1..$#_]], $_[0]}
-    sub xh::corescript::map::new      {bless [@_[1..$#_]], $_[0]}
+    sub xh::corescript::map::new      {bless into_hash(@_[1..$#_]), $_[0]}
     sub xh::corescript::bindings::new {bless [$_[1], $_[2]], $_[0]}
     sub xh::corescript::fn::new       {bless [$_[1], $_[2]], $_[0]}
     sub xh::corescript::native::new   {bless [$_[1], $_[2]], $_[0]}
+
+    sub xh::corescript::literal::concrete  {1}
+    sub xh::corescript::var::concrete      {0}
+    sub xh::corescript::list::concrete     {1}
+    sub xh::corescript::array::concrete    {1}
+    sub xh::corescript::map::concrete      {1}
+    sub xh::corescript::bindings::concrete {1}
+    sub xh::corescript::fn::concrete       {1}
+    sub xh::corescript::native::concrete   {1}
 
     # shorthands
     use constant literal  => 'xh::corescript::literal';
@@ -3392,72 +3408,93 @@ meta::psection('implementation', <<'__');
                            : $s;
     }
 
-    sub xh::corescript::var::str     { "\$${$_[0]}" }
-    sub xh::corescript::list::str    { '(' . join(' ', map $_->str, @{$_[0]})
-                                           . ')' }
+    sub xh::corescript::var::str   { "\$${$_[0]}" }
+    sub xh::corescript::list::str  { '(' . join(' ', map $_->str, @{$_[0]})
+                                         . ')' }
 
-    sub xh::corescript::array::str   { '[' . join(' ', map $_->str, @{$_[0]})
-                                           . ']' }
+    sub xh::corescript::array::str { '[' . join(' ', map $_->str, @{$_[0]})
+                                         . ']' }
 
-    sub xh::corescript::map::str     { '{' . join(' ', map $_->str, @{$_[0]})
-                                           . '}' }
+    sub xh::corescript::map::str {
+      '{' . join(', ', map $_ . ' ' . ${$_[0]}{$_}->str, sort keys %{$_[0]})
+          . '}';
+    }
 
     sub xh::corescript::bindings::str {
       my ($self) = @_;
       my ($parent, $h) = @$self;
-      '(bindings ' . ($parent ? $parent->str : 'nil ')
+      '(bindings ' . ($parent ? $parent->str : 'n ')
                    . join(', ', map "$_ " . $$h{$_}->str, sort keys %$h) . ')';
     }
 
     sub xh::corescript::fn::str {
       my ($self) = @_;
       my ($formals, $body) = @$self;
-      '(' . join(' ', 'fn', $formals->str, $body->str) . ')';
+      '(' . join(' ', 'fn', array->new(map literal->new($_), @$formals)->str,
+                            $body->str) . ')';
     }
 
     sub xh::corescript::native::str {
       my ($self) = @_;
-      $$self[0];
+      "#<native $$self[0]>";
     }
 
-    sub xh::corescript::bindings::deref {
+    sub xh::corescript::bindings::get {
       my ($self, $x) = @_;
       my ($parent, $h) = @$self;
-      $$h{$x} // ($parent && $parent->deref($x));
+      $$h{$x} // ($parent && $parent->get($x));
     }
 
-    sub xh::corescript::var::name { ${$_[0]} }
+    sub xh::corescript::map::get {
+      my ($self, $x) = @_;
+      $$self{$x->str};
+    }
+
+    sub xh::corescript::map::contains {
+      my ($self, $x) = @_;
+      exists $$self{$x->str};
+    }
+
+    sub xh::corescript::array::get {
+      my ($self, $x) = @_;
+      my $i = $x->str;
+      die "array index must be number (got $i instead)" unless $i == $i + 0;
+      $$self[$i];
+    }
+
+    *xh::corescript::list::get = *xh::corescript::array::get;
+
+    sub xh::corescript::var::name     { ${$_[0]} }
+    sub xh::corescript::literal::name { ${$_[0]} }
+    sub xh::corescript::native::name  { ${$_[0]}[0] }
 
     sub xh::corescript::literal::eval  { $_[0] }
     sub xh::corescript::native::eval   { $_[0] }
     sub xh::corescript::bindings::eval { $_[0] }
 
     sub xh::corescript::var::eval { my ($self, $bindings) = @_;
-                                    $bindings->deref($self->name) // $self }
+                                    $bindings->get($self->name) // $self }
 
     sub xh::corescript::list::eval {
       my ($self, $bindings) = @_;
       my ($f, @xs) = @$self;
-      $f = ref($f) eq 'xh::corescript::literal' ? $bindings->deref($$f)
-                                                : $f->eval($bindings);
-      ref($f) eq 'xh::corescript::var'
-        ? $self
-        : $f->invoke($bindings, map $_->eval($bindings), @xs);
+      $f->invoke($bindings, @xs);
     }
 
     sub xh::corescript::array::eval {
       my ($self, $bindings) = @_;
       my $unchanged = 1;
-      for (@$self) { last unless $unchanged = $_ eq $_->eval($bindings) }
+      $unchanged = $_ eq $_->eval($bindings) or last for @$self;
       $unchanged ? $self : array->new(map $_->eval($bindings), @$self);
     }
 
     sub xh::corescript::map::eval {
       my ($self, $bindings) = @_;
       my $unchanged = 1;
-      for (@$self) { last unless $unchanged = $_ eq $_->eval($bindings) }
-      $unchanged ? $self
-                 : xh::corescript::map->new(map $_->eval($bindings), @$self);
+      $unchanged = $_ eq $_->eval($bindings) or last for values %$self;
+      return $self if $unchanged;
+      xh::corescript::map->new(map {($_, $$self{$_}->eval($bindings))}
+                                   sort keys %$self);
     }
 
     sub xh::corescript::fn::eval {
@@ -3468,15 +3505,41 @@ meta::psection('implementation', <<'__');
                         : fn->new($args, $newbody);
     }
 
+    sub xh::corescript::var::invoke {
+      my ($self, $bindings, @args) = @_;
+      my $e = $self->eval($bindings);
+      return list->new($self, map $_->eval($bindings), @args)
+        unless $self ne $e;
+      $e->invoke($bindings, @args);
+    }
+
+    sub xh::corescript::literal::invoke {
+      my ($self, $bindings, @args) = @_;
+      my $f = $bindings->get($$self);
+      return list->new($self, map $_->eval($bindings), @args) unless $f;
+      $f->invoke($bindings, @args);
+    }
+
+    sub xh::corescript::list::invoke {
+      my ($self, $bindings, @xs) = @_;
+      $self->eval($bindings)->invoke($bindings, @xs);
+    }
+
     sub xh::corescript::fn::invoke {
       my ($self, $bindings, @args) = @_;
       my ($formals, $body) = @$self;
       my %scope;
-      $scope{$$formals[$_]} = $args[$_] for 0..$#args;
+      @scope{@$formals} = @args;
       $body->eval(bindings->new($bindings, \%scope));
     }
 
     sub xh::corescript::native::invoke { $_[0]->[1]->(@_[1..$#_]) }
+
+    our $y     = literal->new('y');
+    our $nil   = literal->new('n');
+    our $quote = literal->new('quote');
+    sub bool  { $_[0] ? $y : $nil }
+    sub quote { list->new($quote, $_[0]) }
 
     our %brackets = (')' => 'xh::corescript::list',
                      ']' => 'xh::corescript::array',
@@ -3485,31 +3548,124 @@ meta::psection('implementation', <<'__');
     our %globals;
     our $global_bindings = bindings->new(undef, \%globals);
 
-    sub defnglobal { $globals{$_[0]} = native->new($_[0], $_[1]) }
+    sub deabstractify {
+      my ($name, $f) = @_;
+      my $lname = literal->new($name);
+      native->new($name, sub {
+        my ($bindings, @xs) = @_;
+        my @ys = map $_->eval($bindings), @xs;
+        $_->concrete or return list->new($lname, @xs) for @ys;
+        &$f($bindings, map quote($_), @ys);
+      });
+    }
 
-    defnglobal 'bindings', sub {
+    # defines global natives that may or may not force their arguments
+    sub defglobal {
+      my %bindings = @_;
+      $globals{$_} = native->new($_, $bindings{$_}) for keys %bindings;
+    }
+
+    # like defglobal, but forces all arguments and preserves abstract values
+    sub defnglobal {
+      my %bindings = @_;
+      $globals{$_} = deabstractify($_, $bindings{$_}) for keys %bindings;
+    }
+
+    defnglobal '==', sub { bool($_[1]->str eq $_[2]->str) };
+    defnglobal '<',  sub { bool($_[1]->str lt $_[2]->str) };
+
+    defnglobal apply => sub {
+      my ($bindings, $f, @xs) = @_;
+      my $ref = pop @xs;
+      $f->invoke($bindings, @xs, map quote($_), @{$ref->eval($bindings)});
+    };
+
+    defglobal array => sub { array->new(map $_->eval($_[0]), @_[1..$#_]) };
+
+    defnglobal bindings => sub {
       my ($bindings, $parent, @xs) = @_;
       my %h;
       for (my $i = 0; $i < @xs; $i += 2) {
-        $h{$xs[$i]->name} = $xs[$i + 1];
+        $h{$xs[$i]->name} = $xs[$i + 1]->eval($bindings);
       }
       bindings->new($parent, \%h);
     };
 
-    defnglobal 'def', sub {
+    defnglobal body => sub {
+      my ($bindings, $f) = @_;
+      $f->eval($bindings)->[1];
+    };
+
+    defglobal concrete => sub { bool $_[1]->eval($_[0])->concrete };
+
+    defnglobal contains => sub {
+      bool $_[1]->eval($_[0])->contains($_[2]->eval($_[0]));
+    };
+
+    defnglobal count => sub { literal->new(scalar @{$_[1]->eval($_[0])}) };
+
+    defglobal def => sub {
       my ($bindings, $var, $x) = @_;
-      $globals{$var->name} = $x;
+      $globals{$var->eval($bindings)->name} = $x->eval($bindings);
       $var;
     };
 
-    defnglobal 'fn', sub {
-      my ($bindings, $formals, $body) = @_;
-      fn->new($formals, $body);
+    defnglobal defs => sub { $_[0] };
+
+    defnglobal do => sub {
+      my ($bindings, @body) = @_;
+      my $result;
+      $result = $_->eval($bindings) for @body;
+      $result;
     };
 
-    defnglobal 'str', sub {
-      literal->new(join '', map $_->str, @_[1..$#_]);
+    defglobal fn => sub {
+      my ($bindings, $formals, $body) = @_;
+      fn->new([map $_->name, @{$formals->eval($bindings)}],
+              $body->eval($bindings));
     };
+
+    defnglobal formals => sub {
+      my ($bindings, $f) = @_;
+      array->new(map literal->new($_), @{$f->eval($bindings)->[0]});
+    };
+
+    defnglobal get => sub {
+      $_[1]->eval($_[0])->get($_[2]->eval($_[0])) // $nil;
+    };
+
+    defnglobal globals => sub { $global_bindings };
+
+    defglobal if => sub {
+      my ($bindings, $cond, $then, $else) = @_;
+      ($cond->eval($bindings)->name eq 'n' ? $else : $then)->eval($bindings);
+    };
+
+    defnglobal len  => sub { literal->new(length $_[1]->eval($_[0])->name) };
+    defnglobal list => sub { list->new(map $_->eval($_[0]), @_[1..$#_]) };
+    defnglobal map  => sub {
+      xh::corescript::map->new(map $_->eval($_[0]), @_[1..$#_]);
+    };
+
+    defnglobal name => sub { literal->new($_[1]->name) };
+
+    defglobal quote => sub { $_[1] };
+
+    defnglobal str => sub {
+      literal->new(join '', map $_->eval($_[0])->str, @_[1..$#_]);
+    };
+
+    defglobal type => sub {
+      literal->new(ref($_[1]->eval($_[0])) =~ s/^.*:://r);
+    };
+
+    defnglobal unquote => sub {
+      my ($bindings, $x, $b) = @_;
+      $b //= $bindings;
+      $x->eval($bindings);
+    };
+
+    defnglobal var => sub { var->new($_[1]->name) };
 
     sub parse {
       my @stack = [];
