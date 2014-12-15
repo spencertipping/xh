@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  Ttps/SQ1o3YTTM7QRQsNPJiLaANjmI+Oy/+zPrYs1DM
+# state:  W82RRrst+6bI4jMbrL351EkJxgLJgGtcH+AYTSoo29U
 # istate: lfP6nzjsLmx5mHNdtq34pZfHlYIyVjSp6CusBqsaK1s
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3383,6 +3383,7 @@ meta::psection('implementation', <<'__');
     sub xh::corescript::fn::new       {bless [$_[1], $_[2], $_[3]], $_[0]}
     sub xh::corescript::native::new   {bless [$_[1], $_[2]], $_[0]}
 
+    # TODO: replace this with variant-tracking. Integrals over stuff, maybe.
     sub xh::corescript::literal::concrete  {1}
     sub xh::corescript::var::concrete      { $_[1]->contains($_[0]) }
     sub xh::corescript::list::concrete     {0}

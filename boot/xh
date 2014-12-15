@@ -103,6 +103,7 @@ sub xh::corescript::bindings::new {bless [$_[1], $_[2]], $_[0]}
 sub xh::corescript::fn::new       {bless [$_[1], $_[2], $_[3]], $_[0]}
 sub xh::corescript::native::new   {bless [$_[1], $_[2]], $_[0]}
 
+# TODO: replace this with variant-tracking. Integrals over stuff, maybe.
 sub xh::corescript::literal::concrete  {1}
 sub xh::corescript::var::concrete      { $_[1]->contains($_[0]) }
 sub xh::corescript::list::concrete     {0}
