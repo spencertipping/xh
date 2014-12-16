@@ -1718,6 +1718,8 @@ defnglobal do => sub {
   $result;
 };
 
+defnglobal empty => sub { ref($_[1])->new };
+
 defglobal fn => sub {
   my ($bindings, $formals, $body) = @_;
   $formals = $formals->eval($bindings);
@@ -2054,15 +2056,24 @@ _
       (str 'gs//' $prefix '/' $gensym-counter))))
 (def gensym-counter 0)
 
+(def partial
+  (macro [f &args]
+    (macro [&others]
+      (apply $f (into $args $others)))))
+
 (def flatmap
   (fn [f xs]
     (reduce (macro [r x] (into $r (f $x)))
-            []
+            (empty $xs)
             $xs)))
 
 (def map
   (fn [f xs]
-    (flatmap (macro [&args] [(apply $f $args)]) $xs)))
+    (flatmap (macro [x] [(f $x)]) $xs)))
+
+(def filter
+  (fn [f xs]
+    (flatmap (macro [x] (if (f $x) [$x] [])) $xs)))
 
 (def not  (fn    [x]   (if $x '' y)))
 (def and2 (macro [x y] (if $x $y '')))
