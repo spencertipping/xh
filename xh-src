@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  Yj5GBI7HilxabhV20pUO2Jp17o35K/N9m9HEFmJpZ0s
+# state:  ZZOadc0moxp5cR8LDHO3HwZVPiPi4oVZliOnBoKM8ME
 # istate: lfP6nzjsLmx5mHNdtq34pZfHlYIyVjSp6CusBqsaK1s
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3564,9 +3564,10 @@ meta::psection('implementation', <<'__');
       }
       my %scope;
       if ($$formals[-1] =~ /^&/) {
-        my $rest = substr pop(@$formals), 1;
-        @scope{@$formals} = @eargs[0..$#$formals];
-        $scope{$rest}     = array->new(@eargs[@$formals..$#eargs]);
+        my @formals = @$formals;
+        my $rest = substr pop(@formals), 1;
+        @scope{@$formals} = @eargs[0..$#formals] if @formals;
+        $scope{$rest}     = array->new(@eargs[@formals..$#eargs]);
       } else {
         @scope{@$formals} = @eargs;
       }
@@ -3982,13 +3983,15 @@ meta::psection('implementation', <<'__');
           (str 'gs//' $prefix '/' $gensym-counter))))
     (def gensym-counter 0)
 
-    (def amap
+    (def flatmap
       (fn [f xs]
-        (let1 result (array $xs)
-          (do
-            (times (count $xs)
-              (fn [i] (aset! $result $i (f (get $xs $i)))))
-            $result))))
+        (reduce (macro [r x] (into $r (f $x)))
+                []
+                $xs)))
+
+    (def map
+      (fn [f xs]
+        (flatmap (macro [&args] [(apply $f $args)]) $xs)))
 
     (def not  (fn    [x]   (if $x '' y)))
     (def and2 (macro [x y] (if $x $y '')))

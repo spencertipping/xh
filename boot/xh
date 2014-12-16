@@ -284,9 +284,10 @@ sub xh::corescript::fn::invoke {
   }
   my %scope;
   if ($$formals[-1] =~ /^&/) {
-    my $rest = substr pop(@$formals), 1;
-    @scope{@$formals} = @eargs[0..$#$formals];
-    $scope{$rest}     = array->new(@eargs[@$formals..$#eargs]);
+    my @formals = @$formals;
+    my $rest = substr pop(@formals), 1;
+    @scope{@$formals} = @eargs[0..$#formals] if @formals;
+    $scope{$rest}     = array->new(@eargs[@formals..$#eargs]);
   } else {
     @scope{@$formals} = @eargs;
   }
@@ -572,13 +573,15 @@ BEGIN {xh::defmodule('xh::selfcore.xh', <<'_')}
       (str 'gs//' $prefix '/' $gensym-counter))))
 (def gensym-counter 0)
 
-(def amap
+(def flatmap
   (fn [f xs]
-    (let1 result (array $xs)
-      (do
-        (times (count $xs)
-          (fn [i] (aset! $result $i (f (get $xs $i)))))
-        $result))))
+    (reduce (macro [r x] (into $r (f $x)))
+            []
+            $xs)))
+
+(def map
+  (fn [f xs]
+    (flatmap (macro [&args] [(apply $f $args)]) $xs)))
 
 (def not  (fn    [x]   (if $x '' y)))
 (def and2 (macro [x y] (if $x $y '')))
