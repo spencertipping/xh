@@ -1503,7 +1503,7 @@ sub xh::corescript::fn::str {
   my ($self) = @_;
   my ($formals, $body, $concrete) = @$self;
   '(' . join(' ', $concrete ? 'fn' : 'macro',
-                  array->new(map var->new($_), @$formals)->str,
+                  array->new(map literal->new($_), @$formals)->str,
                   $body->str) . ')';
 }
 
@@ -1564,7 +1564,12 @@ sub xh::corescript::var::eval { my ($self, $bindings) = @_;
 sub xh::corescript::list::eval {
   my ($self, $bindings) = @_;
   my ($f, @xs) = @$self;
-  $f->invoke($bindings, @xs);
+  my $r = $f->invoke($bindings, @xs);
+  return $r if defined $r;
+
+  my $unchanged = 1;
+  $unchanged = $_ eq $_->eval($bindings) or last for @$self;
+  $unchanged ? $self : list->new(map $_->eval($bindings), @$self);
 }
 
 sub xh::corescript::array::eval {
@@ -1607,7 +1612,9 @@ sub xh::corescript::literal::invoke {
 
 sub xh::corescript::list::invoke {
   my ($self, $bindings, @xs) = @_;
-  $self->eval($bindings)->invoke($bindings, @xs);
+  my $evaled = $self->eval($bindings);
+  return undef if $self eq $evaled;
+  $evaled->invoke($bindings, @xs);
 }
 
 sub xh::corescript::fn::invoke {
@@ -1633,12 +1640,13 @@ sub xh::corescript::native::invoke { $_[0]->[1]->(@_[1..$#_]) }
 our $y     = literal->new('y');
 our $nil   = literal->new('');
 our $quote = literal->new('quote');
+our $fn    = literal->new('fn');
+our $if    = literal->new('if');
+
 sub bool  { $_[0] ? $y : $nil }
 sub quote { list->new($quote, $_[0]) }
 
-our %brackets = (')' => 'xh::corescript::list',
-                 ']' => 'xh::corescript::array',
-                 '}' => 'xh::corescript::hash');
+our %brackets = (')' => list, ']' => array, '}' => hash);
 
 our %globals;
 our $global_bindings = bindings->new(undef, \%globals);
@@ -1650,7 +1658,9 @@ sub deabstractify {
     my ($bindings, @xs) = @_;
     my @ys = map $_->eval($bindings), @xs;
     $_->concrete($bindings) or return list->new($lname, @ys) for @ys;
-    &$f($bindings, @ys);
+    my $result = eval {&$f($bindings, @ys)};
+    return undef if $@;
+    $result;
   });
 }
 
@@ -1709,7 +1719,9 @@ defnglobal do => sub {
 
 defglobal fn => sub {
   my ($bindings, $formals, $body) = @_;
-  fn->new([map $_->name, @{$formals->eval($bindings)}],
+  $formals = $formals->eval($bindings);
+  ref($_) eq literal or return undef for @$formals;
+  fn->new([map $_->name, @$formals],
           $body->eval($bindings),
           1);
 };
@@ -1727,7 +1739,7 @@ defnglobal hash    => sub { hash->new(@_[1..$#_]) };
 defglobal if => sub {
   my ($bindings, $cond, $then, $else) = @_;
   $cond = $cond->eval($bindings);
-  return list->new(literal->new('if'), $cond, $then, $else)
+  return list->new($if, $cond, $then, $else)
          unless $cond->concrete($bindings);
   ($cond->true ? $then : $else)->eval($bindings);
 };
@@ -1745,7 +1757,9 @@ defnglobal list => sub { list->new(@_[1..$#_]) };
 
 defglobal macro => sub {
   my ($bindings, $formals, $body) = @_;
-  fn->new([map $_->name, @{$formals->eval($bindings)}],
+  $formals = $formals->eval($bindings);
+  ref($_) eq literal or return undef for @$formals;
+  fn->new([map $_->name, @$formals],
           $body->eval($bindings),
           0);
 };
@@ -1762,6 +1776,16 @@ defnglobal reduce => sub {
 
 defnglobal str => sub {
   literal->new(join '', map $_->name, @_[1..$#_]);
+};
+
+defnglobal times => sub {
+  my ($bindings, $n, $f, @args) = @_;
+  my $result = $nil;
+  $n = $n->name;
+  for (my $i = 0; $i < $n; ++$i) {
+    $result = $f->invoke($bindings, literal->new($i), @args);
+  }
+  $result;
 };
 
 defnglobal type => sub {
@@ -1794,7 +1818,7 @@ defnglobal 'def!' => sub {
   my $k = $name->name;
   $bindings = $$bindings[0]
     while defined $bindings and not exists ${$$bindings[1]}{$k};
-  die "cannot reset undefined variable $k" unless defined $bindings;
+  return undef unless defined $bindings;
   ${$$bindings[1]}{$k} = $v;
   $v;
 };
@@ -2019,7 +2043,23 @@ _
 (def when   (macro [cond &body] (if $cond (apply do $body) '')))
 (def unless (macro [cond &body] (if $cond '' (apply do $body))))
 
-(def let1 (macro [k v body] ((macro [$k] $body) $v)))
+(def let1 (macro [k v body] ((fn [$k] $body) $v)))
+(def inc (fn [x] (i+ $x 1)))
+
+(def gensym
+  (fn [prefix]
+    (do
+      (def! gensym-counter (inc $gensym-counter))
+      (str 'gs//' $prefix '/' $gensym-counter))))
+(def gensym-counter 0)
+
+(def amap
+  (fn [f xs]
+    (let1 result (array $xs)
+      (do
+        (times (count $xs)
+          (fn [i] (aset! $result $i (f (get $xs $i)))))
+        $result))))
 
 (def not  (fn    [x]   (if $x '' y)))
 (def and2 (macro [x y] (if $x $y '')))
