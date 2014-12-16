@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  WeDW0FIy848haGDyYWmuRTIPw+ln0torcDfeoJpctmE
+# state:  F2AUEg4uF4VTLTSFuk+Viq4ogISyym/P+qIkipqqixk
 # istate: lfP6nzjsLmx5mHNdtq34pZfHlYIyVjSp6CusBqsaK1s
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3505,16 +3505,21 @@ meta::psection('implementation', <<'__');
       my $r = $f->invoke($bindings, @xs);
       return $r if defined $r;
 
-      my $unchanged = 1;
-      $unchanged = $_ eq $_->eval($bindings) or last for @$self;
-      $unchanged ? $self : list->new(map $_->eval($bindings), @$self);
+      my @new;
+      push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
+      @new < @$self ? $self
+                    : list->new(@new,
+                                map $_->eval($bindings), @$self[@new..$#$self]);
     }
 
     sub xh::corescript::array::eval {
       my ($self, $bindings) = @_;
-      my $unchanged = 1;
-      $unchanged = $_ eq $_->eval($bindings) or last for @$self;
-      $unchanged ? $self : array->new(map $_->eval($bindings), @$self);
+
+      my @new;
+      push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
+      @new < @$self ? $self
+                    : array->new(@new,
+                                 map $_->eval($bindings), @$self[@new..$#$self]);
     }
 
     sub xh::corescript::hash::eval {
@@ -3649,7 +3654,7 @@ meta::psection('implementation', <<'__');
 
     defnglobal defs => sub { $_[0] };
 
-    defnglobal do => sub {
+    defglobal do => sub {
       my ($bindings, @body) = @_;
       my $result;
       $result = $_->eval($bindings) for @body;
@@ -3990,9 +3995,17 @@ meta::psection('implementation', <<'__');
         (macro [&others]
           (apply $f (into $args $others)))))
 
+    (def comp2
+      (macro [f g]
+        (macro [&args] (f (apply $g $args)))))
+
+    (def comp
+      (macro [&fs]
+        (reduce comp2 (macro [x] $x) $fs)))
+
     (def flatmap
       (fn [f xs]
-        (reduce (macro [r x] (into $r (f $x)))
+        (reduce (fn [r x] (into $r (f $x)))
                 (empty $xs)
                 $xs)))
 

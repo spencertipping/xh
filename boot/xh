@@ -225,16 +225,21 @@ sub xh::corescript::list::eval {
   my $r = $f->invoke($bindings, @xs);
   return $r if defined $r;
 
-  my $unchanged = 1;
-  $unchanged = $_ eq $_->eval($bindings) or last for @$self;
-  $unchanged ? $self : list->new(map $_->eval($bindings), @$self);
+  my @new;
+  push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
+  @new < @$self ? $self
+                : list->new(@new,
+                            map $_->eval($bindings), @$self[@new..$#$self]);
 }
 
 sub xh::corescript::array::eval {
   my ($self, $bindings) = @_;
-  my $unchanged = 1;
-  $unchanged = $_ eq $_->eval($bindings) or last for @$self;
-  $unchanged ? $self : array->new(map $_->eval($bindings), @$self);
+
+  my @new;
+  push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
+  @new < @$self ? $self
+                : array->new(@new,
+                             map $_->eval($bindings), @$self[@new..$#$self]);
 }
 
 sub xh::corescript::hash::eval {
@@ -369,7 +374,7 @@ defglobal def => sub {
 
 defnglobal defs => sub { $_[0] };
 
-defnglobal do => sub {
+defglobal do => sub {
   my ($bindings, @body) = @_;
   my $result;
   $result = $_->eval($bindings) for @body;
@@ -580,9 +585,17 @@ BEGIN {xh::defmodule('xh::selfcore.xh', <<'_')}
     (macro [&others]
       (apply $f (into $args $others)))))
 
+(def comp2
+  (macro [f g]
+    (macro [&args] (f (apply $g $args)))))
+
+(def comp
+  (macro [&fs]
+    (reduce comp2 (macro [x] $x) $fs)))
+
 (def flatmap
   (fn [f xs]
-    (reduce (macro [r x] (into $r (f $x)))
+    (reduce (fn [r x] (into $r (f $x)))
             (empty $xs)
             $xs)))
 
