@@ -74,13 +74,16 @@ sub main {
     while (<STDIN>) {
       chomp;
       if (length) {
-        my ($parsed) = xh::corescript::parse $_;
-        my $result =
-          eval {xh::corescript::evaluate($parsed,
-                                         $xh::corescript::global_bindings,
-                                         2)};
-        print $@ ? "! $@\n"
-                 : "= " . $result->str . "\n";
+        eval {
+          my ($parsed) = xh::corescript::parse $_;
+          my $result =
+            eval {xh::corescript::evaluate($parsed,
+                                           $xh::corescript::global_bindings,
+                                           2)};
+          print $@ ? "! $@\n"
+                   : "= " . $result->str . "\n";
+        };
+        print "! $@\n" if $@;
       }
       print STDERR "> ";
     }
@@ -106,6 +109,7 @@ sub xh::corescript::hash::new     {bless into_hash(@_[1..$#_]), $_[0]}
 sub xh::corescript::bindings::new {bless [$_[1], $_[2]], $_[0]}
 sub xh::corescript::fn::new       {bless [$_[1], $_[2]], $_[0]}
 sub xh::corescript::native::new   {bless [$_[1], $_[2]], $_[0]}
+sub xh::corescript::delay::new    {bless [@_[1..$#_]], $_[0]}
 
 sub xh::corescript::literal::concrete  {1}
 sub xh::corescript::var::concrete      {0}
@@ -115,8 +119,9 @@ sub xh::corescript::hash::concrete     {1}
 sub xh::corescript::bindings::concrete {1}
 sub xh::corescript::fn::concrete       {1}
 sub xh::corescript::native::concrete   {1}
+sub xh::corescript::delay::concrete    {0}
 
-sub xh::corescript::literal::true  { length ${$_[0]} }
+sub xh::corescript::literal::true  { length ${$_[0]} && ${$_[0]} ne '0' }
 sub xh::corescript::var::true      {1}
 sub xh::corescript::list::true     {1}
 sub xh::corescript::array::true    {1}
@@ -124,6 +129,40 @@ sub xh::corescript::hash::true     {1}
 sub xh::corescript::bindings::true {1}
 sub xh::corescript::fn::true       {1}
 sub xh::corescript::native::true   {1}
+sub xh::corescript::delay::true    {1}
+
+sub strhash {
+  my $h = 0;
+  $h = $h * 33 ^ ord for split //, $_[0];
+  $h;
+}
+
+sub arrayhash {
+  my $h = 0;
+  $h = $h * 65 ^ (ref($_) ? $_->hashcode : strhash($_)) for @_;
+  $h;
+}
+
+sub hashhash {
+  my @ks = sort keys %{$_[0]};
+  arrayhash(@ks) ^ arrayhash(@{$_[0]}{@ks});
+}
+
+sub xh::corescript::literal::hashcode  { strhash ${$_[0]} }
+sub xh::corescript::var::hashcode      { ~strhash ${$_[0]} }
+sub xh::corescript::list::hashcode     { arrayhash @{$_[0]} }
+sub xh::corescript::array::hashcode    { 1 + arrayhash @{$_[0]} }
+sub xh::corescript::hash::hashcode     { hashhash $_[0] }
+
+sub xh::corescript::bindings::hashcode {
+  (defined ${$_[0]}[0] ? $$_[0]->hashcode : 0) ^ hashhash ${$_[0]}[1];
+}
+
+sub xh::corescript::fn::hashcode     { strhash(${$_[0]}[0])
+                                     ^ ${$_[0]}[1]->hashcode }
+sub xh::corescript::native::hashcode { 65 * strhash(${$_[0]}[0]) }
+sub xh::corescript::delay::hashcode  { ${$_[0]}[0]->hashcode
+                                     ^ arrayhash @{$_[0]}[1..$#{$_[0]}] }
 
 # shorthands
 use constant literal  => 'xh::corescript::literal';
@@ -134,6 +173,9 @@ use constant array    => 'xh::corescript::array';
 use constant bindings => 'xh::corescript::bindings';
 use constant fn       => 'xh::corescript::fn';
 use constant native   => 'xh::corescript::native';
+use constant delay    => 'xh::corescript::delay';
+
+use constant REF_IDS => 0;
 
 our $deadline = 0;
 our %globals;
@@ -147,20 +189,29 @@ sub quote_call {
                     : list->new($apply, $f, $xs);
 }
 
-sub xh::corescript::literal::str {
-  my $s = ${$_[0]};
-  $s =~ /['()[]{},\s]|^$/ ? "'" . (${$_[0]} =~ s/'/\\'/gr) . "'"
-                          : $s;
+sub ref_id {
+  return '' unless REF_IDS and time > $deadline;
+  ($_[0] =~ s/^.*\(0x..(...).*$/$1/r) . ':';
 }
 
-sub xh::corescript::var::str   { "\$${$_[0]}" }
-sub xh::corescript::list::str  { '(' . join(' ', map $_->str, @{$_[0]})
+sub xh::corescript::literal::str {
+  my $s = ${$_[0]};
+  ref_id($_[0]) .
+  ($s =~ /['()[]{},\s]|^$/ ? "'" . (${$_[0]} =~ s/'/\\'/gr) . "'"
+                           : $s);
+}
+
+sub xh::corescript::var::str   { ref_id($_[0]) . "\$${$_[0]}" }
+sub xh::corescript::list::str  { ref_id($_[0]) .
+                                 '(' . join(' ', map $_->str, @{$_[0]})
                                      . ')' }
 
-sub xh::corescript::array::str { '[' . join(' ', map $_->str, @{$_[0]})
+sub xh::corescript::array::str { ref_id($_[0]) .
+                                 '[' . join(' ', map $_->str, @{$_[0]})
                                      . ']' }
 
 sub xh::corescript::hash::str {
+  ref_id($_[0]) .
   '{' . join(', ', map $_ . ' ' . ${$_[0]}{$_}->str, sort keys %{$_[0]})
       . '}';
 }
@@ -168,31 +219,39 @@ sub xh::corescript::hash::str {
 sub xh::corescript::bindings::str {
   my ($self) = @_;
   my ($parent, $h) = @$self;
-  '(bindings ' . ($parent ? $parent->str : 'n ')
-               . join(', ', map "$_ " . $$h{$_}->str, sort keys %$h) . ')';
+  ref_id($_[0]) .
+  '(bindings ' . ($parent ? $parent->str : "''")
+         . ' ' . join(', ', map "$_ " . $$h{$_}->str, sort keys %$h) . ')';
 }
 
 sub xh::corescript::fn::str {
   my ($self) = @_;
   my ($formal, $body) = @$self;
-  "(fn* $formal " . $body->str . ')';
+  ref_id($_[0]) . "(fn* $formal " . $body->str . ')';
 }
 
 sub xh::corescript::native::str {
   my ($self) = @_;
-  "#<native $$self[0]>";
+  ref_id($_[0]) . "#<native $$self[0]>";
+}
+
+sub xh::corescript::delay::str {
+  my ($self) = @_;
+  ref_id($_[0]) . '(delay ' . join(' ', map $_->str, @$self) . ')';
 }
 
 sub xh::corescript::bindings::get {
   my ($self, $x) = @_;
   my ($parent, $h) = @$self;
-  $$h{$x} // ($parent && $parent->get($x));
+  return undef unless ref($x) eq literal or ref($x) eq var;
+  my $binding = $$h{$x->name} // ($parent && $parent->get($x));
+  ref($binding) ? $binding : undef;
 }
 
 sub xh::corescript::bindings::contains {
   my ($self, $x) = @_;
   my ($parent, $h) = @$self;
-  exists($$h{$x}) || $parent && $parent->contains($x);
+  exists($$h{$x->name}) || $parent && $parent->contains($x);
 }
 
 sub xh::corescript::hash::get {
@@ -208,7 +267,7 @@ sub xh::corescript::hash::contains {
 sub xh::corescript::array::get {
   my ($self, $x) = @_;
   my $i = $x->name;
-  die "array index must be number (got $i instead)" unless $i == $i + 0;
+  die "array index must be number (got $i instead)" unless $i eq $i + 0;
   $$self[$i];
 }
 
@@ -217,7 +276,7 @@ sub xh::corescript::array::get {
 sub xh::corescript::literal::get {
   my ($self, $x) = @_;
   my $i = $x->name;
-  die "literal index must be number (got $i instead)" unless $i == $i + 0;
+  die "literal index must be number (got $i instead)" unless $i eq $i + 0;
   literal->new(ord substr $$self, $i, 1);
 }
 
@@ -230,27 +289,23 @@ sub xh::corescript::native::eval   { $_[0] }
 sub xh::corescript::bindings::eval { $_[0] }
 
 sub xh::corescript::var::eval { my ($self, $bindings) = @_;
-                                $bindings->get($self->name) // $self }
+                                $bindings->get($self) // $self }
 
 sub xh::corescript::list::eval {
   my ($self, $bindings) = @_;
   my ($f, @xs) = @$self;
   my $r = $f->invoke($bindings, array->new(@xs));
   return $r if defined $r;
-  my @new;
-  push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
-  $new[-1] eq $$self[-1]
-    ? $self
-    : list->new(@new, map $_->eval($bindings), @$self[@new..$#$self]);
+  my @e = map $_->eval($bindings), @$self;
+  $$self[$_] eq $e[$_] or return list->new(@e) for 0..$#e;
+  $self;
 }
 
 sub xh::corescript::array::eval {
   my ($self, $bindings) = @_;
-  my @new;
-  push(@new, $_->eval($bindings)), $_ eq $new[-1] or last for @$self;
-  $new[-1] eq $$self[-1]
-    ? $self
-    : array->new(@new, map $_->eval($bindings), @$self[@new..$#$self]);
+  my @e = map $_->eval($bindings), @$self;
+  $$self[$_] eq $e[$_] or return array->new(@e) for 0..$#e;
+  $self;
 }
 
 sub xh::corescript::hash::eval {
@@ -273,35 +328,68 @@ sub xh::corescript::hash::eval {
 sub xh::corescript::fn::eval {
   my ($self, $bindings) = @_;
   my ($formal, $body) = @$self;
-  my $newbody = $body->eval($bindings);
+  my $newbody = $body->eval(
+    bindings->new($bindings, {$formal => 0}));
   $body eq $newbody ? $self
                     : fn->new($formal, $newbody);
+}
+
+sub xh::corescript::delay::eval {
+  my ($self, $bindings) = @_;
+  my ($values, @body) = @$self;
+  for my $x (@$values) {
+    if (!$x->concrete && $x eq $x->eval($bindings)) {
+      my @e = map $_->eval($bindings), @body;
+      $body[$_] eq $e[$_] or return delay->new($values, @e) for 0..$#e;
+      return $self;
+    }
+  }
+  list->new(@body)->eval($bindings);
 }
 
 sub xh::corescript::var::invoke {
   my ($self, $bindings, $args) = @_;
   my $e = $self->eval($bindings);
-  return quote_call $self, $args if $e eq $self;
+  return undef if $e eq $self;
   $e->invoke($bindings, $args);
 }
 
 sub xh::corescript::literal::invoke {
   my ($self, $bindings, $args) = @_;
-  my $f = $bindings->get($$self);
-  return quote_call $self, $args unless defined $f;
+  my $f = $bindings->get($self);
+  return undef unless defined $f;
   $f->invoke($bindings, $args);
 }
 
 sub xh::corescript::list::invoke {
   my ($self, $bindings, $args) = @_;
+  die quote_call($self, $args)->str . ': timeout expired'
+    if $deadline and time > $deadline;
+
   my $evaled = $self->eval($bindings);
   return undef if $self eq $evaled;
 
   my $result = eval {$evaled->invoke($bindings, $args)};
   my $error = $@;
   if ($error) {
-    print STDERR '(apply ', $self->str, ' ', $args->str, '): ',
-                 $error, "\n";
+    print STDERR quote_call($self, $args)->str, ': ', $error, "\n";
+    die $error;
+  } else {
+    $result;
+  }
+}
+
+sub xh::corescript::delay::invoke {
+  my ($self, $bindings, $args) = @_;
+  die quote_call($self, $args)->str . ': timeout expired'
+    if $deadline and time > $deadline;
+
+  my $e = $self->eval($bindings);
+  return undef if $e eq $self;
+  my $result = eval {$e->invoke($bindings, $args)};
+  my $error = $@;
+  if ($error) {
+    print STDERR quote_call($self, $args)->str, ': ', $error, "\n";
     die $error;
   } else {
     $result;
@@ -309,9 +397,10 @@ sub xh::corescript::list::invoke {
 }
 
 sub xh::corescript::fn::invoke {
-  die 'timeout expired' if $deadline and time > $deadline;
-
   my ($self, $bindings, $args) = @_;
+  die quote_call($self, $args)->str . ': timeout expired'
+    if $deadline and time > $deadline;
+
   my ($formal, $body) = @$self;
   my $result = eval {
     $body->eval(bindings->new($global_bindings,
@@ -319,8 +408,7 @@ sub xh::corescript::fn::invoke {
   };
   my $error = $@;
   if ($error) {
-    print STDERR '(apply ', $self->str, ' ', $args->str, '): ',
-                 $error, "\n";
+    print STDERR quote_call($self, $args)->str, ': ', $error, "\n";
     die $error;
   } else {
     $result;
@@ -328,16 +416,16 @@ sub xh::corescript::fn::invoke {
 }
 
 sub xh::corescript::native::invoke {
-  die 'timeout expired' if $deadline and time > $deadline;
-
   my ($self, $bindings, $args) = @_;
+  die quote_call($self, $args)->str . ': timeout expired'
+    if $deadline and time > $deadline;
+
   my (undef, $f) = @$self;
   $args = $args->eval($bindings);
   my $result = eval {$f->($bindings, @$args)};
   my $error  = $@;
   if ($error) {
-    print STDERR '(apply ', $self->str, ' ', $args->str, '): ',
-                 $error, "\n";
+    print STDERR quote_call($self, $args)->str, ': ', $error, "\n";
     die $error;
   } else {
     $result;
@@ -370,7 +458,8 @@ defglobal apply => sub {
   my ($bindings, $f, @args) = @_;
   my $last = pop @args;
   return undef unless ref($last) eq array;
-  $f->invoke($bindings, array->new(@args, @$last));
+  $f->invoke($bindings, array->new(@args, @$last))
+    // list->new($f, @args, @$last);
 };
 
 defglobal array => sub { array->new(@_[1..$#_]) };
@@ -418,9 +507,9 @@ defglobal def => sub {
 defglobal defs => sub { $_[0] };
 
 defglobal delay => sub {
-  my ($bindings, $f, @args) = @_;
-  $_->concrete or return undef for @args;
-  $f->invoke($bindings, array->new(@args));
+  my ($bindings, $exprs, @body) = @_;
+  return undef unless ref($exprs) eq array;
+  delay->new($exprs, @body);
 };
 
 defglobal do => sub {
@@ -430,7 +519,10 @@ defglobal do => sub {
   $result;
 };
 
-defglobal empty => sub { ref($_[1])->new };
+defglobal empty => sub {
+  return undef unless $_[1]->concrete;
+  ref($_[1])->new;
+};
 
 defglobal 'fn*' => sub {
   my ($bindings, $formal, $body) = @_;
@@ -439,23 +531,31 @@ defglobal 'fn*' => sub {
   fn->new($formal->name, $body->eval($bindings));
 };
 
-defglobal formals => sub {
-  my ($bindings, $f) = @_;
-  array->new(map var->new($_), @{$f->[0]});
-};
-
 defglobal get => sub {
   return undef unless $_[1]->concrete and $_[2]->concrete;
-  $_[1]->get($_[2]) // $nil;
+  $_[1]->get($_[2]);
 };
 
 defglobal globals => sub { $global_bindings };
 defglobal hash    => sub { hash->new(@_[1..$#_]) };
+defglobal hashcode => sub {
+  my ($bindings, $x) = @_;
+  my $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            . 'abcdefghijklmnopqrstuvwxyz'
+            . '0123456789'
+            . '+-*&^%@!~`|=_<>,.';
+  my $n = length $chars;
+
+  my $h = $x->hashcode;
+  my $s = '';
+  $s .= substr($chars, $h % $n, 1), $h /= $n while $h = int $h;
+  literal->new($s);
+};
 
 defglobal if => sub {
   my ($bindings, $cond, $then, $else) = @_;
   $cond = $cond->eval($bindings);
-  return list->new($if, $cond, $then, $else) unless $cond->concrete;
+  return undef unless $cond->concrete;
   ($cond->true ? $then : $else)->eval($bindings);
 };
 
@@ -466,22 +566,21 @@ defglobal into => sub {
   ref($to)->new(@$to, @$from);
 };
 
+defglobal iota => sub {
+  my ($bindings, $i) = @_;
+  return undef unless ref($i) eq literal;
+  array->new(map literal->new($_), 0..$i->name-1);
+};
+
 defglobal keys => sub {
   ref($_[1]) eq hash  ? array->new(map parse($_), sort keys %{$_[1]})
 : ref($_[1]) eq array ? array->new(map literal->new($_), 0..$#{$_[1]})
                       : undef;
 };
 
-defglobal len  => sub { literal->new(length $_[1]->name) };
-defglobal list => sub { list->new(@_[1..$#_]) };
-
-defglobal name => sub { literal->new($_[1]->name) };
-
-defglobal print => sub {
-  my ($bindings, @args) = @_;
-  print STDERR join(' ', map $_->str, @args), "\n";
-  $nil;
-};
+defglobal len     => sub { literal->new(length $_[1]->name) };
+defglobal list    => sub { list->new(@_[1..$#_]) };
+defglobal literal => sub { literal->new($_[1]->name) };
 
 defglobal quote => sub { $_[1] };
 
@@ -503,18 +602,19 @@ defglobal scope => sub {
   $v->eval(bindings->new($bindings, $b));
 };
 
-defglobal str => sub {
-  literal->new(join '', map $_->name, @_[1..$#_]);
+defglobal slice => sub {
+  my ($bindings, $xs, $lower, $upper) = @_;
+  return undef unless ref($xs) eq array;
+  $lower //= literal->new(0);
+  $upper //= literal->new($#$xs);
+  return undef unless ref($lower) eq literal
+                  and ref($upper) eq literal;
+  array->new(@$xs[$lower->name .. $upper->name]);
 };
 
-defglobal times => sub {
-  my ($bindings, $n, $f, @args) = @_;
-  my $result = $nil;
-  $n = $n->name;
-  for (my $i = 0; $i < $n; ++$i) {
-    $result = $f->invoke($bindings, array->new(literal->new($i), @args));
-  }
-  $result;
+defglobal str => sub {
+  ref($_) eq literal or return undef for @_[1..$#_];
+  literal->new(join '', map $_->name, @_[1..$#_]);
 };
 
 defglobal type => sub { literal->new(ref($_[1]) =~ s/^.*:://r) };
@@ -612,12 +712,12 @@ sub evaluate {
 }
 
 $::xh::compilers{xh} = sub {
-  evaluate($_, $global_bindings, 2) for parse $_[1];
+  evaluate($_, $global_bindings, 5) for parse $_[1];
 };
 _
 
-BEGIN {xh::defmodule('xh::selfcore.xh', <<'_')}
-(def destructuring-bind!
+BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
+(def destructuring-bind
   (fn* outer        # outer = [template value bindings]
     (if (== literal (realtype (get $outer 0)))
       (assoc (get $outer 2) (get $outer 0) (get $outer 1))
@@ -625,10 +725,10 @@ BEGIN {xh::defmodule('xh::selfcore.xh', <<'_')}
             y
             (== hash (realtype (get $outer 0))))
         (reduce (fn* k
-                  (delay destructuring-bind!
-                         (get (get $outer 0) (get $k 1))
-                         (get (get $outer 1) (get $k 1))
-                         (get $k 0)))
+                  (delay [$k] destructuring-bind
+                              (get (get $outer 0) (get $k 1))
+                              (get (get $outer 1) (get $k 1))
+                              (get $k 0)))
                 (get $outer 2)
                 (keys (get $outer 0)))
         (get $outer 2)))))
@@ -636,20 +736,65 @@ BEGIN {xh::defmodule('xh::selfcore.xh', <<'_')}
 (def fn1
   (fn* args
     (fn* (get $args 0)
-      (scope (destructuring-bind! (get $args 1) (var (get $args 0)) {})
+      (scope (destructuring-bind (get $args 1)
+                                 (var (get $args 0))
+                                 {})
         (get $args 2)))))
 
-# BUG: $body evaluating into a list blocks the evaluation of
-# (destructuring-bind!), which in turn causes infinite loops. We need to
-# work around this by either designating some parameters as being ok to
-# bind lazily, or by quoting the list somehow. The former is a superior
-# option if it's possible.
 (def fn
-  (fn1 fn~ [fname fformals body]
-    (fn* $fname
-      (scope (destructuring-bind! $fformals (var $fname) {})
-        $body))))
+  (fn1 fn~ [formals body]
+    ((fn1 gs~ [gs]
+       (fn* $gs
+         (scope (delay [$gs]
+                 delay [$gs]
+                 destructuring-bind $formals (var $gs) {})
+           $body)))
+     (str : (delay [$formals $body]
+             delay [$formals $body]
+             hashcode [$formals $body])))))
 
+(def defn
+  (fn [name formals body]
+    (def $name (fn $formals $body))))
+
+(defn map1     [f xs] (flatmap1 (fn [x] [($f $x)]) $xs))
+(defn filter1  [f xs] (flatmap1 (fn [x] (if (f $x) [$x] [])) $xs))
+(defn flatmap1 [f xs] (reduce (fn [ys x] (into $ys ($f $x)))
+                              (empty $xs)
+                              $xs))
+
+(defn reverse [xs] (reduce (fn [ys x] (into [$x] $ys))
+                           []
+                           $xs))
+
+(defn partial fs (let1 [f] $fs (fn xs (apply $f (into (slice $fs 1) $xs)))))
+(defn comp    fs (fn xs (get (reduce (fn [x f] [(apply $f $x)])
+                                     $xs
+                                     (reverse $fs))
+                             0)))
+
+(defn inc [x] (i+ $x 1))
+(defn let1 [k v body] ((delay [$k] fn [$k] $body) $v))
+
+(defn .. args
+  (let1 [x] $args
+    (delay [$x]
+     delay [$x]
+     apply list delay [$x] (slice $args 1))))
+
+(defn let [kvs body]
+  (let1 is (iota (i>> (count $kvs) 1))
+    (apply (.. $body
+            fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
+           (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
+
+#(defn let [kvs body] (scope (apply hash $kvs) $body))
+
+#(defn let* [kvs body]
+#  (if (i>= (count $kvs) 2)
+#    (let1 [k v] $kvs
+#      (.. $k let1 $k $v (.. $k let* (slice $kvs 2) $body)))
+#    $body))
 _
 
 BEGIN {xh::defmodule('dom.html', <<'_')}
