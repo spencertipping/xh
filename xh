@@ -543,7 +543,7 @@ defglobal hashcode => sub {
   my $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
             . 'abcdefghijklmnopqrstuvwxyz'
             . '0123456789'
-            . '+-*&^%@!~`|=_<>,.';
+            . '+-*&^%@!~`|=_<>,.:;';
   my $n = length $chars;
 
   my $h = $x->hashcode;
@@ -592,7 +592,10 @@ defglobal realtype => sub {
 defglobal reduce => sub {
   my ($bindings, $f, $init, $xs) = @_;
   return undef unless ref($xs) eq array;
-  $init = $f->invoke($bindings, array->new($init, $_)) for @$xs;
+  for my $x (@$xs) {
+    my $args = array->new($init, $x);
+    $init = $f->invoke($bindings, $args) // quote_call($f, $args);
+  }
   $init;
 };
 
@@ -786,14 +789,6 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
     (apply (.. $body
             fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
            (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
-
-#(defn let [kvs body] (scope (apply hash $kvs) $body))
-
-#(defn let* [kvs body]
-#  (if (i>= (count $kvs) 2)
-#    (let1 [k v] $kvs
-#      (.. $k let1 $k $v (.. $k let* (slice $kvs 2) $body)))
-#    $body))
 _
 #</script>
 BEGIN {xh::defmodule('dom.html', <<'_')}

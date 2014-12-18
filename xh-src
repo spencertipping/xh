@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  avnquedekR6giCHqvPk7WfDIMURvmMK96Mvci0zENsc
+# state:  lBbpFEOkm3gwURh1BGIaZGdt8CtXxoYpyclCERgLUJY
 # istate: iz61NxIuX28zRjyajctdj4pufKIIktSEdo7BG6AE/ek
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3823,7 +3823,7 @@ meta::psection('implementation', <<'__');
       my $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                 . 'abcdefghijklmnopqrstuvwxyz'
                 . '0123456789'
-                . '+-*&^%@!~`|=_<>,.';
+                . '+-*&^%@!~`|=_<>,.:;';
       my $n = length $chars;
 
       my $h = $x->hashcode;
@@ -3872,7 +3872,10 @@ meta::psection('implementation', <<'__');
     defglobal reduce => sub {
       my ($bindings, $f, $init, $xs) = @_;
       return undef unless ref($xs) eq array;
-      $init = $f->invoke($bindings, array->new($init, $_)) for @$xs;
+      for my $x (@$xs) {
+        my $args = array->new($init, $x);
+        $init = $f->invoke($bindings, $args) // quote_call($f, $args);
+      }
       $init;
     };
 
@@ -4197,14 +4200,6 @@ meta::psection('implementation', <<'__');
         (apply (.. $body
                 fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
                (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
-
-    #(defn let [kvs body] (scope (apply hash $kvs) $body))
-
-    #(defn let* [kvs body]
-    #  (if (i>= (count $kvs) 2)
-    #    (let1 [k v] $kvs
-    #      (.. $k let1 $k $v (.. $k let* (slice $kvs 2) $body)))
-    #    $body))
   - end
 
 __
