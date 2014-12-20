@@ -865,6 +865,13 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
                (reverse $_))))
 
 # TODO: generalize (delay) into some kind of quoting/unquoting mechanism.
+# TODO: figure out some way to get variable shadowing
+# TODO: generalize evaluation? (probably not necessary if we have
+#   progressively-specified bindings and term updating)
+# TODO: spec out state chaining mechanism
+# TODO: multiple-value returns and/or channels? (to make it easier to work
+#   with state) -- though maybe this can be built using quoting and
+#   unquoting.
 _
 
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}

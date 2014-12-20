@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  gK6ooZMkGrJ2hC+ktfCAygOs/3WcYLxAWJHtZlCysYU
+# state:  w5jUHqXF8lsD0c07Dg/ALCucY3NVPsBYuvSfBRDtrZw
 # istate: aKMGFVoTUe3omTlk0VuTzKtnz1/tOiIyRwTonKm50DU
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -4278,6 +4278,13 @@ meta::psection('implementation', <<'__');
                    (reverse $_))))
 
     # TODO: generalize (delay) into some kind of quoting/unquoting mechanism.
+    # TODO: figure out some way to get variable shadowing
+    # TODO: generalize evaluation? (probably not necessary if we have
+    #   progressively-specified bindings and term updating)
+    # TODO: spec out state chaining mechanism
+    # TODO: multiple-value returns and/or channels? (to make it easier to work
+    #   with state) -- though maybe this can be built using quoting and
+    #   unquoting.
   - end
 
 - sc data structures | chp:data-structures

@@ -2345,7 +2345,14 @@ _
                ''
                (reverse $_))))
 
-# TODO: generalize (delay) into some kind of quoting/unquoting mechanism. \end{xhcode}
+# TODO: generalize (delay) into some kind of quoting/unquoting mechanism.
+# TODO: figure out some way to get variable shadowing
+# TODO: generalize evaluation? (probably not necessary if we have
+#   progressively-specified bindings and term updating)
+# TODO: spec out state chaining mechanism
+# TODO: multiple-value returns and/or channels? (to make it easier to work
+#   with state) -- though maybe this can be built using quoting and
+#   unquoting. \end{xhcode}
 
 \chapter{data structures}\label{chp:data-structures}
 \lstset{caption={src/cs/datameta.xh},name={src/cs/datameta.xh}}\begin{xhcode}
