@@ -591,6 +591,11 @@ defglobal len     => sub { literal->new(length $_[1]->name) };
 defglobal list    => sub { list->new(@_[1..$#_]) };
 defglobal literal => sub { literal->new($_[1]->name) };
 
+defglobal 'list->array' => sub {
+  my ($bindings, $l) = @_;
+  array->new(@$l);
+};
+
 defglobal module => sub {
   return undef unless ref($_[1]) eq literal;
   literal->new($xh::modules{$_[1]->name});
@@ -631,14 +636,16 @@ defglobal scope => sub {
 defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
   $lower //= literal->new(0);
-  $upper //= literal->new(ref($xs) eq array   ? $#$xs
+  $upper //= literal->new(ref($xs) eq array   ? scalar @$xs
                         : ref($xs) eq literal ? length($xs) - 1
                                               : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
-  ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
+  ref($xs) eq array   ? array->new($upper->name - 1 >= $lower->name
+                                   ? @$xs[$lower->name .. $upper->name - 1]
+                                   : ())
 : ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
-                                            $upper + 1 - $lower)
+                                            $upper - $lower)
                       : undef;
 };
 
@@ -835,6 +842,11 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
                 (reverse (map1 (partial i* 2)
                                (iota (i>> (count $kvs) 1)))))))
 
+(defn ->> forms
+  (reduce (fn [x l] (apply list (into (.. $l list->array $l) [$x])))
+          (get $forms 0)
+          (slice $forms 1)))
+
 (defn cond clauses
   (reduce (fn [code i]
             (let [[c v] (map1 (partial get $clauses) [$i (inc $i)])]
@@ -842,48 +854,6 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
           ''
           (reverse (map1 (partial i* 2)
                          (iota (i>> (count $clauses) 1))))))
-
-# Better definition of destructuring-bind; this one supports things like
-# aliasing and array slicing. Unfortunately, the corescript interpreter is
-# too slow to handle this definition gracefully.
-(defn* destructuring-bind
-  [template value bs]
-  (let [t      (realtype $template)
-        this   (get @ 0)
-        after  (get & 0)
-        before (get < 0)]
-    (cond (== literal $t) (assoc $bs $template $value)
-          (== array $t)
-          (reduce (fn [bs' i]
-                    (let [t' (get $template $i)
-                          c  (if (== literal (realtype $t'))
-                               (get $t' 0)
-                               '')]
-                      (.. $i destructuring-bind
-                             (if (or2 (or2 (== $c $after) (== $c $this))
-                                      (== $c $before))
-                               (slice $t' 1)
-                               $t')
-                             (cond (== $c $after)  (slice $value $i)
-                                   (== $c $before) (slice $value 0 $i)
-                                   (== $c $this)   $value
-                                   else            (get $value $i))
-                             $bs')))
-                  $bs
-                  (keys $template))
-
-          (== hash $t)
-          (reduce (fn [bs' k]
-                    (let [t' (get $template $k)
-                          c  (if (== literal (realtype $t'))
-                               (get $t' 0)
-                               '')]
-                      (.. $k destructuring-bind
-                             (if (== $c $this) (slice $t' 1) $t')
-                             (if (== $c $this) $value (get $value $k))
-                             $bs')))
-                  $bs
-                  (keys $template)))))
 _
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
 (defstruct linear-array-container

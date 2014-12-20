@@ -498,6 +498,11 @@ defglobal len     => sub { literal->new(length $_[1]->name) };
 defglobal list    => sub { list->new(@_[1..$#_]) };
 defglobal literal => sub { literal->new($_[1]->name) };
 
+defglobal 'list->array' => sub {
+  my ($bindings, $l) = @_;
+  array->new(@$l);
+};
+
 defglobal module => sub {
   return undef unless ref($_[1]) eq literal;
   literal->new($xh::modules{$_[1]->name});
@@ -538,14 +543,16 @@ defglobal scope => sub {
 defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
   $lower //= literal->new(0);
-  $upper //= literal->new(ref($xs) eq array   ? $#$xs
+  $upper //= literal->new(ref($xs) eq array   ? scalar @$xs
                         : ref($xs) eq literal ? length($xs) - 1
                                               : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
-  ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
+  ref($xs) eq array   ? array->new($upper->name - 1 >= $lower->name
+                                   ? @$xs[$lower->name .. $upper->name - 1]
+                                   : ())
 : ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
-                                            $upper + 1 - $lower)
+                                            $upper - $lower)
                       : undef;
 };
 
