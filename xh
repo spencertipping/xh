@@ -235,7 +235,7 @@ sub xh::corescript::fn::str {
 
 sub xh::corescript::native::str {
   my ($self) = @_;
-  ref_id($_[0]) . "#<native $$self[0]>";
+  ref_id($_[0]) . "%$$self[0]";
 }
 
 sub xh::corescript::delay::str {
@@ -302,6 +302,8 @@ sub xh::corescript::list::eval {
   my $r = $f->invoke($bindings, array->new(@xs));
   return $r if defined $r;
   my @e = map $_->eval($bindings), @$self;
+  $e[0] = $bindings->get($e[0]) // $e[0]
+    if ref($e[0]) eq literal or ref($e[0]) eq var;
   $$self[$_] eq $e[$_] or return list->new(@e) for 0..$#e;
   $self;
 }
@@ -498,8 +500,10 @@ defglobal bindings => sub {
 defglobal concrete => sub { bool $_[1]->concrete };
 defglobal contains => sub { bool $_[1]->contains($_[2]) };
 defglobal count    => sub {
-  return undef unless ref($_[1]) eq array;
-  literal->new(scalar @{$_[1]});
+  my ($bindings, $x) = @_;
+  ref($x) eq array   ? literal->new(scalar @{$_[1]})
+: ref($x) eq literal ? literal->new(length $x->name)
+                     : undef;
 };
 
 defglobal def => sub {
@@ -626,12 +630,16 @@ defglobal scope => sub {
 
 defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
-  return undef unless ref($xs) eq array;
   $lower //= literal->new(0);
-  $upper //= literal->new($#$xs);
+  $upper //= literal->new(ref($xs) eq array   ? $#$xs
+                        : ref($xs) eq literal ? length $xs
+                                              : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
-  array->new(@$xs[$lower->name .. $upper->name]);
+  ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
+: ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
+                                            $upper - $lower)
+                      : undef;
 };
 
 defglobal str => sub {
@@ -734,25 +742,31 @@ sub evaluate {
 }
 
 $::xh::compilers{xh} = sub {
-  evaluate($_, $global_bindings, 5) for parse $_[1];
+  for my $x (parse $_[1]) {
+    print STDERR '> ', $x->str, "\n";
+    my $e = evaluate($x, $global_bindings, 2);
+    print STDERR '= ', $e->str, "\n";
+  }
 };
 _
 BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
-(def destructuring-bind
-  (fn* outer        # outer = [template value bindings]
-    (if (== literal (realtype (get $outer 0)))
-      (assoc (get $outer 2) (get $outer 0) (get $outer 1))
-      (if (if (== array (realtype (get $outer 0)))
-            y
-            (== hash (realtype (get $outer 0))))
-        (reduce (fn* k
-                  (delay [$k] destructuring-bind
-                              (get (get $outer 0) (get $k 1))
-                              (get (get $outer 1) (get $k 1))
-                              (get $k 0)))
-                (get $outer 2)
-                (keys (get $outer 0)))
-        (get $outer 2)))))
+(if (contains (defs) destructuring-bind)
+  ''
+  (def destructuring-bind
+    (fn* outer        # outer = [template value bindings]
+      (if (== literal (realtype (get $outer 0)))
+        (assoc (get $outer 2) (get $outer 0) (get $outer 1))
+        (if (if (== array (realtype (get $outer 0)))
+              y
+              (== hash (realtype (get $outer 0))))
+          (reduce (fn* k
+                    (delay [$k] destructuring-bind
+                                (get (get $outer 0) (get $k 1))
+                                (get (get $outer 1) (get $k 1))
+                                (get $k 0)))
+                  (get $outer 2)
+                  (keys (get $outer 0)))
+          (get $outer 2))))))
 
 (def fn1
   (fn* args
@@ -777,6 +791,11 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
 (def defn
   (fn [name formals body]
     (def $name (fn $formals $body))))
+
+(defn and2 [x y] (if $x $y ''))
+(defn or2  [x y] (if $x $x $y))
+(defn not  [x]   (if $x '' y))
+(defn xor2 [x y] (and2 (or2 $x $y) (not (and2 $x $y))))
 
 (defn map1     [f xs] (flatmap1 (fn [x] [($f $x)]) $xs))
 (defn filter1  [f xs] (flatmap1 (fn [x] (if (f $x) [$x] [])) $xs))
@@ -804,10 +823,38 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
      apply list delay [$x] (slice $args 1))))
 
 (defn let [kvs body]
+  (reduce (fn [code kv]
+            (let1 [k v] $kv (.. $k let1 $k $v $code)))
+          $body
+          (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))])
+                (reverse (map1 (partial i* 2)
+                               (iota (i>> (count $kvs) 1)))))))
+
+(comment
   (let1 is (iota (i>> (count $kvs) 1))
     (apply (.. $body
             fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
            (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
+
+(defn cond clauses
+  (reduce (fn [code i]
+            (let [[c v] (map1 (partial get $clauses) [$i (inc $i)])]
+              (if $c $v $code)))
+          ''
+          (reverse (map1 (partial i* 2)
+                         (iota (i>> (count $clauses) 1))))))
+
+# Better definition of destructuring-bind; this one supports things like
+# aliasing and array slicing.
+(defn* destructuring-bind
+  [template value bindings]
+  (let [t (realtype $template)]
+    (cond (== literal $t)
+          (assoc $bindings $template $value)
+
+          (== array $t)
+          (reduce (fn [bs i]
+                    (let [t (get $template $i)]))))))
 _
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
 (defstruct linear-array-container

@@ -142,7 +142,7 @@ sub xh::corescript::fn::str {
 
 sub xh::corescript::native::str {
   my ($self) = @_;
-  ref_id($_[0]) . "#<native $$self[0]>";
+  ref_id($_[0]) . "%$$self[0]";
 }
 
 sub xh::corescript::delay::str {
@@ -209,6 +209,8 @@ sub xh::corescript::list::eval {
   my $r = $f->invoke($bindings, array->new(@xs));
   return $r if defined $r;
   my @e = map $_->eval($bindings), @$self;
+  $e[0] = $bindings->get($e[0]) // $e[0]
+    if ref($e[0]) eq literal or ref($e[0]) eq var;
   $$self[$_] eq $e[$_] or return list->new(@e) for 0..$#e;
   $self;
 }
@@ -405,8 +407,10 @@ defglobal bindings => sub {
 defglobal concrete => sub { bool $_[1]->concrete };
 defglobal contains => sub { bool $_[1]->contains($_[2]) };
 defglobal count    => sub {
-  return undef unless ref($_[1]) eq array;
-  literal->new(scalar @{$_[1]});
+  my ($bindings, $x) = @_;
+  ref($x) eq array   ? literal->new(scalar @{$_[1]})
+: ref($x) eq literal ? literal->new(length $x->name)
+                     : undef;
 };
 
 defglobal def => sub {
@@ -533,12 +537,16 @@ defglobal scope => sub {
 
 defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
-  return undef unless ref($xs) eq array;
   $lower //= literal->new(0);
-  $upper //= literal->new($#$xs);
+  $upper //= literal->new(ref($xs) eq array   ? $#$xs
+                        : ref($xs) eq literal ? length $xs
+                                              : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
-  array->new(@$xs[$lower->name .. $upper->name]);
+  ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
+: ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
+                                            $upper - $lower)
+                      : undef;
 };
 
 defglobal str => sub {
@@ -641,6 +649,10 @@ sub evaluate {
 }
 
 $::xh::compilers{xh} = sub {
-  evaluate($_, $global_bindings, 5) for parse $_[1];
+  for my $x (parse $_[1]) {
+    print STDERR '> ', $x->str, "\n";
+    my $e = evaluate($x, $global_bindings, 2);
+    print STDERR '= ', $e->str, "\n";
+  }
 };
 _
