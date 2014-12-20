@@ -1,0 +1,72 @@
+BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
+(def destructuring-bind
+  (fn* outer        # outer = [template value bindings]
+    (if (== literal (realtype (get $outer 0)))
+      (assoc (get $outer 2) (get $outer 0) (get $outer 1))
+      (if (if (== array (realtype (get $outer 0)))
+            y
+            (== hash (realtype (get $outer 0))))
+        (reduce (fn* k
+                  (delay [$k] destructuring-bind
+                              (get (get $outer 0) (get $k 1))
+                              (get (get $outer 1) (get $k 1))
+                              (get $k 0)))
+                (get $outer 2)
+                (keys (get $outer 0)))
+        (get $outer 2)))))
+
+(def fn1
+  (fn* args
+    (fn* (get $args 0)
+      (scope (destructuring-bind (get $args 1)
+                                 (var (get $args 0))
+                                 {})
+        (get $args 2)))))
+
+(def fn
+  (fn1 fn~ [formals body]
+    ((fn1 gs~ [gs]
+       (fn* $gs
+         (scope (delay [$gs]
+                 delay [$gs]
+                 destructuring-bind $formals (var $gs) {})
+           $body)))
+     (str : (delay [$formals $body]
+             delay [$formals $body]
+             hashcode [$formals $body])))))
+
+(def defn
+  (fn [name formals body]
+    (def $name (fn $formals $body))))
+
+(defn map1     [f xs] (flatmap1 (fn [x] [($f $x)]) $xs))
+(defn filter1  [f xs] (flatmap1 (fn [x] (if (f $x) [$x] [])) $xs))
+(defn flatmap1 [f xs] (reduce (fn [ys x] (into $ys ($f $x)))
+                              (empty $xs)
+                              $xs))
+
+(defn reverse [xs] (reduce (fn [ys x] (into [$x] $ys))
+                           []
+                           $xs))
+
+(defn partial fs (let1 [f] $fs (fn xs (apply $f (into (slice $fs 1) $xs)))))
+(defn comp    fs (fn xs (get (reduce (fn [x f] [(apply $f $x)])
+                                     $xs
+                                     (reverse $fs))
+                             0)))
+
+(defn inc [x] (i+ $x 1))
+(defn let1 [k v body] ((delay [$k] fn [$k] $body) $v))
+
+(defn .. args
+  (let1 [x] $args
+    (delay [$x]
+     delay [$x]
+     apply list delay [$x] (slice $args 1))))
+
+(defn let [kvs body]
+  (let1 is (iota (i>> (count $kvs) 1))
+    (apply (.. $body
+            fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
+           (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
+_

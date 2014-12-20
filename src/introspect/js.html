@@ -1,0 +1,51 @@
+BEGIN {xh::defmodule('introspection.html', <<'_')}
+<script>
+/*BEGIN {xh::defmodule('introspection.js', <<'_')}*/
+// TESTCODE (should contain a functioning repl)
+$(caterwaul(':all')(function () {
+  $.fn.toggle_vertically(v) = $(this).each(toggle)
+  -where [toggle(t = $(this).stop()) =
+            cs /~animate/ {top:    v ? 0 : -0.3 * h}
+     -then- t  /~animate/ {height: v ? h : 0}
+/{opacity: +v} /~animate/ {queue: false, duration: 300}
+     -where [cs = t.children().stop() /~css/ {position: 'relative'},
+             h  = cs.first().height()]],
+
+  $('body').empty() /~before/ jquery[head /append(css)]
+                    /~append/ dom
+                    /~append/ ui_for(parsed_modules)
+                    /~css/    {display: 'block'},
+  where [
+  css               = $('style'),
+  dom               = $('#dom'),
+  self              = +$('script, style') *[$(x).html()] /seq /~join/ '\n',
+  parse_modules(ls) = xs -se [ls *!process_line -seq] -where [
+    xs              = {__ordering: []},
+    name            = null,
+    text            = '',
+    process_line(s) = /^(?:\/\*)?BEGIN.*defmodule\('([^']+)'/.exec(s)
+            -re [it ? name /eq[it[1]] -then- text /eq['']
+                    : /^(?:\/\*)?_+(?:\*\/)?$/.test(s)
+                      ? name -ocq- 'bootstrap.pl'
+                        -then- xs[name] /eq [text /~substr/ 1]
+                        -then- xs.__ordering /~push/ name
+                    : text += '\n#{s}']],
+
+  parsed_modules    = self.split(/\n/) /!parse_modules,
+  ui_for(modules)   = ui -se [sections *![ui /~append/ x] -seq] -where [
+    ui              = jquery in div.modules,
+    toggle()        = $(this).toggleClass('active').next().stop()
+                      /~toggle_vertically/ $(this).hasClass('active'),
+    module_name(x)  = jquery [span.prefix /text(pieces[0])
+                            + span.suffix /text(pieces[1])]
+                      -where [pieces = x.split(/\./, 2)],
+    sections        = seq in
+                      modules.__ordering
+                      *[jquery in h1 /append(x /!module_name)
+                                     /css({cursor: 'pointer'})
+                                     /click(toggle)
+                                + div.module(pre /text(modules[x]))
+                                  /toggle_vertically(false)]]]}));
+/*_*/
+</script>
+_

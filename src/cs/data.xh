@@ -1,0 +1,7 @@
+BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
+(defstruct linear-array-container
+  {length 0}
+  (get [this i]
+    [(== literal (realtype $i))]
+    (mget (i+ $this (i* $word-size (i+ $i 1))))))
+_

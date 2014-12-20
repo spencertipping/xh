@@ -1,0 +1,6 @@
+BEGIN {xh::defmodule('xh::cs::datameta.xh', <<'_')}
+(defn defstruct args
+  (let [[name structure] $args]
+    (def $name
+      (apply tagged-struct $name $structure (slice $args 2)))))
+_

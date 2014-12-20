@@ -1,0 +1,39 @@
+BEGIN {xh::defmodule('css.html', <<'_')}
+<style>
+/*BEGIN {xh::defmodule('introspection.css', <<'_')}*/
+@import url(http://fonts.googleapis.com/css?family=Abel|Fira+Mono);
+body {background:   #080808;
+      color:        #eae8e4;
+      margin:       auto;
+      max-width:    600px;
+      overflow-y:   scroll;
+      padding-left: 14px;
+      border-left:  solid 1px #383736}
+
+h1 {font-family: 'Abel', monospace;
+    font-weight: normal;
+    font-size:   16px;
+    color:       #878177;
+    margin:      0}
+
+h1:hover, h1.active {color: #eae8e4}
+h1 .suffix {color: #878177}
+h1 .suffix:before {content: '.'; color: #878177}
+
+pre {font-family: 'Fira Mono', monospace;
+     font-size:  10px}
+
+.module {border-top: solid 1px #383736;
+         overflow:   hidden}
+.module pre {margin: 0}
+
+#dom   {margin: 20px 0}
+#dom, #dom a {font-family:     'Abel', sans-serif;
+              font-size:       16px;
+              text-decoration: none;
+              color:           #878177}
+#dom a:hover {color: #eae8e4}
+.title {color: #f89421}
+/*_*/
+</style>
+_
