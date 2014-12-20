@@ -836,25 +836,29 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
      delay [$x]
      apply list delay [$x] (slice $args 1))))
 
-(defn let [kvs body]
-  (reduce (fn [code [k v]] (.. $k let1 $k $v $code))
-          $body
-          (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))])
-                (reverse (map1 (partial i* 2)
-                               (iota (i>> (count $kvs) 1)))))))
-
 (defn ->> forms
-  (reduce (fn [x l] (apply list (into (.. $l list->array $l) [$x])))
+  (reduce (fn [x l] (.. $l let1 _ $x $l))
           (get $forms 0)
           (slice $forms 1)))
 
+(defn let [kvs body]
+  (->> (count $kvs)
+       (iota (i>> $_ 1))
+       (map1 (partial i* 2) $_)
+       (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))]) $_)
+       (reduce (fn [code [k v]] (.. $k let1 $k $v $code))
+               $body
+               $_)))
+
 (defn cond clauses
-  (reduce (fn [code i]
-            (let [[c v] (map1 (partial get $clauses) [$i (inc $i)])]
-              (if $c $v $code)))
-          ''
-          (reverse (map1 (partial i* 2)
-                         (iota (i>> (count $clauses) 1))))))
+  (->> (count $clauses)
+       (iota (i>> $_ 1))
+       (map1 (partial i* 2) $_)
+       (reduce (fn [code i]
+                 (let [[c v] (map1 (partial get $clauses) [$i (inc $i)])]
+                   (if $c $v $code)))
+               ''
+               (reverse $_))))
 _
 
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
