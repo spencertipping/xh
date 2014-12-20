@@ -1434,6 +1434,9 @@ _ \end{perlcode}
 
 \lstset{caption={src/corescript.pl},name={src/corescript.pl}}\begin{perlcode}
 BEGIN {xh::defmodule('xh::corescript.pl', <<'_')}
+sub parse;
+sub evaluate;
+
 sub into_hash {
   my %result;
   for (my $i = 0; $i < @_; $i += 2) {
@@ -1608,6 +1611,7 @@ sub xh::corescript::hash::contains {
 
 sub xh::corescript::array::get {
   my ($self, $x) = @_;
+  return undef unless ref($x) eq literal;
   my $i = $x->name;
   die "array index must be number (got $i instead)" unless $i eq $i + 0;
   $$self[$i];
@@ -1617,6 +1621,7 @@ sub xh::corescript::array::get {
 
 sub xh::corescript::literal::get {
   my ($self, $x) = @_;
+  return undef unless ref($x) eq literal;
   my $i = $x->name;
   die "literal index must be number (got $i instead)" unless $i eq $i + 0;
   literal->new(ord substr $$self, $i, 1);
@@ -1923,6 +1928,20 @@ defglobal keys => sub {
 defglobal len     => sub { literal->new(length $_[1]->name) };
 defglobal list    => sub { list->new(@_[1..$#_]) };
 defglobal literal => sub { literal->new($_[1]->name) };
+
+defglobal module => sub {
+  return undef unless ref($_[1]) eq literal;
+  literal->new($xh::modules{$_[1]->name});
+};
+
+defglobal modules => sub {
+  array->new(map literal->new($_), @xh::module_ordering);
+};
+
+defglobal parse => sub {
+  return undef unless ref($_[1]) eq literal;
+  array->new(parse $_[1]->name);
+};
 
 defglobal quote => sub { $_[1] };
 
@@ -2271,5 +2290,32 @@ _
     (apply (.. $body
             fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
            (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is)))) \end{xhcode}
+
+  At this point one of the main problems with xh corescript is that it
+  evaluates depth-first. This prevents us from passing a closure to itself, for
+  example using a {\tt reduce} loop. We need to get around this problem by
+  creating a better interpreter that uses a priority queue instead of a stack.
+
+\chapter{data structures}\label{chp:data-structures}
+\lstset{caption={src/cs/datameta.xh},name={src/cs/datameta.xh}}\begin{xhcode}
+(defn defstruct args
+  (let [[name structure] $args]
+    (def $name
+      (apply tagged-struct $name $structure (slice $args 2))))) \end{xhcode}
+
+\lstset{caption={src/cs/data.xh},name={src/cs/data.xh}}\begin{xhcode}
+(defstruct linear-array-container
+  {length 0}
+  (get [this i]
+    [(== literal (realtype $i))]
+    (mget (i+ $this (i* $word-size (i+ $i 1)))))) \end{xhcode}
+
+\chapter{algorithms}\label{chp:algorithms}
+\lstset{caption={src/cs/algorithms.xh},name={src/cs/algorithms.xh}}\begin{xhcode}
+# TODO \end{xhcode}
+
+\chapter{garbage collection}\label{chp:garbage-collection}
+\lstset{caption={src/cs/gc.xh},name={src/cs/gc.xh}}\begin{xhcode}
+# TODO \end{xhcode}
 
 \end{document}

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  lBbpFEOkm3gwURh1BGIaZGdt8CtXxoYpyclCERgLUJY
-# istate: iz61NxIuX28zRjyajctdj4pufKIIktSEdo7BG6AE/ek
+# state:  hcoO9vmcsNF8le8visexZ1/N9MwazFc0MivD2sgSSmk
+# istate: E7io2sJQAmQTo6UKBllTpZHSm3HW3+Wuswad9E/dHA0
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -3372,6 +3372,9 @@ meta::psection('implementation', <<'__');
   support any string interpolation or other magic syntax.
 
   - perlmodule xh::corescript src/corescript.pl << end
+    sub parse;
+    sub evaluate;
+
     sub into_hash {
       my %result;
       for (my $i = 0; $i < @_; $i += 2) {
@@ -3546,6 +3549,7 @@ meta::psection('implementation', <<'__');
 
     sub xh::corescript::array::get {
       my ($self, $x) = @_;
+      return undef unless ref($x) eq literal;
       my $i = $x->name;
       die "array index must be number (got $i instead)" unless $i eq $i + 0;
       $$self[$i];
@@ -3555,6 +3559,7 @@ meta::psection('implementation', <<'__');
 
     sub xh::corescript::literal::get {
       my ($self, $x) = @_;
+      return undef unless ref($x) eq literal;
       my $i = $x->name;
       die "literal index must be number (got $i instead)" unless $i eq $i + 0;
       literal->new(ord substr $$self, $i, 1);
@@ -3861,6 +3866,20 @@ meta::psection('implementation', <<'__');
     defglobal len     => sub { literal->new(length $_[1]->name) };
     defglobal list    => sub { list->new(@_[1..$#_]) };
     defglobal literal => sub { literal->new($_[1]->name) };
+
+    defglobal module => sub {
+      return undef unless ref($_[1]) eq literal;
+      literal->new($xh::modules{$_[1]->name});
+    };
+
+    defglobal modules => sub {
+      array->new(map literal->new($_), @xh::module_ordering);
+    };
+
+    defglobal parse => sub {
+      return undef unless ref($_[1]) eq literal;
+      array->new(parse $_[1]->name);
+    };
 
     defglobal quote => sub { $_[1] };
 
@@ -4202,6 +4221,37 @@ meta::psection('implementation', <<'__');
                (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
   - end
 
+  At this point one of the main problems with xh corescript is that it
+  evaluates depth-first. This prevents us from passing a closure to itself, for
+  example using a {\tt reduce} loop. We need to get around this problem by
+  creating a better interpreter that uses a priority queue instead of a stack.
+
+- sc data structures | chp:data-structures
+  - xhmodule xh::cs::datameta src/cs/datameta.xh << end
+    (defn defstruct args
+      (let [[name structure] $args]
+        (def $name
+          (apply tagged-struct $name $structure (slice $args 2)))))
+  - end
+
+  - xhmodule xh::cs::data src/cs/data.xh << end
+    (defstruct linear-array-container
+      {length 0}
+      (get [this i]
+        [(== literal (realtype $i))]
+        (mget (i+ $this (i* $word-size (i+ $i 1))))))
+  - end
+
+- sc algorithms | chp:algorithms
+  - xhmodule xh::cs::algorithsm src/cs/algorithms.xh << end
+    # TODO
+  - end
+
+- sc garbage collection | chp:garbage-collection
+  - xhmodule xh::cs::gc src/cs/gc.xh << end
+    # TODO
+  - end
+
 __
 meta::resource('header', <<'__');
 - include resource::header-packages
@@ -4315,11 +4365,14 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__t');
+meta::sdoc('xh', <<'__/');
 - include boot/xh-header
 - include src/test/main.pl
 - include src/corescript.pl
 - include src/corescript/boot.xh
+- include src/cs/data.xh
+- include src/cs/algorithms.xh
+- include src/cs/gc.xh
 - include src/introspect/dom.html
 - include src/introspect/dependencies.html
 - include src/introspect/css.html
@@ -4327,7 +4380,7 @@ meta::sdoc('xh', <<'__t');
 xh::main::main;
 __DATA__
 
-__t
+__/
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header

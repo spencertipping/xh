@@ -92,6 +92,9 @@ sub main {
 _
 
 BEGIN {xh::defmodule('xh::corescript.pl', <<'_')}
+sub parse;
+sub evaluate;
+
 sub into_hash {
   my %result;
   for (my $i = 0; $i < @_; $i += 2) {
@@ -266,6 +269,7 @@ sub xh::corescript::hash::contains {
 
 sub xh::corescript::array::get {
   my ($self, $x) = @_;
+  return undef unless ref($x) eq literal;
   my $i = $x->name;
   die "array index must be number (got $i instead)" unless $i eq $i + 0;
   $$self[$i];
@@ -275,6 +279,7 @@ sub xh::corescript::array::get {
 
 sub xh::corescript::literal::get {
   my ($self, $x) = @_;
+  return undef unless ref($x) eq literal;
   my $i = $x->name;
   die "literal index must be number (got $i instead)" unless $i eq $i + 0;
   literal->new(ord substr $$self, $i, 1);
@@ -582,6 +587,20 @@ defglobal len     => sub { literal->new(length $_[1]->name) };
 defglobal list    => sub { list->new(@_[1..$#_]) };
 defglobal literal => sub { literal->new($_[1]->name) };
 
+defglobal module => sub {
+  return undef unless ref($_[1]) eq literal;
+  literal->new($xh::modules{$_[1]->name});
+};
+
+defglobal modules => sub {
+  array->new(map literal->new($_), @xh::module_ordering);
+};
+
+defglobal parse => sub {
+  return undef unless ref($_[1]) eq literal;
+  array->new(parse $_[1]->name);
+};
+
 defglobal quote => sub { $_[1] };
 
 defglobal realtype => sub {
@@ -790,6 +809,22 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
     (apply (.. $body
             fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
            (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
+_
+
+BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
+(defstruct linear-array-container
+  {length 0}
+  (get [this i]
+    [(== literal (realtype $i))]
+    (mget (i+ $this (i* $word-size (i+ $i 1))))))
+_
+
+BEGIN {xh::defmodule('xh::cs::algorithsm.xh', <<'_')}
+# TODO
+_
+
+BEGIN {xh::defmodule('xh::cs::gc.xh', <<'_')}
+# TODO
 _
 
 BEGIN {xh::defmodule('dom.html', <<'_')}
