@@ -235,7 +235,7 @@ sub xh::corescript::fn::str {
 
 sub xh::corescript::native::str {
   my ($self) = @_;
-  ref_id($_[0]) . "%$$self[0]";
+  ref_id($_[0]) . "\$$$self[0]";
 }
 
 sub xh::corescript::delay::str {
@@ -632,13 +632,13 @@ defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
   $lower //= literal->new(0);
   $upper //= literal->new(ref($xs) eq array   ? $#$xs
-                        : ref($xs) eq literal ? length $xs
+                        : ref($xs) eq literal ? length($xs) - 1
                                               : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
   ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
 : ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
-                                            $upper - $lower)
+                                            $upper + 1 - $lower)
                       : undef;
 };
 
@@ -648,6 +648,13 @@ defglobal str => sub {
 };
 
 defglobal type => sub { literal->new(ref($_[1]) =~ s/^.*:://r) };
+
+defglobal undef => sub {
+  my ($bindings, $x) = @_;
+  return undef unless ref($x) eq literal;
+  delete $globals{$x->name};
+  $x;
+};
 
 defglobal unquote => sub {
   my ($bindings, $x, $b) = @_;
@@ -709,8 +716,8 @@ sub parse {
   while ($_[0] =~ / \G (?: (?<comment> \#.*)
                          | (?<ws>      [\s,]+)
                          | '(?<qstr>   (?:[^\\']|\\.)*)'
-                         | (?<str>     [^\$'()\[\]{}\s,]+)
-                         | (?<var>     \$[^\$'\s()\[\]{},]+)
+                         | (?<str>     [^\$()\[\]{}\s,]+)
+                         | (?<var>     \$[^\$\s()\[\]{},]+)
                          | (?<opener>  [(\[{])
                          | (?<closer>  [)\]}])) /gx) {
     next if $+{comment} || $+{ws};
@@ -744,36 +751,34 @@ sub evaluate {
 $::xh::compilers{xh} = sub {
   for my $x (parse $_[1]) {
     print STDERR '> ', $x->str, "\n";
-    my $e = evaluate($x, $global_bindings, 2);
+    my $e = evaluate($x, $global_bindings, 30);
     print STDERR '= ', $e->str, "\n";
   }
 };
 _
 BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
-(if (contains (defs) destructuring-bind)
-  ''
-  (def destructuring-bind
-    (fn* outer        # outer = [template value bindings]
-      (if (== literal (realtype (get $outer 0)))
-        (assoc (get $outer 2) (get $outer 0) (get $outer 1))
-        (if (if (== array (realtype (get $outer 0)))
-              y
-              (== hash (realtype (get $outer 0))))
-          (reduce (fn* k
-                    (delay [$k] destructuring-bind
-                                (get (get $outer 0) (get $k 1))
-                                (get (get $outer 1) (get $k 1))
-                                (get $k 0)))
-                  (get $outer 2)
-                  (keys (get $outer 0)))
-          (get $outer 2))))))
+(def destructuring-bind1
+  (fn* outer        # outer = [template value bindings]
+    (if (== literal (realtype (get $outer 0)))
+      (assoc (get $outer 2) (get $outer 0) (get $outer 1))
+      (if (if (== array (realtype (get $outer 0)))
+            y
+            (== hash (realtype (get $outer 0))))
+        (reduce (fn* k
+                  (delay [$k] destructuring-bind1
+                              (get (get $outer 0) (get $k 1))
+                              (get (get $outer 1) (get $k 1))
+                              (get $k 0)))
+                (get $outer 2)
+                (keys (get $outer 0)))
+        (get $outer 2)))))
 
 (def fn1
   (fn* args
     (fn* (get $args 0)
-      (scope (destructuring-bind (get $args 1)
-                                 (var (get $args 0))
-                                 {})
+      (scope (destructuring-bind1 (get $args 1)
+                                  (var (get $args 0))
+                                  {})
         (get $args 2)))))
 
 (def fn
@@ -782,7 +787,7 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
        (fn* $gs
          (scope (delay [$gs]
                  delay [$gs]
-                 destructuring-bind $formals (var $gs) {})
+                 destructuring-bind1 $formals (var $gs) {})
            $body)))
      (str : (delay [$formals $body]
              delay [$formals $body]
@@ -814,6 +819,7 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
                              0)))
 
 (defn inc [x] (i+ $x 1))
+(defn dec [x] (i- $x 1))
 (defn let1 [k v body] ((delay [$k] fn [$k] $body) $v))
 
 (defn .. args
@@ -823,18 +829,11 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
      apply list delay [$x] (slice $args 1))))
 
 (defn let [kvs body]
-  (reduce (fn [code kv]
-            (let1 [k v] $kv (.. $k let1 $k $v $code)))
+  (reduce (fn [code [k v]] (.. $k let1 $k $v $code))
           $body
           (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))])
                 (reverse (map1 (partial i* 2)
                                (iota (i>> (count $kvs) 1)))))))
-
-(comment
-  (let1 is (iota (i>> (count $kvs) 1))
-    (apply (.. $body
-            fn (map1 (fn [i] (get $kvs (i<< $i 1))) $is) $body)
-           (map1 (fn [i] (get $kvs (i+ 1 (i<< $i 1)))) $is))))
 
 (defn cond clauses
   (reduce (fn [code i]
@@ -845,16 +844,46 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
                          (iota (i>> (count $clauses) 1))))))
 
 # Better definition of destructuring-bind; this one supports things like
-# aliasing and array slicing.
+# aliasing and array slicing. Unfortunately, the corescript interpreter is
+# too slow to handle this definition gracefully.
 (defn* destructuring-bind
-  [template value bindings]
-  (let [t (realtype $template)]
-    (cond (== literal $t)
-          (assoc $bindings $template $value)
-
+  [template value bs]
+  (let [t      (realtype $template)
+        this   (get @ 0)
+        after  (get & 0)
+        before (get < 0)]
+    (cond (== literal $t) (assoc $bs $template $value)
           (== array $t)
-          (reduce (fn [bs i]
-                    (let [t (get $template $i)]))))))
+          (reduce (fn [bs' i]
+                    (let [t' (get $template $i)
+                          c  (if (== literal (realtype $t'))
+                               (get $t' 0)
+                               '')]
+                      (.. $i destructuring-bind
+                             (if (or2 (or2 (== $c $after) (== $c $this))
+                                      (== $c $before))
+                               (slice $t' 1)
+                               $t')
+                             (cond (== $c $after)  (slice $value $i)
+                                   (== $c $before) (slice $value 0 $i)
+                                   (== $c $this)   $value
+                                   else            (get $value $i))
+                             $bs')))
+                  $bs
+                  (keys $template))
+
+          (== hash $t)
+          (reduce (fn [bs' k]
+                    (let [t' (get $template $k)
+                          c  (if (== literal (realtype $t'))
+                               (get $t' 0)
+                               '')]
+                      (.. $k destructuring-bind
+                             (if (== $c $this) (slice $t' 1) $t')
+                             (if (== $c $this) $value (get $value $k))
+                             $bs')))
+                  $bs
+                  (keys $template)))))
 _
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
 (defstruct linear-array-container

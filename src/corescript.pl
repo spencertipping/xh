@@ -142,7 +142,7 @@ sub xh::corescript::fn::str {
 
 sub xh::corescript::native::str {
   my ($self) = @_;
-  ref_id($_[0]) . "%$$self[0]";
+  ref_id($_[0]) . "\$$$self[0]";
 }
 
 sub xh::corescript::delay::str {
@@ -539,13 +539,13 @@ defglobal slice => sub {
   my ($bindings, $xs, $lower, $upper) = @_;
   $lower //= literal->new(0);
   $upper //= literal->new(ref($xs) eq array   ? $#$xs
-                        : ref($xs) eq literal ? length $xs
+                        : ref($xs) eq literal ? length($xs) - 1
                                               : return undef);
   return undef unless ref($lower) eq literal
                   and ref($upper) eq literal;
   ref($xs) eq array   ? array->new(@$xs[$lower->name .. $upper->name])
 : ref($xs) eq literal ? literal->new(substr $xs->name, $lower,
-                                            $upper - $lower)
+                                            $upper + 1 - $lower)
                       : undef;
 };
 
@@ -555,6 +555,13 @@ defglobal str => sub {
 };
 
 defglobal type => sub { literal->new(ref($_[1]) =~ s/^.*:://r) };
+
+defglobal undef => sub {
+  my ($bindings, $x) = @_;
+  return undef unless ref($x) eq literal;
+  delete $globals{$x->name};
+  $x;
+};
 
 defglobal unquote => sub {
   my ($bindings, $x, $b) = @_;
@@ -616,8 +623,8 @@ sub parse {
   while ($_[0] =~ / \G (?: (?<comment> \#.*)
                          | (?<ws>      [\s,]+)
                          | '(?<qstr>   (?:[^\\']|\\.)*)'
-                         | (?<str>     [^\$'()\[\]{}\s,]+)
-                         | (?<var>     \$[^\$'\s()\[\]{},]+)
+                         | (?<str>     [^\$()\[\]{}\s,]+)
+                         | (?<var>     \$[^\$\s()\[\]{},]+)
                          | (?<opener>  [(\[{])
                          | (?<closer>  [)\]}])) /gx) {
     next if $+{comment} || $+{ws};
@@ -651,7 +658,7 @@ sub evaluate {
 $::xh::compilers{xh} = sub {
   for my $x (parse $_[1]) {
     print STDERR '> ', $x->str, "\n";
-    my $e = evaluate($x, $global_bindings, 2);
+    my $e = evaluate($x, $global_bindings, 30);
     print STDERR '= ', $e->str, "\n";
   }
 };

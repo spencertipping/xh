@@ -14,12 +14,12 @@ syn case match
 set iskeyword=37,38,42-63,65-90,94-122,124,127-255
 
 syn region xhShebang start=/\%^#!/ end=/$/
-syn region xhList             matchgroup=xhInterpolationParens start=/\(@!\|@\|!\)\?\k*(/   end=/)/ contains=@xhTop
-syn region xhInterpolatedList matchgroup=xhInterpolationParens start=/\(@!\|@\|!\|\$\)\k*(/ end=/)/ contains=@xhTop
-syn region xhVector           matchgroup=xhParens              start=/\k*\[/                end=/]/ contains=@xhTop
-syn region xhMap              matchgroup=xhParens              start=/\k*{/                 end=/}/ contains=@xhTop
-syn region xhSoftString       matchgroup=xhQuoteMarks          start=/\k*"/                 end=/"/ contains=xhSoftEscape,@xhStringInterpolable
-syn region xhHardString       matchgroup=xhQuoteMarks          start=/\k*'/                 end=/'/ contains=xhHardEscape
+syn region xhList             matchgroup=xhInterpolationParens start=/\(@!\|@\|!\)\?(/   end=/)/ contains=@xhTop
+syn region xhInterpolatedList matchgroup=xhInterpolationParens start=/\(@!\|@\|!\|\$\)(/ end=/)/ contains=@xhTop
+syn region xhVector           matchgroup=xhParens              start=/\[/                end=/]/ contains=@xhTop
+syn region xhMap              matchgroup=xhParens              start=/{/                 end=/}/ contains=@xhTop
+syn region xhSoftString       matchgroup=xhQuoteMarks          start=/\(^\|\s\)"/        end=/"/ contains=xhSoftEscape,@xhStringInterpolable
+syn region xhHardString       matchgroup=xhQuoteMarks          start=/\(^\|\s\)'/        end=/'/ contains=xhHardEscape
 
 syn cluster xhTop add=xhList,xhVector,xhMap,xhSoftString,xhHardString,xhInterpolatedWord,xhCore,xhMeta,xhProbablyMeta,xhEscapedWord,xhLineComment
 syn cluster xhInterpolable add=xhList,xhInterpolatedWord
@@ -35,9 +35,9 @@ syn keyword xhCore unquote vals var
 
 syn match xhCore ![if]u\?[-+*/%<>=|&^~!]\+!
 
-syn keyword xhMeta concrete def delay fn\* hashcode quote type
+syn keyword xhMeta concrete def delay fn\* hashcode quote type undef
 
-syn match xhProbablyMeta /def\k\+/
+syn match xhProbablyMeta     /def\k\+/
 syn match xhInterpolatedWord /\(@!\|[!@$]\)\k\+/
 
 syn match xhLineComment /#.*/
