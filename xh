@@ -829,16 +829,20 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
 (defn dec [x] (i- $x 1))
 (defn let1 [k v body] ((delay [$k] fn [$k] $body) $v))
 
+(defn first [[x]] $x)
+(defn rest  [xs]  (slice $xs 1))
+(defn last  [xs]  (get $xs (dec (count $xs))))
+
 (defn .. args
   (let1 [x] $args
     (delay [$x]
      delay [$x]
-     apply list delay [$x] (slice $args 1))))
+     apply list delay [$x] (rest $args))))
 
 (defn ->> forms
   (reduce (fn [x l] (.. $l let1 _ $x $l))
-          (get $forms 0)
-          (slice $forms 1)))
+          (first $forms)
+          (rest $forms)))
 
 (defn let [kvs body]
   (->> (count $kvs)
@@ -858,6 +862,8 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
                    (if $c $v $code)))
                ''
                (reverse $_))))
+
+# TODO: generalize (delay) into some kind of quoting/unquoting mechanism.
 _
 BEGIN {xh::defmodule('xh::cs::data.xh', <<'_')}
 (defstruct linear-array-container

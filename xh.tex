@@ -2311,16 +2311,20 @@ _
 (defn dec [x] (i- $x 1))
 (defn let1 [k v body] ((delay [$k] fn [$k] $body) $v))
 
+(defn first [[x]] $x)
+(defn rest  [xs]  (slice $xs 1))
+(defn last  [xs]  (get $xs (dec (count $xs))))
+
 (defn .. args
   (let1 [x] $args
     (delay [$x]
      delay [$x]
-     apply list delay [$x] (slice $args 1))))
+     apply list delay [$x] (rest $args))))
 
 (defn ->> forms
   (reduce (fn [x l] (.. $l let1 _ $x $l))
-          (get $forms 0)
-          (slice $forms 1)))
+          (first $forms)
+          (rest $forms)))
 
 (defn let [kvs body]
   (->> (count $kvs)
@@ -2339,7 +2343,9 @@ _
                  (let [[c v] (map1 (partial get $clauses) [$i (inc $i)])]
                    (if $c $v $code)))
                ''
-               (reverse $_)))) \end{xhcode}
+               (reverse $_))))
+
+# TODO: generalize (delay) into some kind of quoting/unquoting mechanism. \end{xhcode}
 
 \chapter{data structures}\label{chp:data-structures}
 \lstset{caption={src/cs/datameta.xh},name={src/cs/datameta.xh}}\begin{xhcode}
