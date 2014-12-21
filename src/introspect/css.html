@@ -7,6 +7,7 @@ body {background:   #080808;
       margin:       auto;
       max-width:    600px;
       overflow-y:   scroll;
+      overflow-x:   auto;
       padding-left: 14px;
       border-left:  solid 1px #383736}
 
@@ -21,13 +22,15 @@ h1 .suffix {color: #878177}
 h1 .suffix:before {content: '.'; color: #878177}
 
 pre {font-family: 'Fira Mono', monospace;
-     font-size:  10px}
+     font-size:   12px}
 
 .module {border-top: solid 1px #383736;
-         overflow:   hidden}
+         overflow-y: hidden;
+         overflow-x: scroll;
+         width:      600px}
 .module pre {margin: 0}
 
-#dom   {margin: 20px 0}
+#dom {margin: 20px 0}
 #dom, #dom a {font-family:     'Abel', sans-serif;
               font-size:       16px;
               text-decoration: none;

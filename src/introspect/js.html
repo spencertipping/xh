@@ -15,6 +15,9 @@ $(caterwaul(':all')(function () {
                     /~append/ dom
                     /~append/ ui_for(parsed_modules)
                     /~css/    {display: 'block'},
+
+  $('#location') /~text/ document.location.href
+                 /~attr/ {href: document.location.href},
   where [
   css               = $('style'),
   dom               = $('#dom'),

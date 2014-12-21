@@ -2117,10 +2117,12 @@ _ \end{perlcode}
 \lstset{caption={src/introspect/dependencies.html},name={src/introspect/dependencies.html}}\begin{javascriptcode}
 BEGIN {xh::defmodule('js-dependencies.html', <<'_')}
 <script>
+/*BEGIN {xh::defmodule('dependencies.js'), <<'_')}*/
 -- include deps/jquery.min.js
 -- include deps/caterwaul.min.js
 -- include deps/caterwaul.std.min.js
 -- include deps/caterwaul.ui.min.js
+/*_*/
 </script>
 _ \end{javascriptcode}
 
@@ -2134,6 +2136,7 @@ body {background:   #080808;
       margin:       auto;
       max-width:    600px;
       overflow-y:   scroll;
+      overflow-x:   auto;
       padding-left: 14px;
       border-left:  solid 1px #383736}
 
@@ -2148,13 +2151,15 @@ h1 .suffix {color: #878177}
 h1 .suffix:before {content: '.'; color: #878177}
 
 pre {font-family: 'Fira Mono', monospace;
-     font-size:  10px}
+     font-size:   12px}
 
 .module {border-top: solid 1px #383736;
-         overflow:   hidden}
+         overflow-y: hidden;
+         overflow-x: scroll;
+         width:      600px}
 .module pre {margin: 0}
 
-#dom   {margin: 20px 0}
+#dom {margin: 20px 0}
 #dom, #dom a {font-family:     'Abel', sans-serif;
               font-size:       16px;
               text-decoration: none;
@@ -2170,7 +2175,7 @@ BEGIN {xh::defmodule('dom.html', <<'_')}
 <div id='dom'>
 <a href='https://github.com/spencertipping/xh' target='_blank'>
   <span class='title'>xh</span></a>
-<div>$ curl http://xh.spencertipping.com | perl</div>
+<div>$ curl <a id='location'></a> | perl</div>
 </div>
 _ \end{javascriptcode}
 
@@ -2192,6 +2197,9 @@ $(caterwaul(':all')(function () {
                     /~append/ dom
                     /~append/ ui_for(parsed_modules)
                     /~css/    {display: 'block'},
+
+  $('#location') /~text/ document.location.href
+                 /~attr/ {href: document.location.href},
   where [
   css               = $('style'),
   dom               = $('#dom'),

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  w5jUHqXF8lsD0c07Dg/ALCucY3NVPsBYuvSfBRDtrZw
-# istate: aKMGFVoTUe3omTlk0VuTzKtnz1/tOiIyRwTonKm50DU
+# state:  QuINk4rAM9ETjvP2zj7LB8EFvsspDu7k3/z1h+F6m6c
+# istate: GGmyuDk0Ijke7VCDKF4pqORpTlqR+o6/k2ddtihu8hM
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
@@ -4057,10 +4057,12 @@ meta::psection('implementation', <<'__');
 
   - htmlmodule js-dependencies src/introspect/dependencies.html << end
     <script>
+    /*BEGIN {xh::defmodule('dependencies.js'), <<'_')}*/
     -- include deps/jquery.min.js
     -- include deps/caterwaul.min.js
     -- include deps/caterwaul.std.min.js
     -- include deps/caterwaul.ui.min.js
+    /*_*/
     </script>
   - end
 
@@ -4073,6 +4075,7 @@ meta::psection('implementation', <<'__');
           margin:       auto;
           max-width:    600px;
           overflow-y:   scroll;
+          overflow-x:   auto;
           padding-left: 14px;
           border-left:  solid 1px #383736}
 
@@ -4087,13 +4090,15 @@ meta::psection('implementation', <<'__');
     h1 .suffix:before {content: '.'; color: #878177}
 
     pre {font-family: 'Fira Mono', monospace;
-         font-size:  10px}
+         font-size:   12px}
 
     .module {border-top: solid 1px #383736;
-             overflow:   hidden}
+             overflow-y: hidden;
+             overflow-x: scroll;
+             width:      600px}
     .module pre {margin: 0}
 
-    #dom   {margin: 20px 0}
+    #dom {margin: 20px 0}
     #dom, #dom a {font-family:     'Abel', sans-serif;
                   font-size:       16px;
                   text-decoration: none;
@@ -4108,7 +4113,7 @@ meta::psection('implementation', <<'__');
     <div id='dom'>
     <a href='https://github.com/spencertipping/xh' target='_blank'>
       <span class='title'>xh</span></a>
-    <div>$ curl http://xh.spencertipping.com | perl</div>
+    <div>$ curl <a id='location'></a> | perl</div>
     </div>
   - end
 
@@ -4127,6 +4132,9 @@ meta::psection('implementation', <<'__');
                         /~append/ dom
                         /~append/ ui_for(parsed_modules)
                         /~css/    {display: 'block'},
+
+      $('#location') /~text/ document.location.href
+                     /~attr/ {href: document.location.href},
       where [
       css               = $('style'),
       dom               = $('#dom'),
@@ -4426,11 +4434,12 @@ meta::retriever('sdocp', <<'__');
 return undef unless $_[0] =~ /^sdocp::(.*)$/;
 exists $data{"sdoc::$1"} ? sdocp("sdoc::$1") : undef;
 __
-meta::sdoc('xh', <<'__/');
+meta::sdoc('xh', <<'__V');
 - include boot/xh-header
 - include src/test/main.pl
 - include src/corescript.pl
 - include src/corescript/boot.xh
+- include src/cs/datameta.xh
 - include src/cs/data.xh
 - include src/cs/algorithms.xh
 - include src/cs/gc.xh
@@ -4441,7 +4450,7 @@ meta::sdoc('xh', <<'__/');
 xh::main::main;
 __DATA__
 
-__/
+__V
 meta::section('main', <<'__');
 - documentclass report
 - include resource::header
