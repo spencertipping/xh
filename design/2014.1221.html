@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  3FIG40Jl3rGNsGWcJgQCosRAB/FRQ+JQr2hupum8CF8
+# state:  ++zgsFjS7rNmdm0sQHVh4VNcbtMVvVbW6kPB4EYjZ+w
 # istate: LFWQomYA1er/ReQoYxkDUZpja2rpQ5AGlkKBBIjHAEY
-# id:     2498301d6eacd0d5eb9e318805d36374
+# id:     exjqQpvST1yt4ZdzTErmv+zvqA6h0kMZ+OQSn0RW7ew
 
 # This is a self-modifying Perl file. I'm sorry you're viewing the source (it's
 # really gnarly). If you're curious what it's made of, I recommend reading
@@ -62,6 +62,7 @@ a9e5975593ed5d90d943ad98405c71e5 21rFW0cbMFtbY56uoN16l/ZlsJxAHKK431eTvQChPI4
 __
 meta::data('author', 'Spencer Tipping');
 meta::data('default-action', 'shell');
+meta::data('file-nuke-backend', 'shred');
 meta::data('license', <<'__');
 MIT License
 Copyright (c) 2010 Spencer Tipping
@@ -84,43 +85,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 __
-meta::data('permanent-identity', '2498301d6eacd0d5eb9e318805d36374');
+meta::data('permanent-identity', 'exjqQpvST1yt4ZdzTErmv+zvqA6h0kMZ+OQSn0RW7ew');
 meta::data('save-indirect', '1');
 meta::data('watching', '1');
 meta::hook('before-shell::ad', 'ad(\'note::\');');
 meta::hook('before-shell::default-note', 'create(\'note::default\');');
 meta::note('default', <<'__');
-Overall thoughts about the language.
-At this point xh is a Lisp that takes a lot from Clojure, but it exposes the
-details of lazy evaluation through its (quote) interface. I think this is
-pretty cool, really; if you can define (quote x) to be some string, then x has
-known behavior since (quote) is invertible. [1] This means we can change the
-behavior of the evaluator in small but potentially interesting ways.
+Integral model.
+A program's execution is kind of like a half-definite integral of the
+side-effecting function over time ("time" in the abstract sense). Most of the
+time interpreters do the equivalent of numerical Riemann integration, but this
+misses a lot of the advantage possible by symbolic manipulation.
 
-There's a catch, though, and that's that xh is a shell. It isn't a Haskell
-compiler, or a computer algebra system, or any number of other interesting
-things. It's a replacement for programs like bash, which can barely handle
-strings let alone stuff like hashtables or lazy evaluation. So any abstraction
-we define should behave in a reasonably straightforward way. If research is
-getting in the way, let's table it.
-
-Ok, so let's make some concessions to practicality to get this stupid thing
-written already.
-
-| 1. Not all functions are invertible. xh is not going to guarantee that you
-     can "solve" to invert a function unless it's really obvious how to do it.
-     Even if it is obvious, xh doesn't guarantee a breadth-first search or
-     anything.
-  2. Data structures are all convertible to strings via (quote), but they don't
-     always behave like strings. "Everything is a string" means "I'm too lazy
-     or incompetent at designing programming languages to make your life easy."
-  3. All data structures are immutable. The only mutable things are files, some
-     of which aren't real. We need this for (quote) to make any sense at all.
-  4. Local variables aren't real. You can't indirect-expand into a local, for
-     instance.
-
-Notes.
-| 1. I believe this touches on scoping, which is still not totally resolved.
+Likewise, the progression from source code to a parsed representation to a
+program to its execution involves its own integral transforms; we should be
+able to represent all of these stages using the appropriate free variables.
+That way you can specify the layer you want to address; e.g. "do this
+transformation against _unparsed_ source code".
 
 __
 meta::parent('/home/spencertipping/r/initiative/perl-objects/notes', <<'__');
