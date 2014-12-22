@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  QuINk4rAM9ETjvP2zj7LB8EFvsspDu7k3/z1h+F6m6c
+# state:  CGKuzQIldBbM0nCb9X/ARtj8+tAa/6L6cLj2KSErpBI
 # istate: GGmyuDk0Ijke7VCDKF4pqORpTlqR+o6/k2ddtihu8hM
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3178,78 +3178,54 @@ meta::psection('implementation', <<'__');
   Church-encoded numbers. Generated representations are subject to exactly the
   same optimization strategies that apply to primitives.
 
-- sc quoted value relations | chp:quoted-value-relations
-  xh functions are implemented as string$\rightarrow$string relations whose
-  operands bind in ways consistent with the fundamental structure of the
-  language. That is, list forms are always fully matched; it isn't possible to
-  match an unescaped open bracket alone, for example. Fundamental structure
-  includes the following constructs:
-
-  - verbatim << end
-    (x1 x2 ... xN)      # paren-list
-    [x1 x2 ... xN]      # bracket-list
-    {x1 x2 ... xN}      # brace-list
-    "stuff"             # double-quoted string atom
-    'stuff'             # single-quoted string atom
-    word                # unquoted, untyped atom
+- sc integration | chp:integration
+  - quote << end
+    \em In which the author removes all doubt that he is unqualified to be a
+    mathematician
   - end
 
-  Of these, lists, double-quoted atoms, and unquoted atoms are subject to
-  interpolation:
+  A program's behavior over time is defined by its interaction with its
+  environment, normally quantified in terms of side effects. Commutative
+  operations can be modeled additively, and associative but non-commutative
+  operations can be modeled using multiplication; the result is that side
+  effects form a semiring.\footnote{They don't form a full ring because we
+  can't truly invert an operation after it has happened.}
 
-  - verbatim << end
-    $x                  # variable value as a single element
-    !x                  # quoted variable value
-    (f x y ...)         # function result interpolation
-    !(f x y ...)        # quoted function result
+  Under this model, products represent dependent chains of things and sums
+  represent independent effects. Decisions are compiled into either
+  no-operations (zero) or identity (one):
+  - align << end
+    (a + b)c & = ac + bc \\
+    0c       & = 0 \\
+    1c       & = c \\
+    (1 + 1)c & = 2c = c + c
+  - end
+  This last equation underscores an important property of the model, which is
+  that every nonzero term constitutes some form of side effect. So this
+  semiring interpretation is a by-product of an ultimately more subtle
+  evaluation strategy.
+
+  The reason I put this model together is that, with some significant abuse of
+  notation and intuition, we can say this:
+  - align << end
+    \textrm{side effects} & = \int_0^\infty \! f(t) \, \mathrm{d}t
   - end
 
+  Now of course we can't really say this, because our space in no way satisfies
+  the prerequisites for defining an antiderivative. It isn't even continuous
+  because time is discrete. Fortunately, Riemann integration is defined in such
+  a way that the limit converges early for functions that are made of
+  rectangles.\footnote{And I think it might work even formally, since the
+  Lebesgue measure of discontinuities ends up being zero.}
+
+  Why phrase this in terms of integration? Because as an evaluation model it
+  has several advantages:
   - enumerate << end
-    - nitem | iqvr:unwrap | qvr.unwrap
-      \verb|@| is a right-associative prefix operator that unwraps one layer of
-      lists. For example, if \verb|$x = [[1 2] [3 4]]|, then \verb|@@$x| would
-      be \verb|1 2 3 4|. Any scalars are treated as single-element lists.
-    - nitem | iqvr:quoted | qvr.quoted
-      \verb|!| and \verb|$| are two ways to dereference something; \verb|$|
-      (implied if you use \verb|()|) may block until a complete value is
-      available, whereas \verb|!| immediately quotes the value in whatever
-      state of evaluation it happens to be in
-      (\refboth{i:data-structures-can-be-quoted},
-      \refboth{i:laziness-serializable}). You can use quoted-value
-      introspection and evaluation functions to inspect and progress the state
-      of such a value.
-    - nitem | iqvr:unquote | qvr.unquote
-      \verb|$| is a prefix operator that unquotes things until they converge to
-      their asymptotic value limit. \verb|()| is a special form that calls a
-      function, returning its unquoted result (\refboth{is:maps-as-relations});
-      function calls are different from general unquoting in that unquoting is
-      a strictly static operation, whereas function calls cause values to be
-      rerun through relations. Within a double-quoted string, \verb|()| must be
-      written as \verb|$()| (\refboth{isyn:string-quoting}).
-  - end
-
-  Destructuring constructs provide some degree of type selection. For example,
-  lists are typeful:
-
-  - verbatim << end
-    [@$xs]              # matches [1 2 3], but not (1 2 3) or {1 2 3}
-    (amb [@$xs] {@$xs}) # matches [1 2 3] and {1 2 3}, but not (1 2 3)
-  - end
-
-  Strings are structure-preserving, which means you can write parsers using
-  destructuring notation. For example, the following parses $a^nb^nc$:
-
-  - verbatim << end
-    def (rep 0 $x) ''
-    def (rep $n $x) "$x$(rep (dec $n) $x)"
-    def (parse "$(rep $n a)$(rep $n b)c") ...
-  - end
-
-  The same kind of logic applies to lists by the following isomorphism:
-
-  - verbatim << end
-    def (list->string []) ''
-    def (list->string [$x @$xs]) "$x$(list->string [@$xs])"
+    - item Integrals provide variable scoping.
+    - item We can inline functions using integration by substitution.
+    - item All values become quantified in terms of their dependent variables.
+    - item Integrals generalize folds.
+    - item It gives us a framework for choosing closed-form solutions.
   - end
 
 - sp base implementation | part:base-implementation
