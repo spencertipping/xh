@@ -428,13 +428,6 @@ defglobal delay => sub {
   delay->new($exprs, @body);
 };
 
-defglobal do => sub {
-  my ($bindings, @body) = @_;
-  my $result;
-  $result = $_->eval($bindings) for @body;
-  $result;
-};
-
 defglobal empty => sub {
   return undef unless $_[1]->concrete;
   ref($_[1])->new;

@@ -82,6 +82,7 @@ BEGIN {xh::defmodule('xh::coreboot.xh', <<'_')}
 (defn let [kvs body]
   (->> (count $kvs)
        (iota (i>> $_ 1))
+       (reverse $_)
        (map1 (partial i* 2) $_)
        (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))]) $_)
        (reduce (fn [code [k v]] (.. $k let1 $k $v $code))

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 99aeabc9ec7fe80b1b39f5e53dc7e49e      <- self-modifying Perl magic
-# state:  CGKuzQIldBbM0nCb9X/ARtj8+tAa/6L6cLj2KSErpBI
+# state:  QGlrOQGpGCou7fBYhHwJ68OWqKRUjrYzdZ0pXrDKN1c
 # istate: GGmyuDk0Ijke7VCDKF4pqORpTlqR+o6/k2ddtihu8hM
 # id:     d8b3d476069348db3de1c9f0407d9c1e
 
@@ -3780,13 +3780,6 @@ meta::psection('implementation', <<'__');
       delay->new($exprs, @body);
     };
 
-    defglobal do => sub {
-      my ($bindings, @body) = @_;
-      my $result;
-      $result = $_->eval($bindings) for @body;
-      $result;
-    };
-
     defglobal empty => sub {
       return undef unless $_[1]->concrete;
       ref($_[1])->new;
@@ -4245,6 +4238,7 @@ meta::psection('implementation', <<'__');
     (defn let [kvs body]
       (->> (count $kvs)
            (iota (i>> $_ 1))
+           (reverse $_)
            (map1 (partial i* 2) $_)
            (map1 (fn [i] [(get $kvs $i) (get $kvs (inc $i))]) $_)
            (reduce (fn [code [k v]] (.. $k let1 $k $v $code))
